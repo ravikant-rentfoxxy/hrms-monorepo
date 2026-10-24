@@ -1,5 +1,19 @@
+# Dependencies
 node_modules/
+
+# Build output
 dist/
+*.tsbuildinfo
+coverage/
+
+# Environment / secrets — commit only .env.example
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Logs & OS files
 *.log
+npm-debug.log*
 .DS_Store

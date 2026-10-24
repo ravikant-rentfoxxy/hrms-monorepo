@@ -1,7 +1,19 @@
+# Dependencies
 node_modules/
+
+# Build output
 .next/
 out/
-.env*.local
-*.log
-.DS_Store
+*.tsbuildinfo
 next-env.d.ts
+coverage/
+
+# Environment / secrets — commit only .env.example
+.env
+.env.*
+!.env.example
+
+# Logs & OS files
+*.log
+npm-debug.log*
+.DS_Store
