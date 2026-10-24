@@ -1,0 +1,68 @@
+{
+  "name": "hrms-backend",
+  "version": "1.0.0",
+  "description": "Multi-tenant HRMS backend (Express + TypeScript + Prisma + PostgreSQL + MinIO)",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "nodemon",
+    "build": "prisma generate && tsc -p tsconfig.json",
+    "postinstall": "prisma generate",
+    "start": "node dist/server.js",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:seed-demo": "tsx prisma/seed-demo.ts",
+    "db:seed-showcase": "tsx prisma/seed-showcase.ts",
+    "db:seed-rentfoxxy": "tsx prisma/seed-rentfoxxy.ts",
+    "db:seed-finance": "tsx prisma/seed-finance.ts",
+    "db:backfill": "tsx prisma/backfill/index.ts"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@prisma/client": "^6.5.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dejavu-fonts-ttf": "^2.37.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.4.1",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "minio": "^8.0.2",
+    "multer": "^1.4.5-lts.1",
+    "pdfkit": "^0.20.2",
+    "pino": "^9.5.0",
+    "pino-http": "^10.3.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.15.0",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/multer": "^1.4.12",
+    "@types/node": "^22.9.0",
+    "@types/pdfkit": "^0.17.6",
+    "eslint": "^9.15.0",
+    "nodemon": "^3.1.14",
+    "pino-pretty": "^13.0.0",
+    "prisma": "^6.5.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.15.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "prisma@6.19.3": true,
+    "@prisma/engines@6.19.3": true,
+    "@prisma/client@6.19.3": true
+  }
+}

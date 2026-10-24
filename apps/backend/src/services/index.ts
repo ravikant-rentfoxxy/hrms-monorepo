@@ -1,0 +1,68 @@
+/**
+ * Barrel export so business logic can be reused anywhere (other routes,
+ * scripts, cron jobs, tests) without touching Express:
+ *
+ *   import { leaveService } from '../services';
+ *   const balances = await leaveService.balances(companyId, employeeId);
+ */
+export * as authService from './auth.service';
+export * as companyService from './company.service';
+export * as employeeService from './employee.service';
+export * as officeService from './office.service';
+export * as attendanceService from './attendance.service';
+export * as leaveService from './leave.service';
+export * as payrollService from './payroll.service';
+export * as salaryService from './salary.service';
+export * as holidayService from './holiday.service';
+export * as announcementService from './announcement.service';
+export * as expenseService from './expense.service';
+export * as performanceService from './performance.service';
+export * as taskService from './task.service';
+export * as documentService from './document.service';
+export * as ticketService from './ticket.service';
+export * as dashboardService from './dashboard.service';
+export * as approvalService from './approval.service';
+export * as approvalInboxService from './approval-inbox.service';
+export * as masterService from './master.service';
+export * as auditService from './audit.service';
+export * as systemService from './system.service';
+export * as shiftService from './shift.service';
+export * as overtimeService from './overtime.service';
+export * as projectService from './project.service';
+export * as timesheetService from './timesheet.service';
+export * as leaveLedgerService from './leave-ledger.service';
+export * as leaveCompOffService from './leave-compoff.service';
+export * as leaveEncashmentService from './leave-encashment.service';
+export * as statutoryService from './statutory.service';
+export * as tdsService from './tds.service';
+export * as payrollExportsService from './payroll-exports.service';
+export * as salaryRevisionService from './salary-revision.service';
+export * as taxDeclarationService from './tax-declaration.service';
+export * as loanService from './loan.service';
+export * as payrollInputService from './payroll-input.service';
+export * as travelService from './travel.service';
+export * as onboardingService from './onboarding.service';
+export * as confirmationService from './confirmation.service';
+export * as letterService from './letter.service';
+export * as assetService from './asset.service';
+export * as exitService from './exit.service';
+export * as recognitionService from './recognition.service';
+export * as reportService from './report.service';
+export * as importService from './import.service';
+export * as integrationService from './integration.service';
+export * as billingService from './billing.service';
+export * as recruitmentService from './recruitment.service';
+export * as reviewService from './review.service';
+export * as trainingService from './training.service';
+export * as surveyService from './survey.service';
+export * as employeeHistoryService from './employee-history.service';
+export * as careerService from './career.service';
+export * as transferService from './transfer.service';
+export * as lifecycleService from './lifecycle.service';
+export * as requisitionService from './requisition.service';
+export * as jobPostingService from './job-posting.service';
+export * as candidateService from './candidate.service';
+export * as interviewService from './interview.service';
+export * as offerService from './offer.service';
+export * as preOnboardingService from './pre-onboarding.service';
+export * as candidatePortalService from './candidate-portal.service';

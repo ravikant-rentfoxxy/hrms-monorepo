@@ -1,0 +1,18 @@
+{
+  "name": "hrms-monorepo",
+  "private": true,
+  "description": "HRMS for small businesses — Express/Prisma API and Next.js admin portal",
+  "scripts": {
+    "install:all": "npm --prefix apps/backend install && npm --prefix apps/web install",
+    "infra:up": "docker compose -f apps/backend/docker-compose.yml up -d db minio",
+    "infra:down": "docker compose -f apps/backend/docker-compose.yml stop db minio",
+    "db:push": "npm --prefix apps/backend run db:push",
+    "db:seed": "npm --prefix apps/backend run db:seed",
+    "db:seed-showcase": "npm --prefix apps/backend run db:seed-showcase",
+    "dev:backend": "npm --prefix apps/backend run dev",
+    "dev:web": "npm --prefix apps/web run dev",
+    "build": "npm --prefix apps/backend run build && npm --prefix apps/web run build",
+    "typecheck": "npm --prefix apps/backend run typecheck && cd apps/web && npx tsc --noEmit",
+    "lint": "npm --prefix apps/backend run lint && npm --prefix apps/web run lint"
+  }
+}

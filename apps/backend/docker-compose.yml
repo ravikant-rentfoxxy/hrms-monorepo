@@ -1,0 +1,69 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: hrms-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hrms
+      POSTGRES_PASSWORD: hrms_secret_pw
+      POSTGRES_DB: hrms
+    ports:
+      - "5433:5432"
+    volumes:
+      - hrms_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hrms -d hrms"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: bitnamilegacy/minio:latest
+    container_name: hrms-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: hrms_minio
+      MINIO_ROOT_PASSWORD: hrms_minio_secret
+      MINIO_DEFAULT_BUCKETS: hrms-files
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web console
+    volumes:
+      - hrms_minio_data:/bitnami/minio/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  api:
+    build: .
+    container_name: hrms-api
+    restart: unless-stopped
+    profiles: ["full"]   # start with: docker compose --profile full up -d
+    depends_on:
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://hrms:hrms_secret_pw@db:5432/hrms?schema=public
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_USE_SSL: "false"
+      MINIO_ACCESS_KEY: hrms_minio
+      MINIO_SECRET_KEY: hrms_minio_secret
+      MINIO_BUCKET: hrms-files
+      JWT_ACCESS_SECRET: change-me-access-secret-at-least-32-chars!!
+      JWT_REFRESH_SECRET: change-me-refresh-secret-at-least-32-chars!
+      SUPERADMIN_EMAIL: superadmin@hrms.local
+      SUPERADMIN_PASSWORD: SuperAdmin@123
+      CORS_ORIGINS: "*"
+    ports:
+      - "4000:4000"
+
+volumes:
+  hrms_pgdata:
+  hrms_minio_data:
