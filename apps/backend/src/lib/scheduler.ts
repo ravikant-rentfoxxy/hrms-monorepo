@@ -91,7 +91,7 @@ let timer: NodeJS.Timeout | null = null;
 
 export function startScheduler(): void {
   if (timer) return;
-  logger.info({ jobs: [...jobs.keys()] }, 'scheduler started');
+  logger.info(`scheduler started (${jobs.size} jobs)`);
   void tick();
   timer = setInterval(() => void tick(), TICK_MS);
   timer.unref();

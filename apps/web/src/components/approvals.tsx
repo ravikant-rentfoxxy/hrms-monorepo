@@ -8,7 +8,7 @@ import { Badge, Button, ErrorNote, Field, Modal, Spinner, Textarea, statusTone }
 /** Approval-engine modules, in the order the settings page lists them. */
 export const APPROVAL_MODULES = [
   'LEAVE', 'EXPENSE', 'REGULARIZATION', 'OVERTIME', 'COMP_OFF', 'ENCASHMENT', 'LOAN',
-  'RESIGNATION', 'TRAVEL', 'TIMESHEET', 'CONFIRMATION', 'SALARY_REVISION',
+  'RESIGNATION', 'TRAVEL', 'CONFIRMATION', 'SALARY_REVISION',
   'REQUISITION', 'OFFER', 'TRANSFER',
 ] as const;
 export type ApprovalModule = (typeof APPROVAL_MODULES)[number];
@@ -23,7 +23,6 @@ export const MODULE_LABELS: Record<ApprovalModule, string> = {
   LOAN: 'Loan / advance',
   RESIGNATION: 'Resignation',
   TRAVEL: 'Travel',
-  TIMESHEET: 'Timesheet',
   CONFIRMATION: 'Confirmation',
   SALARY_REVISION: 'Salary revision',
   REQUISITION: 'Hiring requisition',
@@ -42,7 +41,6 @@ export const DECIDE_PATHS: Record<ApprovalModule, (id: string) => string> = {
   LOAN: (id) => `/loans/${id}/decide`,
   RESIGNATION: (id) => `/exits/${id}/decide`,
   TRAVEL: (id) => `/travel/${id}/decide`,
-  TIMESHEET: (id) => `/timesheets/${id}/decide`,
   CONFIRMATION: (id) => `/confirmations/${id}/decide`,
   SALARY_REVISION: (id) => `/salary/revisions/${id}/decide`,
   REQUISITION: (id) => `/recruitment/requisitions/${id}/decide`,

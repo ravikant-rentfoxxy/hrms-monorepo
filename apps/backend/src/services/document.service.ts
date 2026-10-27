@@ -55,13 +55,31 @@ export async function folderSummary(companyId: string, employeeId: string | null
   return { pending, folders };
 }
 
-/** Non-privileged users see their own documents + company-wide ones. */
-export async function listDocuments(companyId: string, viewer: { employeeId: string | null; canViewAll: boolean }) {
+export type DocumentScope = 'me' | 'company' | 'employees';
+
+/**
+ * Non-privileged users see their own documents + company-wide ones.
+ * `scope` narrows the list: me = own personal documents, company = company-wide,
+ * employees = other people's personal documents (ADMIN/HR only).
+ */
+export async function listDocuments(
+  companyId: string,
+  viewer: { employeeId: string | null; canViewAll: boolean },
+  scope?: DocumentScope,
+  employeeId?: string
+) {
+  if (scope === 'employees' && !viewer.canViewAll) throw ApiError.forbidden('Only HR or Admin can see other employees’ documents');
+  const visible = viewer.canViewAll ? {} : { OR: [{ employeeId: null }, { employeeId: viewer.employeeId ?? '' }] };
+  const scoped =
+    scope === 'me'
+      ? { employeeId: viewer.employeeId ?? '' }
+      : scope === 'company'
+        ? { employeeId: null }
+        : scope === 'employees'
+          ? { employeeId: employeeId ?? (viewer.employeeId ? { not: viewer.employeeId } : { not: null }) }
+          : visible;
   return prisma.document.findMany({
-    where: {
-      companyId,
-      ...(viewer.canViewAll ? {} : { OR: [{ employeeId: null }, { employeeId: viewer.employeeId ?? '' }] }),
-    },
+    where: { companyId, ...scoped },
     include: {
       employee: { select: { id: true, name: true } },
       uploadedBy: { select: { id: true, name: true } },
@@ -69,6 +87,22 @@ export async function listDocuments(companyId: string, viewer: { employeeId: str
     orderBy: { uploadedOn: 'desc' },
     take: 200,
   });
+}
+
+/** Employees who have personal documents (for the HR/Admin filter), with counts, A→Z. Excludes the caller. */
+export async function documentOwners(companyId: string, viewerEmployeeId: string | null) {
+  const groups = await prisma.document.groupBy({
+    by: ['employeeId'],
+    where: { companyId, employeeId: viewerEmployeeId ? { not: viewerEmployeeId } : { not: null } },
+    _count: { _all: true },
+  });
+  const counts = new Map(groups.map((g) => [g.employeeId, g._count._all]));
+  const people = await prisma.employee.findMany({
+    where: { companyId, id: { in: [...counts.keys()].filter((id): id is string => !!id) } },
+    select: { id: true, name: true, employeeCode: true, isActive: true },
+    orderBy: { name: 'asc' },
+  });
+  return people.map((p) => ({ ...p, documents: counts.get(p.id) ?? 0 }));
 }
 
 export interface UploadDocumentInput {

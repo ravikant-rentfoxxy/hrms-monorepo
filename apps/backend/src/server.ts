@@ -1,5 +1,5 @@
 import { createApp } from './app';
-import { env } from './config/env';
+import { env, isProd } from './config/env';
 import { logger } from './lib/logger';
 import { prisma } from './lib/prisma';
 import { ensureBucket } from './lib/storage';
@@ -19,6 +19,7 @@ async function main(): Promise<void> {
   const app = createApp();
   const server = app.listen(env.PORT, () => {
     logger.info(`HRMS API listening on http://localhost:${env.PORT} (${env.NODE_ENV})`);
+    if (!isProd) logger.info(`API docs: http://localhost:${env.PORT}/api/docs`);
   });
 
   const shutdown = async (signal: string) => {

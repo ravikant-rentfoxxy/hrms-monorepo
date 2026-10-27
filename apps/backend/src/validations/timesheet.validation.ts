@@ -24,49 +24,47 @@ export const listProjectsQuerySchema = z.object({
 
 export const projectMembersSchema = z.object({ employeeIds: z.array(z.string().uuid()).max(500) });
 
-// ---- Timesheets ----
+// ---- Timesheets (daily) ----
 
-export const weekQuerySchema = z.object({
-  weekStart: z.coerce.date(),
+export const dayQuerySchema = z.object({
+  date: z.coerce.date(),
   employeeId: z.string().uuid().optional(),
 });
 
 export const timesheetEntrySchema = z.object({
+  /** Client-generated uuid for new lines; send it back to keep the entry and its attachments. */
+  id: z.string().uuid().optional(),
   projectId: z.string().uuid(),
-  date: z.coerce.date(),
   hours: z.number().min(0).max(24),
   /** Omitted → the project's billable default. */
   billable: z.boolean().optional(),
   description: z.string().max(500).default(''),
 });
 
-export const saveWeekSchema = z.object({
-  weekStart: z.coerce.date(),
-  entries: z.array(timesheetEntrySchema).max(200),
+export const saveDaySchema = z.object({
+  date: z.coerce.date(),
+  entries: z.array(timesheetEntrySchema).max(50),
 });
 
-export const copyWeekSchema = z.object({ weekStart: z.coerce.date() });
+export const copyDaySchema = z.object({ date: z.coerce.date() });
 
-export const listTimesheetsQuerySchema = z.object({
-  /** me = own, team = direct reports, approvals = waiting on me (approval engine), company = everyone (ADMIN/HR). */
-  scope: z.enum(['me', 'team', 'approvals', 'company']).default('me'),
-  status: z.enum(['DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED']).optional(),
-  from: z.coerce.date().optional(),
-  to: z.coerce.date().optional(),
-});
-
-export const timesheetDecideSchema = z.object({
-  decision: z.enum(['APPROVED', 'REJECTED']),
-  remarks: z.string().max(500).optional(),
-});
+export const listTimesheetsQuerySchema = z
+  .object({
+    /** me = own, team = direct reports, company = everyone (ADMIN/HR). */
+    scope: z.enum(['me', 'team', 'company']).default('me'),
+    status: z.enum(['DRAFT', 'SUBMITTED']).optional(),
+    from: z.coerce.date().optional(),
+    to: z.coerce.date().optional(),
+    employeeId: z.string().uuid().optional(),
+  })
+  .refine((v) => !v.from || !v.to || v.to >= v.from, { message: 'to must be on or after from' })
+  .refine((v) => !v.from || !v.to || v.to.getTime() - v.from.getTime() <= 366 * 86_400_000, { message: 'Range is limited to one year' });
 
 export const utilisationQuerySchema = z
   .object({
     from: z.coerce.date(),
     to: z.coerce.date(),
     projectId: z.string().uuid().optional(),
-    /** true = APPROVED weeks only; default counts SUBMITTED + APPROVED. */
-    approvedOnly: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   })
   .refine((v) => v.to >= v.from, { message: 'to must be on or after from' })
   .refine((v) => v.to.getTime() - v.from.getTime() <= 366 * 86_400_000, { message: 'Range is limited to one year' });

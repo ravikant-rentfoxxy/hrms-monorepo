@@ -115,11 +115,13 @@ const popCls = (openUp: boolean) =>
 
 /* -------------------------------- DatePicker ------------------------------- */
 
-export function DatePicker({ value, onChange, placeholder = 'Select date', clearable = false }: {
+export function DatePicker({ value, onChange, placeholder = 'Select date', clearable = false, max }: {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   clearable?: boolean;
+  /** Latest selectable day (YYYY-MM-DD); later days are shown disabled. */
+  max?: string;
 }) {
   const { open, setOpen, toggle, ref, openUp } = usePopover();
   const selected = parseDate(value);
@@ -203,16 +205,20 @@ export function DatePicker({ value, onChange, placeholder = 'Select date', clear
                   const str = toDateStr(view.y, view.m, d);
                   const isSelected = value.startsWith(str);
                   const isToday = str === todayStr;
+                  const isDisabled = !!max && str > max;
                   return (
                     <button
                       key={d}
                       type="button"
+                      disabled={isDisabled}
                       onClick={() => {
                         onChange(str);
                         setOpen(false);
                       }}
                       className={`mx-auto flex h-9 w-9 items-center justify-center rounded-full text-sm font-medium transition-colors ${
-                        isSelected
+                        isDisabled
+                          ? 'cursor-not-allowed text-ink-300'
+                          : isSelected
                           ? 'bg-brand-600 text-white shadow-md shadow-brand-600/30'
                           : isToday
                             ? 'text-brand-700 ring-1 ring-inset ring-brand-300 hover:bg-brand-50'

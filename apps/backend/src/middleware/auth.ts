@@ -40,12 +40,14 @@ export function authenticate(req: Request, _res: Response, next: NextFunction): 
 
 /** Allows only the given roles (SUPER_ADMIN is always allowed unless excluded explicitly). */
 export function requireRole(...roles: Role[]) {
-  return (req: Request, _res: Response, next: NextFunction): void => {
+  const middleware = (req: Request, _res: Response, next: NextFunction): void => {
     const auth = req.auth;
     if (!auth) return next(ApiError.unauthorized());
     if (auth.role === 'SUPER_ADMIN' || roles.includes(auth.role)) return next();
     next(ApiError.forbidden('Insufficient permissions'));
   };
+  // Read by the dev API docs (lib/openapi.ts) to list who may call a route.
+  return Object.assign(middleware, { openapi: { roles } });
 }
 
 /**

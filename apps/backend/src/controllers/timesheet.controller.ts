@@ -6,11 +6,11 @@ import { isoDay } from '../utils/people';
 import * as timesheetService from '../services/timesheet.service';
 import type { EntryInput, ListFilter, UtilisationFilter } from '../services/timesheet.service';
 
-export const week = h(async (req, res) => {
+export const day = h(async (req, res) => {
   const { auth, tenantId } = ctx(req);
-  const { weekStart, employeeId } = req.query as unknown as { weekStart: Date; employeeId?: string };
+  const { date, employeeId } = req.query as unknown as { date: Date; employeeId?: string };
   const target = await timesheetService.resolveTarget(tenantId, auth, employeeId);
-  ok(res, await timesheetService.getWeek(tenantId, target, weekStart));
+  ok(res, await timesheetService.getDay(tenantId, target, date));
 });
 
 export const get = h(async (req, res) => {
@@ -28,46 +28,55 @@ export const list = h(async (req, res) => {
   if ((filter.scope === 'me' || filter.scope === 'team') && !auth.employeeId) {
     throw ApiError.forbidden('This account has no employee profile');
   }
-  ok(res, await timesheetService.listWeeks(tenantId, auth, filter));
+  ok(res, await timesheetService.listDays(tenantId, auth, filter));
 });
 
 export const save = h(async (req, res) => {
   const { tenantId } = ctx(req);
-  const { weekStart, entries } = req.body as { weekStart: Date; entries: EntryInput[] };
-  ok(res, await timesheetService.saveWeek(tenantId, employeeIdOrThrow(req), weekStart, entries));
+  const { date, entries } = req.body as { date: Date; entries: EntryInput[] };
+  ok(res, await timesheetService.saveDay(tenantId, employeeIdOrThrow(req), date, entries));
 });
 
-export const copyLast = h(async (req, res) => {
+export const copyPrevious = h(async (req, res) => {
   const { tenantId } = ctx(req);
-  const { weekStart } = req.body as { weekStart: Date };
-  ok(res, await timesheetService.copyLastWeek(tenantId, employeeIdOrThrow(req), weekStart));
+  const { date } = req.body as { date: Date };
+  ok(res, await timesheetService.copyPreviousDay(tenantId, employeeIdOrThrow(req), date));
 });
 
 export const submit = h(async (req, res) => {
   const { tenantId } = ctx(req);
-  const week = await timesheetService.submitWeek(tenantId, employeeIdOrThrow(req), req.params.id as string);
-  await audit(req, { entity: 'TimesheetWeek', entityId: week.id, action: 'SUBMIT', after: { status: week.status, totalHours: week.totalHours } });
-  ok(res, week);
+  const day = await timesheetService.submitDay(tenantId, employeeIdOrThrow(req), req.params.id as string);
+  await audit(req, { entity: 'TimesheetDay', entityId: day.id, action: 'SUBMIT', after: { status: day.status, date: isoDay(day.date), totalHours: day.totalHours } });
+  ok(res, day);
 });
 
-export const recall = h(async (req, res) => {
+export const deleteEntry = h(async (req, res) => {
   const { tenantId } = ctx(req);
-  const week = await timesheetService.recallWeek(tenantId, employeeIdOrThrow(req), req.params.id as string);
-  await audit(req, { entity: 'TimesheetWeek', entityId: week.id, action: 'RECALL', before: { status: 'SUBMITTED' }, after: { status: week.status } });
-  ok(res, week);
+  ok(res, await timesheetService.deleteEntry(tenantId, employeeIdOrThrow(req), req.params.id as string, req.params.entryId as string));
 });
 
-export const decide = h(async (req, res) => {
-  const { auth, tenantId } = ctx(req);
-  const { decision, remarks } = req.body as { decision: 'APPROVED' | 'REJECTED'; remarks?: string };
-  const result = await timesheetService.decideWeek(tenantId, req.params.id as string, { decision, remarks, actor: auth });
-  await audit(req, {
-    entity: 'TimesheetWeek',
-    entityId: result.week.id,
-    action: decision === 'APPROVED' ? 'APPROVE' : 'REJECT',
-    after: { outcome: result.outcome, status: result.week.status, remarks: remarks ?? null },
+export const addAttachment = h(async (req, res) => {
+  const { tenantId } = ctx(req);
+  if (!req.file) throw ApiError.badRequest('Attach the file in multipart field "file"');
+  const { originalname, mimetype, buffer, size } = req.file;
+  const att = await timesheetService.addAttachment(tenantId, employeeIdOrThrow(req), req.params.id as string, req.params.entryId as string, {
+    originalname, mimetype, buffer, size,
   });
-  ok(res, result);
+  await audit(req, { entity: 'TimesheetDay', entityId: req.params.id as string, action: 'ATTACH', after: { attachmentId: att.id, entryId: att.entryId, name: att.name } });
+  ok(res, att, 201);
+});
+
+export const deleteAttachment = h(async (req, res) => {
+  const { tenantId } = ctx(req);
+  await timesheetService.deleteAttachment(tenantId, employeeIdOrThrow(req), req.params.id as string, req.params.attachmentId as string);
+  await audit(req, { entity: 'TimesheetDay', entityId: req.params.id as string, action: 'DETACH', before: { attachmentId: req.params.attachmentId } });
+  ok(res, { deleted: true });
+});
+
+export const attachmentDownload = h(async (req, res) => {
+  const { auth, tenantId } = ctx(req);
+  const inline = req.query.inline === 'true' || req.query.inline === '1';
+  ok(res, await timesheetService.attachmentUrl(tenantId, req.params.id as string, req.params.attachmentId as string, auth, inline));
 });
 
 export const utilisation = h(async (req, res) => {

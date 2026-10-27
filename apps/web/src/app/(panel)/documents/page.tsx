@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { api, fmtDate } from '@/lib/api';
 import { useFetch } from '@/lib/useFetch';
-import { Badge, Button, Card, Empty, ErrorNote, Field, Input, Modal, PageHeader, Select, Spinner, Table, Td } from '@/components/ui';
+import { Badge, Button, Card, Empty, ErrorNote, Field, Input, Modal, PageHeader, Select, Spinner, Table, Tabs, Td } from '@/components/ui';
 import { openSecureFile } from '@/lib/secure-file';
 
 interface Doc {
@@ -18,11 +18,34 @@ interface Doc {
   uploadedBy: { id: string; name: string } | null;
 }
 
+/** Tab → list scope: personal documents of the user, company-wide ones, or (HR/Admin) other employees' personal documents. */
+const SCOPES = { 'For me': 'me', Company: 'company', Employees: 'employees' } as const;
+type ScopeTab = keyof typeof SCOPES;
+
+const EMPTY: Record<ScopeTab, string> = {
+  'For me': 'No personal documents yet — HR adds things like your offer letter, ID proofs and certificates here',
+  Company: 'No company documents yet — policies, handbooks and holiday lists shared with everyone appear here',
+  Employees: 'No employee documents yet',
+};
+
 const fmtSize = (n: number) => (n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 
 export default function DocumentsPage() {
-  const { isCompanyAdmin } = useAuth();
-  const { data, loading, reload } = useFetch<Doc[]>('/documents');
+  const { session, isCompanyAdmin } = useAuth();
+  const hasProfile = !!session?.employee;
+  const tabs: ScopeTab[] = [...(hasProfile ? (['For me'] as const) : []), 'Company', ...(isCompanyAdmin ? (['Employees'] as const) : [])];
+  const [tab, setTab] = useState<ScopeTab>(tabs[0] ?? 'Company');
+  // Employees tab: optional filter to one person (options = everyone who has personal documents).
+  const [ownerFilter, setOwnerFilter] = useState('');
+  const owners = useFetch<{ id: string; name: string; employeeCode: string; isActive: boolean; documents: number }[]>(
+    isCompanyAdmin && tab === 'Employees' ? '/documents/owners' : null
+  );
+  const byOwner = tab === 'Employees' && ownerFilter ? `&employeeId=${ownerFilter}` : '';
+  const { data, loading, reload: reloadDocs } = useFetch<Doc[]>(`/documents?scope=${SCOPES[tab]}${byOwner}`);
+  const reload = () => {
+    reloadDocs();
+    owners.reload();
+  };
   const { data: directory } = useFetch<{ items: { id: string; name: string }[] }>(isCompanyAdmin ? '/employees?pageSize=100' : null);
   const { data: folderInfo } = useFetch<{ folders: { name: string }[] }>('/documents/folders');
   const [open, setOpen] = useState(false);
@@ -36,6 +59,12 @@ export default function DocumentsPage() {
   const [editing, setEditing] = useState<Doc | null>(null);
   const [editForm, setEditForm] = useState({ name: '', category: 'General', target: 'company' });
   const [editError, setEditError] = useState<string | null>(null);
+
+  const openUpload = () => {
+    setError(null);
+    setTarget(tab === 'Company' ? 'company' : tab === 'For me' ? 'mine' : ownerFilter || (directory?.items[0]?.id ?? 'company'));
+    setOpen(true);
+  };
 
   const upload = async () => {
     if (!file) return;
@@ -102,22 +131,44 @@ export default function DocumentsPage() {
       <PageHeader
         title="Documents"
         subtitle={isCompanyAdmin ? 'Manage employee and company documents' : 'Documents shared with you by HR'}
-        actions={isCompanyAdmin ? <Button onClick={() => setOpen(true)}>+ Upload</Button> : undefined}
+        actions={isCompanyAdmin ? <Button onClick={openUpload}>+ Upload</Button> : undefined}
       />
+      {tabs.length > 1 && <Tabs tabs={tabs} active={tab} onChange={(t) => setTab(t as ScopeTab)} />}
+      {tab === 'Employees' && (
+        <Card className="mb-4 flex flex-wrap items-end gap-3 p-4">
+          <div className="w-full max-w-sm">
+            <Field label="Employee">
+              <Select value={ownerFilter} onChange={(e) => setOwnerFilter(e.target.value)}>
+                <option value="">All employees ({owners.data?.reduce((s, o) => s + o.documents, 0) ?? 0} documents)</option>
+                {owners.data?.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name} ({o.employeeCode}){o.isActive ? '' : ' — inactive'} · {o.documents}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+          {ownerFilter && (
+            <Button variant="ghost" onClick={() => setOwnerFilter('')}>
+              Clear filter
+            </Button>
+          )}
+        </Card>
+      )}
       <Card>
         {loading ? (
           <Spinner />
         ) : !data || data.length === 0 ? (
-          <Empty message="No documents yet" />
+          <Empty message={tab === 'Employees' && ownerFilter ? 'This employee has no personal documents' : EMPTY[tab]} />
         ) : (
-          <Table headers={['Name', 'Folder', 'Belongs to', 'Type', 'Size', 'Uploaded', ...(isCompanyAdmin ? [''] : ['' ])]}>
+          <Table headers={['Name', 'Folder', ...(tab === 'Employees' ? ['Belongs to'] : []), 'Type', 'Size', 'Uploaded', '']}>
             {data.map((d) => (
               <tr key={d.id}>
                 <Td className="font-medium text-ink-900">{d.name}</Td>
                 <Td>
                   <Badge tone="slate">{d.category ?? 'General'}</Badge>
                 </Td>
-                <Td>{d.employee ? d.employee.name : <Badge tone="blue">company-wide</Badge>}</Td>
+                {tab === 'Employees' && <Td>{d.employee?.name ?? '—'}</Td>}
                 <Td className="text-xs text-ink-400">{d.mimeType}</Td>
                 <Td>{fmtSize(d.size)}</Td>
                 <Td>

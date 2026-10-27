@@ -127,6 +127,7 @@ const ICON_PATHS: Record<string, ReactNode> = {
   ),
   plus: <path d="M12 5v14M5 12h14" />,
   x: <path d="M6 6l12 12M18 6 6 18" />,
+  paperclip: <path d="m20.5 11.5-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6l7.9-7.9" />,
   download: <path d="M12 3v11m0 0 4-4m-4 4-4-4M4 20h16" />,
   star: <path d="m12 3 2.7 5.8 6.3.7-4.7 4.3 1.3 6.2L12 16.9 6.4 20l1.3-6.2L3 9.5l6.3-.7L12 3Z" />,
   check: (

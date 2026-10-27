@@ -22,7 +22,7 @@ import { ApiError } from '../utils/http';
 
 export const APPROVAL_MODULES = [
   'LEAVE', 'EXPENSE', 'REGULARIZATION', 'OVERTIME', 'COMP_OFF', 'ENCASHMENT', 'LOAN',
-  'RESIGNATION', 'TRAVEL', 'TIMESHEET', 'CONFIRMATION', 'SALARY_REVISION',
+  'RESIGNATION', 'TRAVEL', 'CONFIRMATION', 'SALARY_REVISION',
   'REQUISITION', 'OFFER', 'TRANSFER',
 ] as const;
 export type ApprovalModule = (typeof APPROVAL_MODULES)[number];

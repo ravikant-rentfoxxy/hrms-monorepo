@@ -24,6 +24,16 @@ export const documentUploadSchema = z.object({
   companyWide: z.coerce.boolean().default(false),
 });
 
+/**
+ * Documents list filter. me = the caller's personal documents, company = company-wide ones,
+ * employees = other people's personal documents (ADMIN/HR). Omitted = everything the caller may see.
+ */
+export const documentListQuerySchema = z.object({
+  scope: z.enum(['me', 'company', 'employees']).optional(),
+  /** With scope=employees: only this employee's personal documents. */
+  employeeId: z.string().uuid().optional(),
+});
+
 /** Edit a document's details (the file itself is immutable — re-upload instead). */
 export const documentUpdateSchema = z.object({
   name: z.string().min(1).max(200).optional(),

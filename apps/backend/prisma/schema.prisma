@@ -106,7 +106,7 @@ model Company {
   shiftAssignments    ShiftAssignment[]
   overtimeRequests    OvertimeRequest[]
   projects            Project[]
-  timesheetWeeks      TimesheetWeek[]
+  timesheetDays       TimesheetDay[]
   // ---- Payroll & statutory ----
   salaryComponents    SalaryComponent[]
   salaryTemplates     SalaryTemplate[]
@@ -191,7 +191,7 @@ model Membership {
 
 model Employee {
   /// Salary structure the employee follows: a SalaryTemplate id, or null = the company standard (Salary → Components).
-  salaryTemplateId String?
+  salaryTemplateId    String?
   id                  String       @id @default(uuid())
   companyId           String
   company             Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -279,30 +279,30 @@ model Employee {
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
 
-  leaveLedger       LeaveLedger[]
-  compOffRequests   CompOffRequest[]
-  leaveEncashments  LeaveEncashment[]
-  shiftAssignments  ShiftAssignment[]
-  overtimeRequests  OvertimeRequest[]
-  timesheetWeeks    TimesheetWeek[]
+  leaveLedger        LeaveLedger[]
+  compOffRequests    CompOffRequest[]
+  leaveEncashments   LeaveEncashment[]
+  shiftAssignments   ShiftAssignment[]
+  overtimeRequests   OvertimeRequest[]
+  timesheetDays      TimesheetDay[]
   projectMemberships ProjectMember[]
-  salaryRevisions   SalaryRevision[]
-  taxDeclarations   TaxDeclaration[]
-  payrollInputs     PayrollInput[]
-  loans             Loan[]
-  onboardingCases   OnboardingCase[]
-  confirmations     ConfirmationRequest[]
-  generatedLetters  GeneratedLetter[]
-  assetAssignments  AssetAssignment[]
-  resignations      Resignation[]
-  finalSettlements  FinalSettlement[]
-  travelRequests    TravelRequest[]
-  kudosGiven        Recognition[]           @relation("KudosFrom")
-  kudosReceived     Recognition[]           @relation("KudosTo")
-  history           EmployeeHistory[]
-  transferRequests  TransferRequest[]
-  certifications    EmployeeCertification[]
-  skills            EmployeeSkill[]
+  salaryRevisions    SalaryRevision[]
+  taxDeclarations    TaxDeclaration[]
+  payrollInputs      PayrollInput[]
+  loans              Loan[]
+  onboardingCases    OnboardingCase[]
+  confirmations      ConfirmationRequest[]
+  generatedLetters   GeneratedLetter[]
+  assetAssignments   AssetAssignment[]
+  resignations       Resignation[]
+  finalSettlements   FinalSettlement[]
+  travelRequests     TravelRequest[]
+  kudosGiven         Recognition[]           @relation("KudosFrom")
+  kudosReceived      Recognition[]           @relation("KudosTo")
+  history            EmployeeHistory[]
+  transferRequests   TransferRequest[]
+  certifications     EmployeeCertification[]
+  skills             EmployeeSkill[]
 
   attendance             AttendanceRecord[]
   leaveRequests          LeaveRequest[]          @relation("LeaveOwner")
@@ -900,40 +900,63 @@ model ProjectMember {
   @@index([companyId, employeeId])
 }
 
-model TimesheetWeek {
+/// One employee's timesheet for one calendar day. DRAFT → SUBMITTED (final; no approval).
+model TimesheetDay {
   id          String    @id @default(uuid())
   companyId   String
   company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   employeeId  String
   employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  /// Monday of the week.
-  weekStart   DateTime  @db.Date
-  /// DRAFT | SUBMITTED | APPROVED | REJECTED
+  date        DateTime  @db.Date
+  /// DRAFT | SUBMITTED
   status      String    @default("DRAFT")
-  approverId  String?
-  remarks     String?
   submittedAt DateTime?
   totalHours  Float     @default(0)
 
-  entries TimesheetEntry[]
+  entries     TimesheetEntry[]
+  attachments TimesheetAttachment[]
 
-  @@unique([employeeId, weekStart])
-  @@index([companyId, status])
+  @@unique([employeeId, date])
+  @@index([companyId, status, date])
 }
 
 model TimesheetEntry {
-  id          String        @id @default(uuid())
+  id          String       @id @default(uuid())
   companyId   String
-  weekId      String
-  week        TimesheetWeek @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  dayId       String
+  day         TimesheetDay @relation(fields: [dayId], references: [id], onDelete: Cascade)
   projectId   String
-  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  date        DateTime      @db.Date
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  date        DateTime     @db.Date
   hours       Float
-  billable    Boolean       @default(true)
-  description String        @default("")
+  billable    Boolean      @default(true)
+  description String       @default("")
+  /// Line order within the day, as the user arranged it.
+  position    Int          @default(0)
+
+  attachments TimesheetAttachment[]
 
   @@index([companyId, projectId, date])
+}
+
+/// Supporting files on a timesheet entry (documents, images, PDFs). dayId is
+/// kept alongside for access checks and per-day counts.
+model TimesheetAttachment {
+  id           String         @id @default(uuid())
+  companyId    String
+  dayId        String
+  day          TimesheetDay   @relation(fields: [dayId], references: [id], onDelete: Cascade)
+  entryId      String
+  entry        TimesheetEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  name         String
+  fileKey      String         @unique
+  mimeType     String
+  size         Int
+  uploadedById String?
+  uploadedOn   DateTime       @default(now())
+
+  @@index([dayId])
+  @@index([entryId])
 }
 
 // ============================================================================

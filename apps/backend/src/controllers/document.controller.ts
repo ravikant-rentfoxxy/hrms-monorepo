@@ -11,7 +11,13 @@ const isPrivileged = (req: Request): boolean => {
 
 export const list = h(async (req, res) => {
   const { auth, tenantId } = ctx(req);
-  ok(res, await documentService.listDocuments(tenantId, { employeeId: auth.employeeId, canViewAll: isPrivileged(req) }));
+  const { scope, employeeId } = req.query as { scope?: documentService.DocumentScope; employeeId?: string };
+  ok(res, await documentService.listDocuments(tenantId, { employeeId: auth.employeeId, canViewAll: isPrivileged(req) }, scope, employeeId));
+});
+
+export const owners = h(async (req, res) => {
+  const { auth, tenantId } = ctx(req);
+  ok(res, await documentService.documentOwners(tenantId, auth.employeeId));
 });
 
 export const upload = h(async (req, res) => {

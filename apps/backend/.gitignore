@@ -17,3 +17,6 @@ coverage/
 *.log
 npm-debug.log*
 .DS_Store
+
+# Winston daily log files (dev)
+logs/

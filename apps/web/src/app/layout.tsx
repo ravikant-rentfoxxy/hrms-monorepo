@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
+    <html lang="en" className={inter.variable} data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
         {/* Flags that JS runs, so scroll-reveal on the marketing pages may hide not-yet-seen content (visible without JS). */}
         <script dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.add('js')" }} />

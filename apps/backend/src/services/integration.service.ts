@@ -23,7 +23,7 @@ export interface IntegrationInput {
 /** Known event names (for the editor's suggestions). Integrations may subscribe to others, to "*" or to "area.*". */
 export const EVENT_CATALOGUE = [
   'employee.joined', 'employee.exited', 'leave.applied', 'leave.approved', 'leave.rejected',
-  'expense.approved', 'payroll.published', 'timesheet.approved', 'timesheet.rejected',
+  'expense.approved', 'payroll.published', 'timesheet.submitted',
   'travel.approved', 'travel.settled', 'kudos.received', 'announcement.posted', 'ticket.created', 'ticket.resolved',
 ];
 

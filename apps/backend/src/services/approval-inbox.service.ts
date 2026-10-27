@@ -21,7 +21,6 @@ export const DECIDE_PATHS: Record<ApprovalModule, (id: string) => string> = {
   LOAN: (id) => `/loans/${id}/decide`,
   RESIGNATION: (id) => `/exits/${id}/decide`,
   TRAVEL: (id) => `/travel/${id}/decide`,
-  TIMESHEET: (id) => `/timesheets/${id}/decide`,
   CONFIRMATION: (id) => `/confirmations/${id}/decide`,
   SALARY_REVISION: (id) => `/salary/revisions/${id}/decide`,
   REQUISITION: (id) => `/recruitment/requisitions/${id}/decide`,
@@ -39,7 +38,6 @@ export const MODULE_LABELS: Record<ApprovalModule, string> = {
   LOAN: 'Loan / advance',
   RESIGNATION: 'Resignation',
   TRAVEL: 'Travel',
-  TIMESHEET: 'Timesheet',
   CONFIRMATION: 'Probation confirmation',
   SALARY_REVISION: 'Salary revision',
   REQUISITION: 'Hiring requisition',
@@ -148,15 +146,6 @@ async function summaries(companyId: string, module: ApprovalModule, ids: string[
         requesterId: r.employeeId, status: r.status, title: `${r.fromCity} → ${r.toCity} · ${r.mode.toLowerCase()}`,
         description: `${r.purpose} — est. ${fmt(r.estimatedCost)}${r.advanceAmount > 0 ? `, advance ${fmt(r.advanceAmount)}` : ''}`,
         amount: r.estimatedCost, fromDate: r.departDate, toDate: r.returnDate, submittedAt: r.appliedOn,
-      });
-      break;
-    }
-    case 'TIMESHEET': {
-      const rows = await prisma.timesheetWeek.findMany({ where });
-      for (const r of rows) out.set(r.id, {
-        requesterId: r.employeeId, status: r.status, title: `Timesheet · ${r.totalHours} h`,
-        description: `Week of ${r.weekStart.toISOString().slice(0, 10)}`, amount: null,
-        fromDate: r.weekStart, toDate: new Date(r.weekStart.getTime() + 6 * 86400000), submittedAt: r.submittedAt,
       });
       break;
     }

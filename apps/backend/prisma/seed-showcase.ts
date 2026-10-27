@@ -142,7 +142,6 @@ function spanWorkdays(from: Date, count: number): Date {
   return d;
 }
 const nextMonday = () => addD(TODAY, ((8 - TODAY.getUTCDay()) % 7) || 7);
-const mondayOf = (d: Date) => addD(d, -((d.getUTCDay() + 6) % 7));
 
 // ---------------------------------------------------------------------------
 // Files (small real PDFs / PNGs)
@@ -1303,36 +1302,23 @@ async function seedTimesheets() {
     NCP: ['Platform API work', 'Code review & tech debt', 'Sprint planning'], ARM: ['Checkout revamp', 'Bug fixes from UAT', 'Release prep'],
     BPI: ['UPI autopay integration', 'Settlement reconciliation API'], DPR: ['Airflow DAG migration', 'Data quality checks'],
   };
-  const thisMonday = mondayOf(TODAY);
-  for (let w = -4; w <= 0; w++) {
-    const ws = addD(thisMonday, w * 7);
+  // Last 4 weeks of working days; everything before today is submitted, today stays a draft.
+  for (let back = 27; back >= 0; back--) {
+    const d = addD(TODAY, -back);
+    if (d.getUTCDay() === 0 || d.getUTCDay() === 6) continue;
     for (const [k, projects] of Object.entries(who)) {
       const emp = e(k);
-      const entries: { projectId: string; date: Date; hours: number; description: string }[] = [];
-      for (let i = 0; i < 5; i++) {
-        const d = addD(ws, i);
-        if (d >= TODAY || d < emp.joining) continue;
-        const st = attStatus.get(`${emp.id}|${iso(d)}`);
-        if (st !== 'PRESENT' && st !== 'LATE' && st !== 'HALF_DAY') continue;
-        const total = st === 'HALF_DAY' ? 4 : 8;
-        const main = Math.min(total, ri(4, 6));
-        entries.push({ projectId: ids.project.get(projects[0]!)!, date: d, hours: main, description: pick(desc[projects[0]!]!) });
-        if (total - main > 0) entries.push({ projectId: ids.project.get(projects[1]!)!, date: d, hours: total - main, description: pick(desc[projects[1]!]!) });
-      }
-      if (entries.length === 0) continue;
-      const week = await timesheetService.saveWeek(C, emp.id, ws, entries);
-      if (w === 0) continue; // current week stays DRAFT
-      await timesheetService.submitWeek(C, emp.id, week.id);
-      const submitted = pastInstant(addD(ws, 4), '18:30');
-      await prisma.timesheetWeek.update({ where: { id: week.id }, data: { submittedAt: submitted } });
-      if (w <= -2) {
-        const reject = w === -2 && k === 'ishaan';
-        await timesheetService.decideWeek(C, week.id, {
-          decision: reject ? 'REJECTED' : 'APPROVED', remarks: reject ? 'Please split hours between ARM and BPI as per the sprint board' : undefined,
-          actor: actor(mgrOf(k)),
-        });
-      }
-      await backdateSteps('TIMESHEET', week.id, submitted, 40);
+      if (d < emp.joining) continue;
+      const st = attStatus.get(`${emp.id}|${iso(d)}`);
+      if (back > 0 && st !== 'PRESENT' && st !== 'LATE' && st !== 'HALF_DAY') continue;
+      const total = st === 'HALF_DAY' ? 4 : 8;
+      const main = Math.min(total, ri(4, 6));
+      const entries = [{ projectId: ids.project.get(projects[0]!)!, hours: main, description: pick(desc[projects[0]!]!) }];
+      if (total - main > 0) entries.push({ projectId: ids.project.get(projects[1]!)!, hours: total - main, description: pick(desc[projects[1]!]!) });
+      const day = await timesheetService.saveDay(C, emp.id, d, entries);
+      if (back === 0 || !day.id) continue; // today stays DRAFT
+      await timesheetService.submitDay(C, emp.id, day.id);
+      await prisma.timesheetDay.update({ where: { id: day.id }, data: { submittedAt: pastInstant(d, '18:30') } });
     }
   }
 }
@@ -1939,7 +1925,7 @@ async function summary() {
     ['Loans', await prisma.loan.count({ where })],
     ['Expense claims', await prisma.expenseClaim.count({ where })],
     ['Travel requests', await prisma.travelRequest.count({ where })],
-    ['Timesheet weeks', await prisma.timesheetWeek.count({ where })],
+    ['Timesheet days', await prisma.timesheetDay.count({ where })],
     ['Certifications / skills', (await prisma.employeeCertification.count({ where })) * 1000 + (await prisma.employeeSkill.count({ where }))],
     ['Survey responses', await prisma.surveyResponse.count({ where })],
     ['Kudos', await prisma.recognition.count({ where })],

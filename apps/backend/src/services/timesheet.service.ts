@@ -1,31 +1,32 @@
 /**
- * Weekly timesheets: one TimesheetWeek per employee per Monday, with
- * project × day entries. Lifecycle:
+ * Daily timesheets: one TimesheetDay per employee per calendar date, with any
+ * number of project entries. Lifecycle:
  *
- *   DRAFT ──submit──▶ SUBMITTED ──(approval engine, module TIMESHEET)──▶ APPROVED
- *     ▲                   │ recall                                      └─▶ REJECTED ──edit + resubmit──▶ SUBMITTED
- *     └───────────────────┘
+ *   DRAFT ──submit──▶ SUBMITTED (final — there is no approval step)
  *
- * Only DRAFT / REJECTED weeks are editable. A resubmission cancels whatever
- * is left of the previous chain and starts a fresh one.
+ * Only past days and today (IST) can be filled; future dates are refused.
  */
 import type { Role } from '@prisma/client';
 import { openToEmployee } from './project.service';
 import { prisma } from '../lib/prisma';
-import { notify } from '../lib/notify';
+import { logger } from '../lib/logger';
+import { istNow } from '../lib/scheduler';
+import { FILE_LINK_TTL_SECONDS, objectKey, presignedGetUrl, putObject, removeObject } from '../lib/storage';
 import { ApiError } from '../utils/http';
-import { addDays, isoDay, mondayOf, utcDay } from '../utils/people';
-import * as approvalService from './approval.service';
+import { addDays, isoDay, utcDay } from '../utils/people';
 import { dispatchIntegrationEvent } from './integration.service';
 
-export type WeekStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED';
-const EDITABLE: WeekStatus[] = ['DRAFT', 'REJECTED'];
+export type DayStatus = 'DRAFT' | 'SUBMITTED';
 const MAX_HOURS_PER_DAY = 24;
 const OVERRIDE_ROLES: Role[] = ['SUPER_ADMIN', 'ADMIN', 'HR'];
+const MAX_ATTACHMENTS = 10;
+/** Documents, images and PDFs — matched on extension, since browsers report office MIME types inconsistently. */
+const ATTACHMENT_EXT = /\.(pdf|png|jpe?g|gif|webp|heic|heif|bmp|svg|docx?|xlsx?|pptx?|odt|ods|odp|rtf|txt|csv)$/i;
 
 export interface EntryInput {
+  /** Client-generated for new lines; existing ids keep the entry (and its attachments) across saves. */
+  id?: string;
   projectId: string;
-  date: Date;
   hours: number;
   billable?: boolean;
   description?: string;
@@ -38,31 +39,43 @@ export interface Actor {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-const weekInclude = {
-  employee: { select: { id: true, name: true, employeeCode: true, department: true, managerId: true } },
-  entries: {
-    include: { project: { select: { id: true, name: true, code: true, client: true, isBillable: true, isActive: true } } },
-    orderBy: [{ date: 'asc' as const }],
+/** Today's date (midnight UTC) on the IST calendar. */
+export const todayIst = () => utcDay(istNow());
+
+function assertNotFuture(date: Date) {
+  if (date > todayIst()) throw ApiError.badRequest('Timesheets can only be filled for today or past days');
+}
+
+const attachmentSelect = {
+  // fileKey stays server-side; files are opened through the access-checked download route.
+  select: { id: true, name: true, mimeType: true, size: true, uploadedOn: true },
+  orderBy: [{ uploadedOn: 'asc' as const }],
+};
+
+const entriesInclude = {
+  include: {
+    project: { select: { id: true, name: true, code: true, client: true, isBillable: true, isActive: true } },
+    attachments: attachmentSelect,
   },
+  orderBy: [{ position: 'asc' as const }],
+};
+
+const dayInclude = {
+  employee: { select: { id: true, name: true, employeeCode: true, department: true, managerId: true } },
+  entries: entriesInclude,
 };
 
 // ---- Access ----
 
-/** Owner, ADMIN/HR, the employee's manager, or anyone named on the approval chain may view a week. */
-async function assertCanView(companyId: string, week: { id: string; employeeId: string; employee: { managerId: string | null } }, actor: Actor) {
-  if (actor.employeeId && actor.employeeId === week.employeeId) return;
+/** Owner, ADMIN/HR or the employee's manager may view a day. */
+function assertCanView(day: { employeeId: string; employee: { managerId: string | null } }, actor: Actor) {
+  if (actor.employeeId && actor.employeeId === day.employeeId) return;
   if (OVERRIDE_ROLES.includes(actor.role)) return;
-  if (actor.employeeId && week.employee.managerId === actor.employeeId) return;
-  if (actor.employeeId) {
-    const named = await prisma.approvalStep.count({
-      where: { companyId, module: 'TIMESHEET', requestId: week.id, approverEmployeeId: actor.employeeId },
-    });
-    if (named > 0) return;
-  }
+  if (actor.employeeId && day.employee.managerId === actor.employeeId) return;
   throw ApiError.forbidden('You cannot view this timesheet');
 }
 
-/** Resolves whose week the actor may read (own by default; managers their reports; ADMIN/HR anyone). */
+/** Resolves whose day the actor may read (own by default; managers their reports; ADMIN/HR anyone). */
 export async function resolveTarget(companyId: string, actor: Actor, requested?: string): Promise<string> {
   if (!requested || requested === actor.employeeId) {
     if (!actor.employeeId) throw ApiError.badRequest('employeeId required');
@@ -77,271 +90,275 @@ export async function resolveTarget(companyId: string, actor: Actor, requested?:
 
 // ---- Read ----
 
-/** The week starting on the Monday of `weekStart` — a virtual empty DRAFT when nothing is saved yet. */
-export async function getWeek(companyId: string, employeeId: string, weekStart: Date) {
-  const ws = mondayOf(weekStart);
-  const week = await prisma.timesheetWeek.findFirst({
-    where: { companyId, employeeId, weekStart: ws },
-    include: weekInclude,
+const withFlags = <T extends { status: string; date: Date }>(day: T) => ({
+  ...day,
+  editable: day.status === 'DRAFT' && day.date <= todayIst(),
+});
+
+/** The timesheet for `date` — a virtual empty DRAFT when nothing is saved yet. */
+export async function getDay(companyId: string, employeeId: string, date: Date) {
+  const d = utcDay(date);
+  const day = await prisma.timesheetDay.findFirst({ where: { companyId, employeeId, date: d }, include: dayInclude });
+  if (day) return withFlags(day);
+  const employee = await prisma.employee.findFirst({
+    where: { id: employeeId, companyId },
+    select: { id: true, name: true, employeeCode: true, department: true, managerId: true },
   });
-  if (!week) {
-    const employee = await prisma.employee.findFirst({
-      where: { id: employeeId, companyId },
-      select: { id: true, name: true, employeeCode: true, department: true, managerId: true },
-    });
-    if (!employee) throw ApiError.notFound('Employee not found');
-    return {
-      id: null,
-      companyId,
-      employeeId,
-      employee,
-      weekStart: ws,
-      weekEnd: addDays(ws, 6),
-      status: 'DRAFT' as WeekStatus,
-      approverId: null,
-      remarks: null,
-      submittedAt: null,
-      totalHours: 0,
-      entries: [],
-      editable: true,
-      trail: [],
-    };
-  }
-  return {
-    ...week,
-    weekEnd: addDays(week.weekStart, 6),
-    editable: EDITABLE.includes(week.status as WeekStatus),
-    trail: await approvalService.trail(companyId, 'TIMESHEET', week.id),
-  };
+  if (!employee) throw ApiError.notFound('Employee not found');
+  return withFlags({
+    id: null as string | null,
+    companyId,
+    employeeId,
+    employee,
+    date: d,
+    status: 'DRAFT' as DayStatus,
+    submittedAt: null as Date | null,
+    totalHours: 0,
+    entries: [],
+  });
 }
 
 export async function getById(companyId: string, id: string, actor: Actor) {
-  const week = await prisma.timesheetWeek.findFirst({ where: { id, companyId }, include: weekInclude });
-  if (!week) throw ApiError.notFound('Timesheet not found');
-  await assertCanView(companyId, week, actor);
-  return {
-    ...week,
-    weekEnd: addDays(week.weekStart, 6),
-    editable: EDITABLE.includes(week.status as WeekStatus),
-    trail: await approvalService.trail(companyId, 'TIMESHEET', week.id),
-  };
+  const day = await prisma.timesheetDay.findFirst({ where: { id, companyId }, include: dayInclude });
+  if (!day) throw ApiError.notFound('Timesheet not found');
+  assertCanView(day, actor);
+  return withFlags(day);
 }
 
 export interface ListFilter {
-  scope: 'me' | 'team' | 'approvals' | 'company';
-  status?: WeekStatus;
+  /** me = own, team = direct reports, company = everyone (ADMIN/HR). */
+  scope: 'me' | 'team' | 'company';
+  status?: DayStatus;
   from?: Date;
   to?: Date;
+  employeeId?: string;
 }
 
-export async function listWeeks(companyId: string, actor: Actor, filter: ListFilter) {
-  let where: object;
-  if (filter.scope === 'me') where = { employeeId: actor.employeeId ?? '' };
-  else if (filter.scope === 'team') where = { employee: { managerId: actor.employeeId ?? '' } };
-  else if (filter.scope === 'approvals') {
-    const steps = await approvalService.pendingFor(companyId, actor, 'TIMESHEET');
-    where = { id: { in: steps.map((s) => s.requestId) }, status: 'SUBMITTED' };
-  } else where = {};
-  const range =
-    filter.from || filter.to
-      ? { weekStart: { ...(filter.from ? { gte: mondayOf(filter.from) } : {}), ...(filter.to ? { lte: utcDay(filter.to) } : {}) } }
-      : {};
-  const weeks = await prisma.timesheetWeek.findMany({
-    where: { companyId, ...where, ...range, ...(filter.status ? { status: filter.status } : {}) },
+/** Days with their entries (newest first) — the submitted-timesheets tables. Defaults to the last 30 days. */
+export async function listDays(companyId: string, actor: Actor, filter: ListFilter) {
+  const to = utcDay(filter.to ?? todayIst());
+  const from = utcDay(filter.from ?? addDays(to, -29));
+  let who: object;
+  if (filter.scope === 'me') who = { employeeId: actor.employeeId ?? '' };
+  else if (filter.scope === 'team') who = { employee: { managerId: actor.employeeId ?? '' } };
+  else who = {};
+  const days = await prisma.timesheetDay.findMany({
+    where: {
+      companyId,
+      ...who,
+      ...(filter.employeeId && filter.scope !== 'me' ? { employeeId: filter.employeeId } : {}),
+      date: { gte: from, lte: to },
+      ...(filter.status ? { status: filter.status } : {}),
+    },
     include: {
       employee: { select: { id: true, name: true, employeeCode: true, department: true } },
-      entries: { select: { hours: true, billable: true } },
+      entries: entriesInclude,
     },
-    orderBy: [{ weekStart: 'desc' }, { submittedAt: 'desc' }],
-    take: 300,
+    orderBy: [{ date: 'desc' }, { submittedAt: 'desc' }],
+    take: 500,
   });
-  return weeks.map(({ entries, ...w }) => ({
-    ...w,
-    weekEnd: addDays(w.weekStart, 6),
-    billableHours: round2(entries.filter((e) => e.billable).reduce((s, e) => s + e.hours, 0)),
-    nonBillableHours: round2(entries.filter((e) => !e.billable).reduce((s, e) => s + e.hours, 0)),
-    entryCount: entries.length,
-  }));
+  return { from, to, days: days.map(withFlags) };
 }
 
 // ---- Write ----
 
 /**
- * Replaces the week's entries (the client sends the whole grid). Rows with
- * 0 hours are dropped. Validates dates inside the week, active projects
- * (projects already on the week may stay even if since deactivated), no
- * duplicate project/day lines and at most 24h per day.
+ * Syncs the day's entries to the lines the client sends: known ids are
+ * updated, new ids are created, everything else is deleted (with its
+ * attachments). Lines with 0 hours are dropped. Several lines per project
+ * are fine (one per task); the day may total at most 24h.
  */
-export async function saveWeek(companyId: string, employeeId: string, weekStart: Date, entries: EntryInput[]) {
-  const ws = mondayOf(weekStart);
-  const we = addDays(ws, 6);
-  const existing = await prisma.timesheetWeek.findFirst({
-    where: { companyId, employeeId, weekStart: ws },
-    include: { entries: { select: { projectId: true } } },
+export async function saveDay(companyId: string, employeeId: string, date: Date, entries: EntryInput[]) {
+  const d = utcDay(date);
+  assertNotFuture(d);
+  const existing = await prisma.timesheetDay.findFirst({
+    where: { companyId, employeeId, date: d },
+    include: { entries: { select: { id: true, projectId: true } } },
   });
-  if (existing && !EDITABLE.includes(existing.status as WeekStatus)) {
-    throw ApiError.badRequest(
-      existing.status === 'SUBMITTED'
-        ? 'This week is submitted for approval — recall it before editing'
-        : 'This week is approved and can no longer be edited'
-    );
-  }
+  if (existing && existing.status !== 'DRAFT') throw ApiError.badRequest('This day is already submitted and can no longer be edited');
 
   const rows = entries.filter((e) => e.hours > 0);
   const projectIds = [...new Set(rows.map((e) => e.projectId))];
   const projects = await prisma.project.findMany({ where: { companyId, id: { in: projectIds } } });
-  const alreadyOnWeek = new Set(existing?.entries.map((e) => e.projectId) ?? []);
-  // Projects with members are bookable by those members only (hours already on the week stay editable).
+  const alreadyOnDay = new Set(existing?.entries.map((e) => e.projectId) ?? []);
+  // Projects with members are bookable by those members only (hours already on the day stay editable).
   const allowed = new Set(
     (await prisma.project.findMany({ where: { companyId, id: { in: projectIds }, ...openToEmployee(employeeId) }, select: { id: true } })).map((p) => p.id)
   );
-  const blocked = projects.find((p) => !allowed.has(p.id) && !alreadyOnWeek.has(p.id));
+  const blocked = projects.find((p) => !allowed.has(p.id) && !alreadyOnDay.has(p.id));
   if (blocked) throw ApiError.forbidden(`You are not a member of project ${blocked.code} — ask HR or your manager for access`);
 
-  // Several entries per project and day are fine (one per task, each with its own description).
-  const perDay = new Map<string, number>();
-  const data = rows.map((e) => {
+  const data = rows.map((e, position) => {
     const project = projects.find((p) => p.id === e.projectId);
     if (!project) throw ApiError.badRequest('Unknown project in the timesheet');
-    if (!project.isActive && !alreadyOnWeek.has(project.id)) {
-      throw ApiError.badRequest(`Project ${project.code} is inactive`);
-    }
-    const date = utcDay(e.date);
-    if (date < ws || date > we) {
-      throw ApiError.badRequest(`${isoDay(date)} is outside the week ${isoDay(ws)} – ${isoDay(we)}`);
-    }
-    const hours = round2(e.hours);
-    const dayTotal = round2((perDay.get(isoDay(date)) ?? 0) + hours);
-    if (dayTotal > MAX_HOURS_PER_DAY) {
-      throw ApiError.badRequest(`${isoDay(date)} has ${dayTotal}h booked — at most ${MAX_HOURS_PER_DAY}h per day`);
-    }
-    perDay.set(isoDay(date), dayTotal);
+    if (!project.isActive && !alreadyOnDay.has(project.id)) throw ApiError.badRequest(`Project ${project.code} is inactive`);
     return {
+      id: e.id,
       companyId,
       projectId: project.id,
-      date,
-      hours,
+      date: d,
+      hours: round2(e.hours),
       billable: e.billable ?? project.isBillable,
       description: (e.description ?? '').trim(),
+      position,
     };
   });
   const totalHours = round2(data.reduce((s, e) => s + e.hours, 0));
+  if (totalHours > MAX_HOURS_PER_DAY) throw ApiError.badRequest(`${totalHours}h booked — at most ${MAX_HOURS_PER_DAY}h per day`);
 
-  const weekId = await prisma.$transaction(async (tx) => {
-    const week =
-      existing ??
-      (await tx.timesheetWeek.create({ data: { companyId, employeeId, weekStart: ws, status: 'DRAFT' } }));
-    await tx.timesheetEntry.deleteMany({ where: { weekId: week.id } });
-    if (data.length > 0) await tx.timesheetEntry.createMany({ data: data.map((e) => ({ ...e, weekId: week.id })) });
-    await tx.timesheetWeek.update({ where: { id: week.id }, data: { totalHours } });
-    return week.id;
+  const ownIds = new Set(existing?.entries.map((e) => e.id) ?? []);
+  const sentIds = data.map((e) => e.id).filter((id): id is string => !!id);
+  if (new Set(sentIds).size !== sentIds.length) throw ApiError.badRequest('Duplicate entry id in the timesheet');
+  const foreignIds = sentIds.filter((id) => !ownIds.has(id));
+  if (foreignIds.length > 0 && (await prisma.timesheetEntry.count({ where: { id: { in: foreignIds } } })) > 0) {
+    throw ApiError.badRequest('Entry id belongs to another timesheet');
+  }
+  const kept = new Set(sentIds.filter((id) => ownIds.has(id)));
+  const removedIds = [...ownIds].filter((id) => !kept.has(id));
+  const orphanKeys = removedIds.length
+    ? (await prisma.timesheetAttachment.findMany({ where: { entryId: { in: removedIds } }, select: { fileKey: true } })).map((a) => a.fileKey)
+    : [];
+
+  await prisma.$transaction(async (tx) => {
+    const day = existing ?? (await tx.timesheetDay.create({ data: { companyId, employeeId, date: d, status: 'DRAFT' } }));
+    if (removedIds.length > 0) await tx.timesheetEntry.deleteMany({ where: { dayId: day.id, id: { in: removedIds } } });
+    for (const { id, companyId: _c, ...fields } of data.filter((e) => e.id && kept.has(e.id))) {
+      await tx.timesheetEntry.update({ where: { id }, data: fields });
+    }
+    const fresh = data.filter((e) => !e.id || !kept.has(e.id));
+    if (fresh.length > 0) await tx.timesheetEntry.createMany({ data: fresh.map((e) => ({ ...e, dayId: day.id })) });
+    await tx.timesheetDay.update({ where: { id: day.id }, data: { totalHours } });
   });
-  return getWeek(companyId, employeeId, ws).then((w) => ({ ...w, id: weekId }));
+  for (const key of orphanKeys) {
+    await removeObject(key).catch((err: unknown) => logger.warn({ err, key }, 'timesheet attachment object not removed'));
+  }
+  return getDay(companyId, employeeId, d);
 }
 
-/** Copies the previous week's project/day lines (shifted by 7 days) into an empty editable week. */
-export async function copyLastWeek(companyId: string, employeeId: string, weekStart: Date) {
-  const ws = mondayOf(weekStart);
-  const current = await prisma.timesheetWeek.findFirst({
-    where: { companyId, employeeId, weekStart: ws },
+/** Copies the lines of the most recent earlier day with entries into an empty draft day. */
+export async function copyPreviousDay(companyId: string, employeeId: string, date: Date) {
+  const d = utcDay(date);
+  const current = await prisma.timesheetDay.findFirst({
+    where: { companyId, employeeId, date: d },
     include: { _count: { select: { entries: true } } },
   });
-  if (current && current._count.entries > 0) {
-    throw ApiError.badRequest('This week already has entries — clear them before copying last week');
-  }
-  const previous = await prisma.timesheetWeek.findFirst({
-    where: { companyId, employeeId, weekStart: addDays(ws, -7) },
-    include: { entries: { include: { project: { select: { isActive: true } } } } },
+  if (current && current._count.entries > 0) throw ApiError.badRequest('This day already has entries — clear them before copying');
+  const previous = await prisma.timesheetDay.findFirst({
+    where: { companyId, employeeId, date: { lt: d }, entries: { some: {} } },
+    orderBy: { date: 'desc' },
+    include: { entries: { include: { project: { select: { isActive: true } } }, orderBy: { position: 'asc' } } },
   });
   const lines = (previous?.entries ?? []).filter((e) => e.project.isActive);
-  if (lines.length === 0) throw ApiError.badRequest('Nothing to copy — last week has no entries on active projects');
-  return saveWeek(
+  if (lines.length === 0) throw ApiError.badRequest('Nothing to copy — no earlier day has entries on active projects');
+  return saveDay(
     companyId,
     employeeId,
-    ws,
-    lines.map((e) => ({
-      projectId: e.projectId,
-      date: addDays(e.date, 7),
-      hours: e.hours,
-      billable: e.billable,
-      description: e.description,
-    }))
+    d,
+    lines.map((e) => ({ projectId: e.projectId, hours: e.hours, billable: e.billable, description: e.description }))
   );
 }
 
-/** Submits the week for approval (DRAFT or REJECTED → SUBMITTED) and (re)starts the TIMESHEET chain. */
-export async function submitWeek(companyId: string, employeeId: string, weekId: string) {
-  const week = await prisma.timesheetWeek.findFirst({
-    where: { id: weekId, companyId, employeeId },
+/** Submits a draft day. Submitted days are final. */
+export async function submitDay(companyId: string, employeeId: string, dayId: string) {
+  const day = await prisma.timesheetDay.findFirst({
+    where: { id: dayId, companyId, employeeId },
     include: { _count: { select: { entries: true } } },
   });
-  if (!week) throw ApiError.notFound('Timesheet not found');
-  if (!EDITABLE.includes(week.status as WeekStatus)) {
-    throw ApiError.badRequest(`A ${week.status.toLowerCase()} timesheet cannot be submitted again`);
-  }
-  if (week._count.entries === 0 || week.totalHours <= 0) throw ApiError.badRequest('Add hours before submitting');
-
-  // Resubmission: whatever is left of an earlier chain must not linger in approvers' inboxes.
-  await approvalService.cancel(companyId, 'TIMESHEET', week.id);
-  const updated = await prisma.timesheetWeek.update({
-    where: { id: week.id },
-    data: { status: 'SUBMITTED', submittedAt: new Date(), approverId: null, remarks: null },
+  if (!day) throw ApiError.notFound('Timesheet not found');
+  if (day.status !== 'DRAFT') throw ApiError.badRequest('This day is already submitted');
+  assertNotFuture(day.date);
+  if (day._count.entries === 0 || day.totalHours <= 0) throw ApiError.badRequest('Add hours before submitting');
+  const updated = await prisma.timesheetDay.update({ where: { id: day.id }, data: { status: 'SUBMITTED', submittedAt: new Date() } });
+  await dispatchIntegrationEvent(companyId, 'timesheet.submitted', {
+    title: `Timesheet for ${isoDay(day.date)} submitted`,
+    body: `${day.totalHours}h`,
+    employeeId,
+    date: isoDay(day.date),
   });
-  await approvalService.start(companyId, 'TIMESHEET', week.id, employeeId);
   return updated;
 }
 
-/** Pulls a SUBMITTED week back to DRAFT (before anyone finished approving it). */
-export async function recallWeek(companyId: string, employeeId: string, weekId: string) {
-  const week = await prisma.timesheetWeek.findFirst({ where: { id: weekId, companyId, employeeId } });
-  if (!week) throw ApiError.notFound('Timesheet not found');
-  if (week.status !== 'SUBMITTED') throw ApiError.badRequest('Only a submitted timesheet can be recalled');
-  await approvalService.cancel(companyId, 'TIMESHEET', week.id);
-  return prisma.timesheetWeek.update({ where: { id: week.id }, data: { status: 'DRAFT', submittedAt: null } });
+// ---- Attachments ----
+
+export interface AttachmentFile {
+  originalname: string;
+  mimetype: string;
+  buffer: Buffer;
+  size: number;
 }
 
-/** Records a decision on the current approval level; finalises on the last level or a rejection. */
-export async function decideWeek(
-  companyId: string,
-  weekId: string,
-  input: { decision: 'APPROVED' | 'REJECTED'; remarks?: string; actor: Actor }
-) {
-  const week = await prisma.timesheetWeek.findFirst({ where: { id: weekId, companyId } });
-  if (!week) throw ApiError.notFound('Timesheet not found');
-  if (week.status !== 'SUBMITTED') throw ApiError.badRequest(`Timesheet is ${week.status.toLowerCase()}, not awaiting approval`);
-  if (input.decision === 'REJECTED' && !input.remarks?.trim()) {
-    throw ApiError.badRequest('Add a remark so the employee knows what to fix');
+/** The owner's own day, still a draft. */
+async function loadEditableOwn(companyId: string, employeeId: string, dayId: string) {
+  const day = await prisma.timesheetDay.findFirst({ where: { id: dayId, companyId, employeeId } });
+  if (!day) throw ApiError.notFound('Timesheet not found');
+  if (day.status !== 'DRAFT') throw ApiError.badRequest('This day is already submitted and can no longer be edited');
+  return day;
+}
+
+/** Deletes one entry (and its files) from a draft day right away, without resaving the other lines. */
+export async function deleteEntry(companyId: string, employeeId: string, dayId: string, entryId: string) {
+  const day = await loadEditableOwn(companyId, employeeId, dayId);
+  const entry = await prisma.timesheetEntry.findFirst({
+    where: { id: entryId, dayId: day.id, companyId },
+    include: { attachments: { select: { fileKey: true } } },
+  });
+  if (!entry) throw ApiError.notFound('Entry not found');
+  const totalHours = await prisma.$transaction(async (tx) => {
+    await tx.timesheetEntry.delete({ where: { id: entry.id } });
+    const sum = await tx.timesheetEntry.aggregate({ where: { dayId: day.id }, _sum: { hours: true } });
+    const total = round2(sum._sum.hours ?? 0);
+    await tx.timesheetDay.update({ where: { id: day.id }, data: { totalHours: total } });
+    return total;
+  });
+  for (const { fileKey } of entry.attachments) {
+    await removeObject(fileKey).catch((err: unknown) => logger.warn({ err, key: fileKey }, 'timesheet attachment object not removed'));
   }
+  return { deleted: true, totalHours };
+}
 
-  const r = await approvalService.act(
-    companyId,
-    'TIMESHEET',
-    week.id,
-    week.employeeId,
-    { role: input.actor.role, employeeId: input.actor.employeeId },
-    input.decision,
-    input.remarks
-  );
-  if (r.outcome === 'PENDING') return { outcome: r.outcome, week };
+export async function addAttachment(companyId: string, employeeId: string, dayId: string, entryId: string, file: AttachmentFile) {
+  const day = await loadEditableOwn(companyId, employeeId, dayId);
+  const entry = await prisma.timesheetEntry.findFirst({
+    where: { id: entryId, dayId: day.id, companyId },
+    include: { _count: { select: { attachments: true } } },
+  });
+  if (!entry) throw ApiError.notFound('Entry not found — save the timesheet first');
+  if (!ATTACHMENT_EXT.test(file.originalname)) {
+    throw ApiError.badRequest('Only documents (Word, Excel, PowerPoint, text, CSV), images and PDFs can be attached');
+  }
+  if (entry._count.attachments >= MAX_ATTACHMENTS) throw ApiError.badRequest(`At most ${MAX_ATTACHMENTS} attachments per entry`);
+  const key = objectKey(companyId, 'timesheets', file.originalname);
+  const mimeType = file.mimetype || 'application/octet-stream';
+  await putObject(key, file.buffer, mimeType);
+  const { fileKey: _k, ...rest } = await prisma.timesheetAttachment.create({
+    data: { companyId, dayId: day.id, entryId: entry.id, name: file.originalname, fileKey: key, mimeType, size: file.size, uploadedById: employeeId },
+  });
+  return rest;
+}
 
-  const updated = await prisma.timesheetWeek.update({
-    where: { id: week.id },
-    data: { status: r.outcome, approverId: input.actor.employeeId, remarks: input.remarks ?? null },
+export async function deleteAttachment(companyId: string, employeeId: string, dayId: string, attachmentId: string) {
+  const day = await loadEditableOwn(companyId, employeeId, dayId);
+  const att = await prisma.timesheetAttachment.findFirst({ where: { id: attachmentId, dayId: day.id, companyId } });
+  if (!att) throw ApiError.notFound('Attachment not found');
+  await prisma.timesheetAttachment.delete({ where: { id: att.id } });
+  await removeObject(att.fileKey).catch((err: unknown) => logger.warn({ err, key: att.fileKey }, 'timesheet attachment object not removed'));
+}
+
+/** Signed link for anyone who may view the day (owner, manager, ADMIN/HR). */
+export async function attachmentUrl(companyId: string, dayId: string, attachmentId: string, actor: Actor, inline: boolean) {
+  const day = await prisma.timesheetDay.findFirst({
+    where: { id: dayId, companyId },
+    select: { id: true, employeeId: true, employee: { select: { managerId: true } } },
   });
-  const label = `Timesheet for the week of ${isoDay(week.weekStart)}`;
-  await notify(companyId, [week.employeeId], {
-    event: r.outcome === 'APPROVED' ? 'timesheet.approved' : 'timesheet.rejected',
-    title: `${label} ${r.outcome === 'APPROVED' ? 'approved' : 'rejected'}`,
-    body: r.outcome === 'APPROVED' ? `${week.totalHours}h approved.` : `Please correct and resubmit. ${input.remarks ?? ''}`.trim(),
-    link: '/timesheets',
-  });
-  await dispatchIntegrationEvent(companyId, `timesheet.${r.outcome.toLowerCase()}`, {
-    title: `${label} ${r.outcome.toLowerCase()}`,
-    body: `${week.totalHours}h`,
-    employeeId: week.employeeId,
-    weekStart: isoDay(week.weekStart),
-  });
-  return { outcome: r.outcome, week: updated };
+  if (!day) throw ApiError.notFound('Timesheet not found');
+  assertCanView(day, actor);
+  const att = await prisma.timesheetAttachment.findFirst({ where: { id: attachmentId, dayId: day.id, companyId } });
+  if (!att) throw ApiError.notFound('Attachment not found');
+  return {
+    url: await presignedGetUrl(att.fileKey, att.name, inline ? 'inline' : 'attachment'),
+    mimeType: att.mimeType,
+    expiresInSeconds: FILE_LINK_TTL_SECONDS,
+  };
 }
 
 // ---- Reports ----
@@ -350,12 +367,11 @@ export interface UtilisationFilter {
   from: Date;
   to: Date;
   projectId?: string;
-  approvedOnly: boolean;
 }
 
 /**
  * Billable vs non-billable hours per project and per employee for a date
- * range (entry dates). Counts SUBMITTED + APPROVED weeks by default.
+ * range. Counts SUBMITTED days only.
  */
 export async function utilisation(companyId: string, filter: UtilisationFilter) {
   const entries = await prisma.timesheetEntry.findMany({
@@ -363,11 +379,11 @@ export async function utilisation(companyId: string, filter: UtilisationFilter) 
       companyId,
       date: { gte: utcDay(filter.from), lte: utcDay(filter.to) },
       ...(filter.projectId ? { projectId: filter.projectId } : {}),
-      week: { status: { in: filter.approvedOnly ? ['APPROVED'] : ['SUBMITTED', 'APPROVED'] } },
+      day: { status: 'SUBMITTED' },
     },
     include: {
       project: { select: { id: true, code: true, name: true, client: true } },
-      week: { select: { employee: { select: { id: true, name: true, employeeCode: true, department: true } } } },
+      day: { select: { employee: { select: { id: true, name: true, employeeCode: true, department: true } } } },
     },
   });
 
@@ -377,12 +393,12 @@ export async function utilisation(companyId: string, filter: UtilisationFilter) 
     else b.nonBillable += e.hours;
   };
   const byProject = new Map<string, Bucket & { project: (typeof entries)[number]['project']; people: Set<string> }>();
-  const byEmployee = new Map<string, Bucket & { employee: (typeof entries)[number]['week']['employee'] }>();
-  const rows = new Map<string, Bucket & { project: (typeof entries)[number]['project']; employee: (typeof entries)[number]['week']['employee'] }>();
+  const byEmployee = new Map<string, Bucket & { employee: (typeof entries)[number]['day']['employee'] }>();
+  const rows = new Map<string, Bucket & { project: (typeof entries)[number]['project']; employee: (typeof entries)[number]['day']['employee'] }>();
   const totals: Bucket = { billable: 0, nonBillable: 0 };
 
   for (const e of entries) {
-    const emp = e.week.employee;
+    const emp = e.day.employee;
     const p = byProject.get(e.projectId) ?? { project: e.project, billable: 0, nonBillable: 0, people: new Set<string>() };
     add(p, e);
     p.people.add(emp.id);
