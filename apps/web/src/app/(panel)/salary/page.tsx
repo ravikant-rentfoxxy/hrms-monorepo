@@ -231,10 +231,10 @@ function RevisionModal({ onClose, onDone }: { onClose: () => void; onDone: () =>
 
         <ErrorNote error={previewError} />
         {preview && monthly && (
-          <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 p-4">
+          <div className="rounded-xl border border-ink-200/80 bg-ink-50/60 p-4">
             <div className="mb-3 flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Monthly breakup (editable)</p>
-              <span className="text-xs text-slate-500">CTC / month {fmtMoney(preview.ctcMonthly)}</span>
+              <p className="text-xs font-semibold uppercase tracking-wider text-ink-500">Monthly breakup (editable)</p>
+              <span className="text-xs text-ink-500">CTC / month {fmtMoney(preview.ctcMonthly)}</span>
             </div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
               {MONTHLY_FIELDS.map((f) => (
@@ -255,7 +255,7 @@ function RevisionModal({ onClose, onDone }: { onClose: () => void; onDone: () =>
                 Net (before tax) <b>{fmtMoney(grossOf(monthly) - monthly.pfEmployee)}</b>
               </span>
               {current.data && current.data.monthly.subTotal > 0 && (
-                <span className="text-slate-500">Current gross {fmtMoney(current.data.monthly.subTotal)}</span>
+                <span className="text-ink-500">Current gross {fmtMoney(current.data.monthly.subTotal)}</span>
               )}
             </div>
             {preview.warnings.length > 0 && (
@@ -271,7 +271,7 @@ function RevisionModal({ onClose, onDone }: { onClose: () => void; onDone: () =>
         <Field label="Reason">
           <Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Annual increment, promotion, correction…" />
         </Field>
-        <p className="text-xs text-slate-400">The revision goes through the salary-revision approval chain before it is applied.</p>
+        <p className="text-xs text-ink-400">The revision goes through the salary-revision approval chain before it is applied.</p>
         <Button
           onClick={() => void submit()}
           disabled={busy || !employeeId || !effectiveFrom || !(Number(ctc) > 0) || !monthly || reason.length < 3}
@@ -313,8 +313,8 @@ function RevisionDetail({ id, onClose, onChanged }: { id: string; onClose: () =>
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <p className="font-semibold text-slate-900">{data.employee.name}</p>
-              <p className="text-xs text-slate-500">
+              <p className="font-semibold text-ink-900">{data.employee.name}</p>
+              <p className="text-xs text-ink-500">
                 {data.employee.employeeCode} · {data.employee.designation || '—'} · effective {fmtDate(data.effectiveFrom)}
               </p>
             </div>
@@ -334,16 +334,16 @@ function RevisionDetail({ id, onClose, onChanged }: { id: string; onClose: () =>
               <Td className="font-semibold">{fmtMoney(data.grossMonthly)}</Td>
             </tr>
           </Table>
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-ink-600">
             Annual CTC <b>{fmtMoney(data.ctcAnnual)}</b> · {data.reason}
           </p>
           {data.arrears.length > 0 && (
             <div>
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-slate-500">Arrears raised</p>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-ink-500">Arrears raised</p>
               {data.arrears.map((a) => (
-                <div key={a.id} className="flex justify-between border-b border-slate-100 py-1.5 text-sm">
+                <div key={a.id} className="flex justify-between border-b border-ink-100 py-1.5 text-sm">
                   <span>
-                    {a.label} <span className="text-xs text-slate-400">→ payroll {new Date(a.month).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</span>
+                    {a.label} <span className="text-xs text-ink-400">→ payroll {new Date(a.month).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</span>
                   </span>
                   <span className={a.type === 'DEDUCTION' ? 'text-rose-600' : 'font-medium'}>
                     {a.type === 'DEDUCTION' ? '−' : ''}
@@ -355,7 +355,7 @@ function RevisionDetail({ id, onClose, onChanged }: { id: string; onClose: () =>
           )}
           {data.trail.length > 0 && (
             <div>
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-slate-500">Approval trail</p>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-ink-500">Approval trail</p>
               {data.trail.map((s) => (
                 <div key={s.id} className="flex items-center justify-between py-1 text-sm">
                   <span>
@@ -391,7 +391,7 @@ function RevisionDetail({ id, onClose, onChanged }: { id: string; onClose: () =>
                   Withdraw
                 </Button>
               </div>
-              <div className="flex flex-wrap items-end gap-2 border-t border-slate-100 pt-3">
+              <div className="flex flex-wrap items-end gap-2 border-t border-ink-100 pt-3">
                 <Field label="Change effective date">
                   <DatePicker value={newDate} onChange={setNewDate} />
                 </Field>
@@ -456,14 +456,14 @@ function RevisionsTab() {
             {data.map((r) => (
               <tr key={r.id}>
                 <Td>
-                  <p className="font-medium text-slate-900">{r.employee.name}</p>
-                  <p className="text-xs text-slate-400">{r.employee.employeeCode}</p>
+                  <p className="font-medium text-ink-900">{r.employee.name}</p>
+                  <p className="text-xs text-ink-400">{r.employee.employeeCode}</p>
                 </Td>
                 <Td>{fmtDate(r.effectiveFrom)}</Td>
                 <Td className="font-medium">{fmtMoney(r.ctcAnnual)}</Td>
                 <Td>
                   {r.previousGrossMonthly !== null && (
-                    <span className="text-slate-400">{fmtMoney(r.previousGrossMonthly)} → </span>
+                    <span className="text-ink-400">{fmtMoney(r.previousGrossMonthly)} → </span>
                   )}
                   {fmtMoney(r.grossMonthly)}
                 </Td>
@@ -475,7 +475,7 @@ function RevisionsTab() {
                 <Td>
                   <Badge tone={revisionTone(r.status)}>{r.status}</Badge>
                 </Td>
-                <Td className="text-slate-500">{r.createdByName ?? '—'}</Td>
+                <Td className="text-ink-500">{r.createdByName ?? '—'}</Td>
                 <Td>
                   <Button variant="ghost" onClick={() => setOpenId(r.id)}>
                     View
@@ -581,8 +581,8 @@ function RestructurePanel({ templateId, version }: { templateId: string | null; 
   if (loading && !data) return <Spinner />;
   return (
     <Card className="mt-5 p-5">
-      <h3 className="text-sm font-semibold text-slate-900">Apply to existing employees</h3>
-      <p className="mt-0.5 text-xs text-slate-500">
+      <h3 className="text-sm font-semibold text-ink-900">Apply to existing employees</h3>
+      <p className="mt-0.5 text-xs text-ink-500">
         Changing the structure only affects new offers, joiners and revisions. To update current employees, apply it from a date —
         each employee keeps the same CTC; only the breakup changes.
       </p>
@@ -610,7 +610,7 @@ function RestructurePanel({ templateId, version }: { templateId: string | null; 
         </div>
       )}
       {data && data.rows.length === 0 && data.scheduled.count > 0 ? null : data && data.rows.length === 0 ? (
-        <p className="mt-3 text-sm text-slate-600">
+        <p className="mt-3 text-sm text-ink-600">
           All {data.unchanged} employee(s) on this structure already match it — nothing to update.
         </p>
       ) : data ? (
@@ -620,8 +620,8 @@ function RestructurePanel({ templateId, version }: { templateId: string | null; 
               {data.rows.map((r) => (
                 <tr key={r.employeeId}>
                   <Td>
-                    <p className="font-medium text-slate-900">{r.name}</p>
-                    <p className="text-xs text-slate-400">{r.employeeCode}</p>
+                    <p className="font-medium text-ink-900">{r.name}</p>
+                    <p className="text-xs text-ink-400">{r.employeeCode}</p>
                   </Td>
                   <Td>{fmtMoney(r.ctcAnnual)}</Td>
                   <Td>
@@ -635,7 +635,7 @@ function RestructurePanel({ templateId, version }: { templateId: string | null; 
               ))}
             </Table>
           </div>
-          {data.unchanged > 0 && <p className="mt-2 text-xs text-slate-400">{data.unchanged} more employee(s) already match.</p>}
+          {data.unchanged > 0 && <p className="mt-2 text-xs text-ink-400">{data.unchanged} more employee(s) already match.</p>}
           <div className="mt-4 flex flex-wrap items-end gap-3">
             <Field label="Effective from">
               <DatePicker value={effectiveFrom} onChange={setEffectiveFrom} />
@@ -644,7 +644,7 @@ function RestructurePanel({ templateId, version }: { templateId: string | null; 
               Apply to {ready.length} employee{ready.length === 1 ? '' : 's'}
             </Button>
           </div>
-          <p className="mt-2 text-xs text-slate-400">
+          <p className="mt-2 text-xs text-ink-400">
             A past date pays the difference for already-paid months as arrears in the next payroll.
           </p>
         </>
@@ -722,7 +722,7 @@ function ComponentModal({ initial, onClose, onDone }: { initial: Component | nul
             <Input type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} />
           </Field>
         </div>
-        <label className="flex items-center gap-2 text-sm text-slate-700">
+        <label className="flex items-center gap-2 text-sm text-ink-700">
           <input type="checkbox" checked={form.taxable} onChange={(e) => setForm({ ...form, taxable: e.target.checked })} />
           Taxable
         </label>
@@ -768,7 +768,7 @@ function ComponentsTab() {
   return (
     <>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-2xl text-sm text-slate-600">
+        <p className="max-w-2xl text-sm text-ink-600">
           This is your <span className="font-semibold">standard salary structure</span>: offer letters, new joiners and revisions
           split the CTC using these earnings in order (Basic first, Balance last).
         </p>
@@ -784,7 +784,7 @@ function ComponentsTab() {
           <Table headers={['Code', 'Name', 'Type', 'Calculation', 'Taxable', 'Status', '']}>
             {data.map((c) => (
               <tr key={c.id}>
-                <Td className="font-mono text-xs font-semibold text-slate-900">{c.code}</Td>
+                <Td className="font-mono text-xs font-semibold text-ink-900">{c.code}</Td>
                 <Td>{c.name}</Td>
                 <Td>
                   <Badge tone={c.type === 'EARNING' ? 'green' : 'red'}>{c.type}</Badge>
@@ -891,7 +891,7 @@ function TemplateModal({
             <Input value={description} onChange={(e) => setDescription(e.target.value)} />
           </Field>
         </div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Components</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-ink-500">Components</p>
         {rows.map((r, i) => (
           <div key={i} className="flex gap-2">
             <Select value={r.code} onChange={(e) => update(i, { code: e.target.value })}>
@@ -916,7 +916,7 @@ function TemplateModal({
               disabled={r.calc === 'BALANCE'}
               onChange={(e) => update(i, { value: Number(e.target.value) || 0 })}
             />
-            <button className="px-1 text-slate-400 hover:text-rose-600" onClick={() => setRows(rows.filter((_, j) => j !== i))}>
+            <button className="px-1 text-ink-400 hover:text-rose-600" onClick={() => setRows(rows.filter((_, j) => j !== i))}>
               ✕
             </button>
           </div>
@@ -924,12 +924,12 @@ function TemplateModal({
         <Button variant="ghost" onClick={() => setRows([...rows, { code: '', calc: 'FIXED', value: 0 }])}>
           + component
         </Button>
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-ink-400">
           Needs a BASIC component. “% of gross” is a share of the monthly gross (CTC less employer PF and gratuity); one
           “Balance” component absorbs the remainder.
         </p>
         {initial && (
-          <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 p-3">
+          <div className="rounded-xl border border-ink-200/80 bg-ink-50/60 p-3">
             <div className="flex items-end gap-2">
               <Field label="Try with annual CTC (saved version)">
                 <Input type="number" value={sampleCtc} onChange={(e) => setSampleCtc(e.target.value)} />
@@ -942,11 +942,11 @@ function TemplateModal({
               <div className="mt-2 text-sm">
                 {sample.lines.map((l) => (
                   <div key={l.code} className="flex justify-between py-0.5">
-                    <span className="text-slate-600">{l.name}</span>
+                    <span className="text-ink-600">{l.name}</span>
                     <span>{fmtMoney(l.amount)}</span>
                   </div>
                 ))}
-                <div className="flex justify-between border-t border-slate-200 pt-1 font-semibold">
+                <div className="flex justify-between border-t border-ink-200 pt-1 font-semibold">
                   <span>Gross / month</span>
                   <span>{fmtMoney(sample.gross)}</span>
                 </div>
@@ -1011,10 +1011,10 @@ function TemplatesTab() {
             {data.map((t) => (
               <tr key={t.id}>
                 <Td>
-                  <p className="font-medium text-slate-900">{t.name}</p>
-                  {t.description && <p className="text-xs text-slate-400">{t.description}</p>}
+                  <p className="font-medium text-ink-900">{t.name}</p>
+                  {t.description && <p className="text-xs text-ink-400">{t.description}</p>}
                 </Td>
-                <Td className="text-xs text-slate-600">
+                <Td className="text-xs text-ink-600">
                   {t.components
                     .map((c) =>
                       c.calc === 'BALANCE'
@@ -1053,7 +1053,7 @@ function TemplatesTab() {
       </Card>
       {applying && (
         <Modal title={`Apply “${applying.name}” to its employees`} open onClose={() => setApplying(null)} wide>
-          <p className="text-xs text-slate-500">Employees whose last salary revision used this template.</p>
+          <p className="text-xs text-ink-500">Employees whose last salary revision used this template.</p>
           <RestructurePanel templateId={applying.id} version={0} />
         </Modal>
       )}

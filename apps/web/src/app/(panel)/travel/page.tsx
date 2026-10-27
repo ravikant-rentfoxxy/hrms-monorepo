@@ -165,32 +165,32 @@ function DetailModal({
           <ErrorNote error={error} />
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
-              <p className="text-xs text-slate-400">Trip</p>
-              <p className="font-medium text-slate-900">
+              <p className="text-xs text-ink-400">Trip</p>
+              <p className="font-medium text-ink-900">
                 {data.fromCity} → {data.toCity} · {data.mode}
               </p>
             </div>
             <div>
-              <p className="text-xs text-slate-400">Dates</p>
-              <p className="font-medium text-slate-900">
+              <p className="text-xs text-ink-400">Dates</p>
+              <p className="font-medium text-ink-900">
                 {fmtDate(data.departDate)} – {fmtDate(data.returnDate)}
               </p>
             </div>
             <div>
-              <p className="text-xs text-slate-400">Estimated / advance</p>
-              <p className="font-medium text-slate-900">
+              <p className="text-xs text-ink-400">Estimated / advance</p>
+              <p className="font-medium text-ink-900">
                 {fmtMoney(data.estimatedCost)} / {fmtMoney(data.advanceAmount)}
               </p>
             </div>
             <div>
-              <p className="text-xs text-slate-400">Status</p>
+              <p className="text-xs text-ink-400">Status</p>
               <Badge tone={statusTone(data.status)}>{data.status}</Badge>
               {data.settledOn && <Badge tone="blue">Settled {fmtDate(data.settledOn)}</Badge>}
             </div>
           </div>
-          <p className="text-sm text-slate-600">{data.purpose}</p>
+          <p className="text-sm text-ink-600">{data.purpose}</p>
           {data.trail.length > 0 && (
-            <ol className="space-y-1.5 text-xs text-slate-500">
+            <ol className="space-y-1.5 text-xs text-ink-500">
               {data.trail.map((s) => (
                 <li key={s.id} className="flex flex-wrap items-center gap-2">
                   <Badge tone={extraTone(s.status)}>L{s.level} {s.status}</Badge>
@@ -225,24 +225,24 @@ function DetailModal({
           )}
 
           {canSettle && data.status === 'APPROVED' && settlement.data && (
-            <div className="rounded-xl border border-slate-200 p-4">
-              <p className="mb-2 text-sm font-semibold text-slate-900">Settlement</p>
+            <div className="rounded-xl border border-ink-200 p-4">
+              <p className="mb-2 text-sm font-semibold text-ink-900">Settlement</p>
               {data.settledOn ? (
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-ink-600">
                   Settled: {data.settledAmount !== null && data.settledAmount >= 0 ? 'pay employee' : 'recover'}{' '}
                   {fmtMoney(Math.abs(data.settledAmount ?? 0))}
                 </p>
               ) : (
                 <>
                   {settlement.data.claims.length === 0 ? (
-                    <p className="text-sm text-slate-500">No approved expense claims dated within the trip.</p>
+                    <p className="text-sm text-ink-500">No approved expense claims dated within the trip.</p>
                   ) : (
-                    <ul className="mb-3 divide-y divide-slate-100 text-sm">
+                    <ul className="mb-3 divide-y divide-ink-100 text-sm">
                       {settlement.data.claims.map((c) => (
                         <li key={c.id} className="flex items-center gap-2 py-1.5">
                           <input
                             type="checkbox"
-                            className="accent-indigo-600"
+                            className="accent-brand-600"
                             checked={!excluded.includes(c.id)}
                             onChange={(e) => setExcluded(e.target.checked ? excluded.filter((x) => x !== c.id) : [...excluded, c.id])}
                           />
@@ -259,7 +259,7 @@ function DetailModal({
                       {settlement.data.pendingClaims.length} claim(s) in this period are still pending approval and are not included.
                     </p>
                   )}
-                  <p className="mb-3 text-sm text-slate-600">
+                  <p className="mb-3 text-sm text-ink-600">
                     Claims {fmtMoney(selectedTotal)} − advance {fmtMoney(data.advanceAmount)} ={' '}
                     <span className={`font-semibold ${net >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
                       {net >= 0 ? `pay employee ${fmtMoney(net)}` : `recover ${fmtMoney(-net)}`}
@@ -312,12 +312,12 @@ function TravelTable({
         <Table headers={[...(withEmployee ? ['Employee'] : []), 'Trip', 'Dates', 'Mode', 'Estimate', 'Advance', 'Status', '']}>
           {data.map((t) => (
             <tr key={t.id}>
-              {withEmployee && <Td className="font-medium text-slate-900">{t.employee?.name}</Td>}
+              {withEmployee && <Td className="font-medium text-ink-900">{t.employee?.name}</Td>}
               <Td>
-                <span className="font-medium text-slate-900">
+                <span className="font-medium text-ink-900">
                   {t.fromCity} → {t.toCity}
                 </span>
-                <span className="block max-w-56 truncate text-xs text-slate-400">{t.purpose}</span>
+                <span className="block max-w-56 truncate text-xs text-ink-400">{t.purpose}</span>
               </Td>
               <Td>
                 {fmtDate(t.departDate)} – {fmtDate(t.returnDate)}
@@ -331,7 +331,7 @@ function TravelTable({
               <Td>
                 <Badge tone={statusTone(t.status)}>{t.status}</Badge>
                 {t.settledOn && (
-                  <span className="block text-xs text-slate-400">
+                  <span className="block text-xs text-ink-400">
                     settled {(t.settledAmount ?? 0) >= 0 ? 'pay' : 'recover'} {fmtMoney(Math.abs(t.settledAmount ?? 0))}
                   </span>
                 )}

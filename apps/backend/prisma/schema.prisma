@@ -13,6 +13,8 @@ enum Role {
   HR
   MANAGER
   EMPLOYEE
+  /// Payroll & statutory access (runs, approval, payroll inputs, loans, tax declarations); an employee elsewhere.
+  FINANCE
 }
 
 enum AttendanceStatus {
@@ -23,6 +25,14 @@ enum AttendanceStatus {
   HOLIDAY
   WEEKEND
   HALF_DAY
+}
+
+/// Where an employee works — decides how attendance is punched.
+/// OFFICE: must be inside the office geofence. REMOTE (work from home) / FIELD: punch anywhere, location recorded.
+enum WorkMode {
+  OFFICE
+  REMOTE
+  FIELD
 }
 
 enum RequestStatus {
@@ -53,6 +63,15 @@ model Company {
   logoKey        String?
   signatoryName  String   @default("")
   signatoryTitle String   @default("Authorized Signatory")
+  /// Employee ID card design (Offices → Employee ID card): brand colour, VERTICAL | HORIZONTAL,
+  /// the optional rows printed on the front, and a note on the back ("If found, please return to …").
+  brandColor     String   @default("#059571")
+  idCardLayout   String   @default("VERTICAL")
+  idCardFields   String[] @default(["department", "bloodGroup", "joiningDate", "phone"])
+  idCardBackNote String   @default("")
+  /// Colours (top band + optional gradient, body, accent, bottom stripe), photo shape, title, back-side
+  /// toggles and validity — see IdCardStyle in id-card.service.ts. Missing keys fall back to brandColor.
+  idCardStyle    Json     @default("{}")
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -67,9 +86,6 @@ model Company {
   holidays        Holiday[]
   announcements   Announcement[]
   expenses        ExpenseClaim[]
-  goals           Goal[]
-  feedback        Feedback[]
-  tasks           Task[]
   documents       Document[]
   tickets         Ticket[]
   regularizations RegularizationRequest[]
@@ -116,8 +132,6 @@ model Company {
   // ---- Talent ----
   jobOpenings         JobOpening[]
   candidates          Candidate[]
-  reviewCycles        ReviewCycle[]
-  courses             Course[]
   surveys             Survey[]
   // ---- Engagement & platform ----
   travelRequests      TravelRequest[]
@@ -146,9 +160,6 @@ model User {
   isActive         Boolean   @default(true)
   refreshTokenHash String?
   lastLoginAt      DateTime?
-  // Two-factor (TOTP, authenticator app) — optional, recommended for ADMIN/HR.
-  totpSecret       String?
-  totpEnabled      Boolean   @default(false)
   // Forgot-password OTP (stored hashed). TODO: delivered by email once email is wired.
   resetOtpHash     String?
   resetOtpExpires  DateTime?
@@ -210,6 +221,12 @@ model Employee {
   pan                 String       @default("")
   employmentType      String       @default("Full-time")
   avatarColor         String       @default("#3F51B5")
+  /// Profile photo (MinIO key, PNG / JPG) — shown on the ID card.
+  photoKey            String?
+  /// Random token behind the ID card's QR code (public verify page). Reissuing the card replaces it.
+  cardToken           String?      @unique
+  /// When the current card (token) was issued — "Valid till" counts from here.
+  cardIssuedAt        DateTime?
   // Monthly salary structure (HR/ADMIN only) — drives the payroll run.
   salaryBasic         Float        @default(0)
   salaryHra           Float        @default(0)
@@ -234,6 +251,8 @@ model Employee {
   gradeRef            Grade?       @relation(fields: [gradeId], references: [id], onDelete: SetNull)
   /// Work location — drives PT/LWF state.
   officeId            String?
+  /// Office (geofenced punch) / work from home / field work — set by HR or Admin.
+  workMode            WorkMode     @default(OFFICE)
   gender              String       @default("") // MALE | FEMALE | OTHER
   maritalStatus       String       @default("")
   personalEmail       String       @default("")
@@ -266,6 +285,7 @@ model Employee {
   shiftAssignments  ShiftAssignment[]
   overtimeRequests  OvertimeRequest[]
   timesheetWeeks    TimesheetWeek[]
+  projectMemberships ProjectMember[]
   salaryRevisions   SalaryRevision[]
   taxDeclarations   TaxDeclaration[]
   payrollInputs     PayrollInput[]
@@ -276,9 +296,6 @@ model Employee {
   assetAssignments  AssetAssignment[]
   resignations      Resignation[]
   finalSettlements  FinalSettlement[]
-  reviews           Review[]
-  reviewOutcomes    ReviewOutcome[]
-  courseEnrollments CourseEnrollment[]
   travelRequests    TravelRequest[]
   kudosGiven        Recognition[]           @relation("KudosFrom")
   kudosReceived     Recognition[]           @relation("KudosTo")
@@ -293,10 +310,6 @@ model Employee {
   payslips               Payslip[]
   expenses               ExpenseClaim[]          @relation("ExpenseOwner")
   approvedExpenses       ExpenseClaim[]          @relation("ExpenseApprover")
-  goals                  Goal[]
-  feedbackReceived       Feedback[]              @relation("FeedbackAbout")
-  feedbackGiven          Feedback[]              @relation("FeedbackFrom")
-  tasks                  Task[]
   documents              Document[]              @relation("DocOwner")
   uploadedDocuments      Document[]              @relation("DocUploader")
   tickets                Ticket[]
@@ -351,6 +364,8 @@ model AttendanceRecord {
   checkOutLat      Float?
   checkOutLng      Float?
   checkOutDistance Float?
+  /// The employee's work mode when they punched in (OFFICE = geofence enforced).
+  workMode         WorkMode?
   note             String?
   shiftId          String?
   workedMinutes    Int?
@@ -530,56 +545,6 @@ model ExpenseClaim {
   approver    Employee?     @relation("ExpenseApprover", fields: [approverId], references: [id], onDelete: SetNull)
   remarks     String?
   createdAt   DateTime      @default(now())
-
-  @@index([companyId, employeeId])
-}
-
-model Goal {
-  id          String   @id @default(uuid())
-  companyId   String
-  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  employeeId  String
-  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  title       String
-  description String   @default("")
-  dueDate     DateTime @db.Date
-  category    String   @default("General")
-  progress    Float    @default(0) // 0..1
-  weightage   Int      @default(10)
-  createdAt   DateTime @default(now())
-
-  @@index([companyId, employeeId])
-}
-
-model Feedback {
-  id             String    @id @default(uuid())
-  companyId      String
-  company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  employeeId     String // feedback is ABOUT this employee
-  employee       Employee  @relation("FeedbackAbout", fields: [employeeId], references: [id], onDelete: Cascade)
-  fromEmployeeId String?
-  fromEmployee   Employee? @relation("FeedbackFrom", fields: [fromEmployeeId], references: [id], onDelete: SetNull)
-  fromName       String    @default("")
-  fromRole       String    @default("Peer")
-  message        String
-  rating         Int       @default(3) // 1..5
-  date           DateTime  @default(now())
-
-  @@index([companyId, employeeId])
-}
-
-model Task {
-  id         String   @id @default(uuid())
-  companyId  String
-  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  title      String
-  project    String   @default("")
-  due        DateTime
-  priority   String   @default("Medium") // Low | Medium | High
-  done       Boolean  @default(false)
-  createdAt  DateTime @default(now())
 
   @@index([companyId, employeeId])
 }
@@ -915,8 +880,24 @@ model Project {
   createdAt  DateTime @default(now())
 
   entries TimesheetEntry[]
+  /// Who may book hours on it. No members = open to everyone.
+  members ProjectMember[]
 
   @@unique([companyId, code])
+}
+
+/// An employee given access to a project (can log timesheet hours on it).
+model ProjectMember {
+  id         String   @id @default(uuid())
+  companyId  String
+  projectId  String
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  addedAt    DateTime @default(now())
+
+  @@unique([projectId, employeeId])
+  @@index([companyId, employeeId])
 }
 
 model TimesheetWeek {
@@ -1680,105 +1661,6 @@ model Offer {
   createdAt        DateTime    @default(now())
 
   @@unique([companyId, code])
-}
-
-model ReviewCycle {
-  id               String    @id @default(uuid())
-  companyId        String
-  company          Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  name             String
-  periodStart      DateTime  @db.Date
-  periodEnd        DateTime  @db.Date
-  /// DRAFT | SELF_REVIEW | MANAGER_REVIEW | CALIBRATION | CLOSED
-  status           String    @default("DRAFT")
-  selfReviewDue    DateTime? @db.Date
-  managerReviewDue DateTime? @db.Date
-  ratingScale      Int       @default(5)
-  includePeer      Boolean   @default(false)
-  createdAt        DateTime  @default(now())
-
-  reviews  Review[]
-  outcomes ReviewOutcome[]
-}
-
-model Review {
-  id           String      @id @default(uuid())
-  companyId    String
-  cycleId      String
-  cycle        ReviewCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
-  /// The reviewee.
-  employeeId   String
-  employee     Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  reviewerId   String?
-  /// SELF | MANAGER | PEER
-  type         String
-  /// PENDING | SUBMITTED
-  status       String      @default("PENDING")
-  rating       Float?
-  strengths    String      @default("")
-  improvements String      @default("")
-  comments     String      @default("")
-  /// [{ "goalId": "...", "title": "...", "rating": 4 }]
-  goalRatings  Json?
-  submittedAt  DateTime?
-
-  @@index([companyId, cycleId, employeeId])
-}
-
-model ReviewOutcome {
-  id               String      @id @default(uuid())
-  companyId        String
-  cycleId          String
-  cycle            ReviewCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
-  employeeId       String
-  employee         Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  finalRating      Float?
-  /// Rating after calibration / bell-curve normalization.
-  normalizedRating Float?
-  incrementPercent Float       @default(0)
-  promotion        Boolean     @default(false)
-  newDesignation   String      @default("")
-  remarks          String      @default("")
-  /// PROPOSED | APPROVED | APPLIED
-  status           String      @default("PROPOSED")
-
-  @@unique([cycleId, employeeId])
-}
-
-model Course {
-  id              String   @id @default(uuid())
-  companyId       String
-  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  title           String
-  description     String   @default("")
-  category        String   @default("General")
-  durationMinutes Int      @default(60)
-  contentUrl      String   @default("")
-  mandatory       Boolean  @default(false)
-  /// Days after assignment the course is due.
-  dueDays         Int      @default(30)
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-
-  enrollments CourseEnrollment[]
-}
-
-model CourseEnrollment {
-  id          String    @id @default(uuid())
-  companyId   String
-  courseId    String
-  course      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  employeeId  String
-  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  assignedOn  DateTime  @default(now())
-  dueDate     DateTime? @db.Date
-  /// ASSIGNED | IN_PROGRESS | COMPLETED
-  status      String    @default("ASSIGNED")
-  progress    Float     @default(0)
-  score       Float?
-  completedAt DateTime?
-
-  @@unique([courseId, employeeId])
 }
 
 /// questions = [{ "id": "q1", "text": "...", "type": "RATING" | "NPS" | "TEXT" | "CHOICE", "options": ["a","b"] }]

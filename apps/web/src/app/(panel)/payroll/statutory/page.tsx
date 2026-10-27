@@ -68,8 +68,8 @@ const MONTHS = ['Every month', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 
 
 function Toggle({ label, checked, onChange, disabled }: { label: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   return (
-    <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-      <input type="checkbox" className="h-4 w-4 accent-indigo-600" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
+    <label className="flex items-center gap-2 text-sm font-medium text-ink-700">
+      <input type="checkbox" className="h-4 w-4 accent-brand-600" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
       {label}
     </label>
   );
@@ -128,7 +128,7 @@ function GeneralForm({ initial, canEdit, states }: { initial: Config; canEdit: b
       <ErrorNote error={error} />
       <Notice text={notice} />
       <Card className="p-5">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Provident fund</h2>
+        <h2 className="mb-3 text-sm font-semibold text-ink-900">Provident fund</h2>
         <div className="mb-3 flex flex-wrap gap-6">
           <Toggle label="PF enabled" checked={form.pfEnabled} disabled={!canEdit} onChange={(v) => set('pfEnabled', v)} />
           <Toggle label="Restrict PF wages to the ceiling" checked={form.pfRestrictToCeiling} disabled={!canEdit} onChange={(v) => set('pfRestrictToCeiling', v)} />
@@ -143,7 +143,7 @@ function GeneralForm({ initial, canEdit, states }: { initial: Config; canEdit: b
         </div>
       </Card>
       <Card className="p-5">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">ESI</h2>
+        <h2 className="mb-3 text-sm font-semibold text-ink-900">ESI</h2>
         <div className="mb-3"><Toggle label="ESI enabled" checked={form.esiEnabled} disabled={!canEdit} onChange={(v) => set('esiEnabled', v)} /></div>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <Field label="Wage limit (₹/month)">{num('esiWageLimit')}</Field>
@@ -155,7 +155,7 @@ function GeneralForm({ initial, canEdit, states }: { initial: Config; canEdit: b
         </div>
       </Card>
       <Card className="p-5">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Professional tax, LWF, TDS & gratuity</h2>
+        <h2 className="mb-3 text-sm font-semibold text-ink-900">Professional tax, LWF, TDS & gratuity</h2>
         <div className="mb-3 flex flex-wrap gap-6">
           <Toggle label="Professional tax" checked={form.ptEnabled} disabled={!canEdit} onChange={(v) => set('ptEnabled', v)} />
           <Toggle label="Labour welfare fund" checked={form.lwfEnabled} disabled={!canEdit} onChange={(v) => set('lwfEnabled', v)} />
@@ -198,7 +198,7 @@ function PtTab({ canEdit, states }: { canEdit: boolean; states: States }) {
             </Select>
           </Field>
         </div>
-        <p className="flex-1 text-xs text-slate-400">
+        <p className="flex-1 text-xs text-ink-400">
           Monthly gross between min and max (inclusive, max 0 = no limit) → PT. Gender- and month-specific slabs override
           the general ones (e.g. Maharashtra February ₹300). Seeded figures are the 2026 state rules — verify and edit.
         </p>
@@ -262,7 +262,7 @@ function PtEditor({ state, initial, canEdit, onSaved }: { state: string; initial
               </Td>
               <Td>
                 {canEdit && (
-                  <button className="text-slate-400 hover:text-rose-600" onClick={() => setRows(rows.filter((_, j) => j !== i))}>✕</button>
+                  <button className="text-ink-400 hover:text-rose-600" onClick={() => setRows(rows.filter((_, j) => j !== i))}>✕</button>
                 )}
               </Td>
             </tr>
@@ -308,7 +308,7 @@ function LwfTab({ canEdit, states }: { canEdit: boolean; states: string[] }) {
 
   return (
     <Card className="p-5">
-      <p className="mb-3 text-xs text-slate-400">
+      <p className="mb-3 text-xs text-ink-400">
         Labour Welfare Fund is deducted in the listed months only, by the employee&apos;s work state. It is applied only
         when LWF is enabled in General settings.
       </p>
@@ -321,7 +321,7 @@ function LwfTab({ canEdit, states }: { canEdit: boolean; states: string[] }) {
         <Table headers={['State', 'Employee ₹', 'Employer ₹', 'Months', '']}>
           {rules.map((r) => (
             <tr key={r.id}>
-              <Td className="font-medium text-slate-900">{r.state}</Td>
+              <Td className="font-medium text-ink-900">{r.state}</Td>
               <Td>{fmtMoney(r.employeeAmount)}</Td>
               <Td>{fmtMoney(r.employerAmount)}</Td>
               <Td>{r.months.split(',').map((m) => MONTHS[Number(m)] ?? m).join(', ')}</Td>
@@ -398,7 +398,7 @@ function TaxRuleCard({ rule, canEdit, onSaved }: { rule: TaxRule; canEdit: boole
 
   return (
     <Card className="p-5">
-      <h2 className="mb-3 text-sm font-semibold text-slate-900">{form.regime === 'NEW' ? 'New regime (115BAC)' : 'Old regime'} · FY {form.fy}</h2>
+      <h2 className="mb-3 text-sm font-semibold text-ink-900">{form.regime === 'NEW' ? 'New regime (115BAC)' : 'Old regime'} · FY {form.fy}</h2>
       <ErrorNote error={error} />
       <Notice text={notice} />
       <div className="mb-3 grid grid-cols-2 gap-3">
@@ -407,22 +407,22 @@ function TaxRuleCard({ rule, canEdit, onSaved }: { rule: TaxRule; canEdit: boole
         <Field label="87A income limit ₹"><Input type="number" disabled={!canEdit} value={form.rebateIncomeLimit} onChange={(e) => setForm({ ...form, rebateIncomeLimit: Number(e.target.value) })} /></Field>
         <Field label="87A max rebate ₹"><Input type="number" disabled={!canEdit} value={form.rebateMax} onChange={(e) => setForm({ ...form, rebateMax: Number(e.target.value) })} /></Field>
       </div>
-      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Slabs (annual taxable income)</p>
+      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-ink-500">Slabs (annual taxable income)</p>
       {form.slabs.map((s, i) => {
         const last = i === form.slabs.length - 1;
         const from = i === 0 ? 0 : (form.slabs[i - 1]?.upTo ?? 0);
         return (
           <div key={i} className="mb-2 flex items-center gap-2 text-sm">
-            <span className="w-28 text-right tabular-nums text-slate-500">{fmtMoney(from)} –</span>
+            <span className="w-28 text-right tabular-nums text-ink-500">{fmtMoney(from)} –</span>
             {last ? (
-              <span className="w-36 text-slate-500">and above</span>
+              <span className="w-36 text-ink-500">and above</span>
             ) : (
               <Input type="number" className="!w-36" disabled={!canEdit} value={s.upTo ?? ''} onChange={(e) => setSlab(i, { upTo: Number(e.target.value) })} />
             )}
             <Input type="number" className="!w-20" disabled={!canEdit} value={s.rate} onChange={(e) => setSlab(i, { rate: Number(e.target.value) })} />
-            <span className="text-slate-500">%</span>
+            <span className="text-ink-500">%</span>
             {canEdit && form.slabs.length > 1 && (
-              <button className="text-slate-400 hover:text-rose-600" onClick={() => setForm({ ...form, slabs: form.slabs.filter((_, j) => j !== i) })}>✕</button>
+              <button className="text-ink-400 hover:text-rose-600" onClick={() => setForm({ ...form, slabs: form.slabs.filter((_, j) => j !== i) })}>✕</button>
             )}
           </div>
         );
@@ -459,7 +459,7 @@ function TaxTab({ canEdit }: { canEdit: boolean }) {
             {fys.map((f) => <option key={f} value={f}>FY {f}</option>)}
           </Select>
         </div>
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-ink-400">
           Surcharge (10% / 15% / 25% above ₹50L / 1Cr / 2Cr, 37% above ₹5Cr in the old regime) and marginal relief are
           applied automatically. Employees choose their regime in their tax declaration.
         </p>
@@ -479,8 +479,8 @@ function TaxTab({ canEdit }: { canEdit: boolean }) {
 }
 
 export default function StatutorySettingsPage() {
-  const { session } = useAuth();
-  const canEdit = session?.role === 'ADMIN' || session?.role === 'SUPER_ADMIN';
+  // Admin, HR and Finance edit statutory settings; the API enforces the same.
+  const { canManagePayroll: canEdit } = useAuth();
   const [tab, setTab] = useState('General');
   const { data: states, error } = useFetch<States>('/statutory/states');
 
@@ -489,9 +489,9 @@ export default function StatutorySettingsPage() {
       <PageHeader
         title="Statutory settings"
         subtitle="PF, ESI, professional tax, labour welfare fund and income tax rules"
-        actions={<Link href="/payroll" className="text-sm font-medium text-slate-500 hover:text-slate-800">← Payroll</Link>}
+        actions={<Link href="/payroll" className="text-sm font-medium text-ink-500 hover:text-ink-800">← Payroll</Link>}
       />
-      {!canEdit && <p className="mb-4 text-sm text-slate-500">Read-only: only company admins can change statutory settings.</p>}
+      {!canEdit && <p className="mb-4 text-sm text-ink-500">Read-only: only Admin, HR or Finance can change statutory settings.</p>}
       <ErrorNote error={error} />
       <Tabs tabs={['General', 'Professional tax', 'Labour welfare fund', 'Income tax']} active={tab} onChange={setTab} />
       {!states ? (

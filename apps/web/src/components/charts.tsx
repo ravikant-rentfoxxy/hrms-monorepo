@@ -7,7 +7,7 @@
  */
 import { useState, type ReactNode } from 'react';
 
-export const SERIES_COLORS = ['#4F46E5', '#0D9488'];
+export const SERIES_COLORS = ['#059571', '#0EA5E9'];
 
 type Fmt = (n: number) => string;
 const plain: Fmt = (n) => new Intl.NumberFormat('en-IN', { maximumFractionDigits: 1 }).format(n);
@@ -31,7 +31,7 @@ function niceMax(v: number): number {
 function Tooltip({ children, left }: { children: ReactNode; left: number }) {
   return (
     <div
-      className="pointer-events-none absolute top-0 z-10 -translate-x-1/2 rounded-lg bg-slate-900 px-2.5 py-1.5 text-[11px] whitespace-nowrap text-white shadow-lg"
+      className="pointer-events-none absolute top-0 z-10 -translate-x-1/2 rounded-lg bg-ink-900 px-2.5 py-1.5 text-[11px] whitespace-nowrap text-white shadow-lg"
       style={{ left: `${Math.min(88, Math.max(12, left))}%` }}
     >
       {children}
@@ -42,7 +42,7 @@ function Tooltip({ children, left }: { children: ReactNode; left: number }) {
 export function Legend({ series }: { series: { label: string }[] }) {
   if (series.length < 2) return null;
   return (
-    <div className="flex flex-wrap gap-4 text-xs text-slate-500">
+    <div className="flex flex-wrap gap-4 text-xs text-ink-500">
       {series.map((s, i) => (
         <span key={s.label} className="inline-flex items-center gap-1.5">
           <span className="h-0.5 w-4 rounded" style={{ background: SERIES_COLORS[i % SERIES_COLORS.length] }} />
@@ -103,14 +103,14 @@ export function LineChart({
           {[0, 0.5, 1].map((f) => (
             <g key={f}>
               <line x1={PAD.l} x2={W - PAD.r} y1={y(max * f)} y2={y(max * f)} stroke="#E2E8F0" strokeWidth={1} />
-              <text x={PAD.l - 6} y={y(max * f) + 3} textAnchor="end" className="fill-slate-400 text-[10px]">
+              <text x={PAD.l - 6} y={y(max * f) + 3} textAnchor="end" className="fill-ink-400 text-[10px]">
                 {compact(max * f)}
               </text>
             </g>
           ))}
           {labels.map((l, i) =>
             i % every === 0 || i === n - 1 ? (
-              <text key={l + i} x={x(i)} y={height - 8} textAnchor="middle" className="fill-slate-400 text-[10px]">
+              <text key={l + i} x={x(i)} y={height - 8} textAnchor="middle" className="fill-ink-400 text-[10px]">
                 {l}
               </text>
             ) : null
@@ -191,7 +191,7 @@ export function ColumnChart({
         {[0, 0.5, 1].map((f) => (
           <g key={f}>
             <line x1={PAD.l} x2={W - PAD.r} y1={PAD.t + ih - f * ih} y2={PAD.t + ih - f * ih} stroke="#E2E8F0" />
-            <text x={PAD.l - 6} y={PAD.t + ih - f * ih + 3} textAnchor="end" className="fill-slate-400 text-[10px]">
+            <text x={PAD.l - 6} y={PAD.t + ih - f * ih + 3} textAnchor="end" className="fill-ink-400 text-[10px]">
               {compact(max * f)}
             </text>
           </g>
@@ -213,7 +213,7 @@ export function ColumnChart({
                 />
               )}
               {(i % every === 0 || i === n - 1) && (
-                <text x={cx} y={height - 8} textAnchor="middle" className="fill-slate-400 text-[10px]">
+                <text x={cx} y={height - 8} textAnchor="middle" className="fill-ink-400 text-[10px]">
                   {labels[i]}
                 </text>
               )}
@@ -244,10 +244,10 @@ export function BarList({
       {shown.map((item) => (
         <li key={item.label} className="group" title={`${item.label}: ${format(item.value)}`}>
           <div className="mb-1 flex items-center justify-between gap-3 text-xs">
-            <span className="truncate text-slate-600">{item.label}</span>
-            <span className="font-medium text-slate-900 tabular-nums">{format(item.value)}</span>
+            <span className="truncate text-ink-600">{item.label}</span>
+            <span className="font-medium text-ink-900 tabular-nums">{format(item.value)}</span>
           </div>
-          <div className="h-2 rounded-full bg-slate-100">
+          <div className="h-2 rounded-full bg-ink-100">
             <div
               className="h-2 rounded-full transition-[filter] group-hover:brightness-110"
               style={{ width: `${Math.max(1.5, (item.value / max) * 100)}%`, background: SERIES_COLORS[0] }}
@@ -264,7 +264,7 @@ export function SplitBar({ parts, label }: { parts: { label: string; value: numb
   const total = parts.reduce((s, p) => s + p.value, 0);
   return (
     <div>
-      <div className="flex h-3 gap-0.5 overflow-hidden rounded-full bg-slate-100" role="img" aria-label={`${label}: ${parts.map((p) => `${p.label} ${p.value}`).join(', ')}`}>
+      <div className="flex h-3 gap-0.5 overflow-hidden rounded-full bg-ink-100" role="img" aria-label={`${label}: ${parts.map((p) => `${p.label} ${p.value}`).join(', ')}`}>
         {total > 0 &&
           parts
             .filter((p) => p.value > 0)
@@ -274,10 +274,10 @@ export function SplitBar({ parts, label }: { parts: { label: string; value: numb
       </div>
       <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs sm:grid-cols-3">
         {parts.map((p) => (
-          <span key={p.label} className="flex items-center gap-1.5 text-slate-500">
+          <span key={p.label} className="flex items-center gap-1.5 text-ink-500">
             <span className="h-2 w-2 rounded-full" style={{ background: p.color }} />
             {p.label}
-            <b className="ml-auto font-semibold text-slate-900 tabular-nums">{p.value}</b>
+            <b className="ml-auto font-semibold text-ink-900 tabular-nums">{p.value}</b>
           </span>
         ))}
       </div>

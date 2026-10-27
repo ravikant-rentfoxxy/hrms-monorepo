@@ -9,7 +9,7 @@
 import PDFDocument from 'pdfkit';
 import { prisma } from '../lib/prisma';
 import { notify } from '../lib/notify';
-import { objectKey, presignedGetUrl, putObject, removeObject } from '../lib/storage';
+import { objectKey, presignedGetUrl, putObject, removeObject, FILE_LINK_TTL_SECONDS } from '../lib/storage';
 import { ApiError } from '../utils/http';
 import { letterhead, type Letterhead } from './company-profile.service';
 import { inr, isCompanyAdmin, longDate, monthlyGross } from '../utils/lifecycle';
@@ -523,7 +523,7 @@ export async function letterUrl(
   if (!letter || !letter.fileKey) throw ApiError.notFound('Letter not found');
   if (!isCompanyAdmin(viewer.role) && letter.employeeId !== viewer.employeeId) throw ApiError.forbidden();
   const fileName = `${letter.title.replace(/[^\w\- ]+/g, '').trim() || letter.type}.pdf`;
-  return { url: await presignedGetUrl(letter.fileKey, fileName, opts.inline ? 'inline' : 'attachment'), fileName, expiresInSeconds: 600 };
+  return { url: await presignedGetUrl(letter.fileKey, fileName, opts.inline ? 'inline' : 'attachment'), fileName, expiresInSeconds: FILE_LINK_TTL_SECONDS };
 }
 
 export async function deleteLetter(companyId: string, id: string) {

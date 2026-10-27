@@ -50,15 +50,15 @@ function Stepper({ status, paid }: { status: string; paid: boolean }) {
         <div key={s} className="flex items-center gap-2">
           <span
             className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
-              i <= at ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'
+              i <= at ? 'bg-brand-600 text-white' : 'bg-ink-100 text-ink-400'
             }`}
           >
             {i < at ? '✓' : i + 1}
           </span>
-          <span className={`text-sm font-medium ${i <= at ? 'text-slate-900' : 'text-slate-400'}`}>
+          <span className={`text-sm font-medium ${i <= at ? 'text-ink-900' : 'text-ink-400'}`}>
             {STEP_LABELS[s]}
           </span>
-          {i < STEPS.length - 1 && <span className={`h-px w-10 ${i < at ? 'bg-indigo-400' : 'bg-slate-200'}`} />}
+          {i < STEPS.length - 1 && <span className={`h-px w-10 ${i < at ? 'bg-brand-400' : 'bg-ink-200'}`} />}
         </div>
       ))}
     </div>
@@ -88,7 +88,7 @@ function RecalcModal({ run, onClose, onDone }: { run: RunDetail; onClose: () => 
     <Modal title="Recalculate run" open onClose={onClose}>
       <div className="space-y-3">
         <ErrorNote error={error} />
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-ink-500">
           Recomputes every draft payslip from current salaries, attendance, payroll inputs, loans, declarations and
           statutory settings. Manual edits to draft payslips are replaced.
         </p>
@@ -125,7 +125,7 @@ function PaidModal({ run, onClose, onDone }: { run: RunDetail; onClose: () => vo
     <Modal title="Record salary payment" open onClose={onClose}>
       <div className="space-y-3">
         <ErrorNote error={error} />
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-ink-500">
           Record the bank transfer for {fmtMoney(run.totals?.net ?? 0)} net pay. Employees are told their salary has been credited.
         </p>
         <Field label="Payment / UTR reference">
@@ -194,6 +194,8 @@ export default function PayrollRunPage() {
   const t = run.totals;
   const ym = run.month.slice(0, 7);
   const isAdmin = session?.role === 'ADMIN' || session?.role === 'SUPER_ADMIN';
+  // Admin or Finance signs off the run (the API enforces the same).
+  const canApprove = isAdmin || session?.role === 'FINANCE';
 
   return (
     <div>
@@ -202,7 +204,7 @@ export default function PayrollRunPage() {
         subtitle={`${run.workingDays} working days · created ${fmtDate(run.createdAt)}${run.publishedAt ? ` · published ${fmtDate(run.publishedAt)}` : ''}`}
         actions={
           <>
-            <Link href="/payroll" className="text-sm font-medium text-slate-500 hover:text-slate-800">← All runs</Link>
+            <Link href="/payroll" className="text-sm font-medium text-ink-500 hover:text-ink-800">← All runs</Link>
             {run.status === 'DRAFT' && (
               <>
                 <Button variant="secondary" onClick={() => setRecalcOpen(true)}>Recalculate</Button>
@@ -217,12 +219,12 @@ export default function PayrollRunPage() {
               </Button>
             )}
             {run.status === 'LOCKED' && (
-              isAdmin ? (
+              canApprove ? (
                 <Button onClick={() => void act('approve')} disabled={!!busy}>
                   {busy === 'approve' ? 'Approving…' : 'Approve payroll'}
                 </Button>
               ) : (
-                <span className="text-sm text-slate-500">Waiting for management approval</span>
+                <span className="text-sm text-ink-500">Waiting for Admin or Finance approval</span>
               )
             )}
             {run.status === 'APPROVED' && (
@@ -246,10 +248,10 @@ export default function PayrollRunPage() {
         <Stat label="Employees" value={t?.employees ?? 0} icon="users" />
         <Stat label="Gross" value={fmtMoney(t?.gross ?? 0)} icon="banknote" />
         <Stat label="Deductions" value={fmtMoney(t?.deductions ?? 0)} accent="text-rose-600" />
-        <Stat label="Net pay" value={fmtMoney(t?.net ?? 0)} accent="text-indigo-700" icon="wallet" />
+        <Stat label="Net pay" value={fmtMoney(t?.net ?? 0)} accent="text-brand-700" icon="wallet" />
         <Stat label="Employer cost" value={fmtMoney(t?.employerCost ?? 0)} icon="building" />
       </div>
-      <div className="mb-4 flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-500">
+      <div className="mb-4 flex flex-wrap gap-x-6 gap-y-1 text-sm text-ink-500">
         <span>TDS {fmtMoney(t?.tds ?? 0)}</span>
         <span>Employer contributions {fmtMoney(t?.employerContributions ?? 0)}</span>
         <span>LOP days {days(t?.lopDays ?? 0)}</span>
@@ -265,7 +267,7 @@ export default function PayrollRunPage() {
       </div>
 
       <Card className="mb-4 p-4">
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Downloads</p>
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-500">Downloads</p>
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary" disabled={run.status === 'DRAFT'} onClick={() => void download('bank-file.csv', `bank-transfer-${ym}.csv`)}>
             Bank transfer file
@@ -275,7 +277,7 @@ export default function PayrollRunPage() {
           <Button variant="secondary" onClick={() => void download('pt.csv', `PT-${ym}.csv`)}>PT summary</Button>
           <Button variant="secondary" onClick={() => void download('register.csv', `payroll-register-${ym}.csv`)}>Payroll register</Button>
         </div>
-        {run.status === 'DRAFT' && <p className="mt-2 text-xs text-slate-400">Lock the run to generate the bank transfer file.</p>}
+        {run.status === 'DRAFT' && <p className="mt-2 text-xs text-ink-400">Lock the run to generate the bank transfer file.</p>}
       </Card>
 
       {run.byDepartment.length > 1 && (
@@ -283,7 +285,7 @@ export default function PayrollRunPage() {
           <Table headers={['Department', 'Employees', 'Gross', 'Net', 'Employer cost']}>
             {run.byDepartment.map((d) => (
               <tr key={d.department}>
-                <Td className="font-medium text-slate-900">{d.department}</Td>
+                <Td className="font-medium text-ink-900">{d.department}</Td>
                 <Td>{d.employees}</Td>
                 <Td>{fmtMoney(d.gross)}</Td>
                 <Td>{fmtMoney(d.net)}</Td>
@@ -296,7 +298,7 @@ export default function PayrollRunPage() {
 
       <Card>
         <div className="flex items-center justify-between gap-3 p-4">
-          <h2 className="text-sm font-semibold text-slate-900">Employees</h2>
+          <h2 className="text-sm font-semibold text-ink-900">Employees</h2>
           <div className="w-64">
             <Input placeholder="Search name, code, department" value={query} onChange={(e) => setQuery(e.target.value)} />
           </div>
@@ -308,8 +310,8 @@ export default function PayrollRunPage() {
             {lines.map((l) => (
               <tr key={l.id}>
                 <Td>
-                  <p className="font-medium text-slate-900">{l.employee.name}</p>
-                  <p className="text-xs text-slate-400">
+                  <p className="font-medium text-ink-900">{l.employee.name}</p>
+                  <p className="text-xs text-ink-400">
                     {l.employee.employeeCode} · {l.employee.department || '—'}
                     {!l.employee.hasBank && <span className="ml-1 text-amber-600">· no bank</span>}
                   </p>
@@ -321,12 +323,12 @@ export default function PayrollRunPage() {
                 <Td>{fmtMoney(l.gross)}</Td>
                 <Td className="text-rose-600">−{fmtMoney(l.totalDeductions)}</Td>
                 <Td>{fmtMoney(l.tds)}</Td>
-                <Td className="font-semibold text-indigo-700">{fmtMoney(l.netPay)}</Td>
+                <Td className="font-semibold text-brand-700">{fmtMoney(l.netPay)}</Td>
                 <Td>
                   {l.variance === null ? (
-                    <span className="text-xs text-slate-400">new</span>
+                    <span className="text-xs text-ink-400">new</span>
                   ) : (
-                    <span className={l.variance > 0 ? 'text-emerald-600' : l.variance < 0 ? 'text-rose-600' : 'text-slate-400'}>
+                    <span className={l.variance > 0 ? 'text-emerald-600' : l.variance < 0 ? 'text-rose-600' : 'text-ink-400'}>
                       {l.variance > 0 ? '+' : ''}{fmtMoney(l.variance)}
                     </span>
                   )}

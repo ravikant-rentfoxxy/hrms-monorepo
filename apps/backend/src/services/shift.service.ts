@@ -1,5 +1,5 @@
 /**
- * Shifts, shift assignments, weekly offs and the roster.
+ * Shifts, shift assignments and weekly offs.
  *
  * Every employee works the shift assigned to them for a date (ShiftAssignment
  * covering it) or else the company's default shift. A company always has
@@ -9,10 +9,10 @@
  *   const shift = await resolveShift(companyId, employeeId, date);
  *   if (isWeeklyOff(shift, date)) ...
  */
-import { Prisma, type Role, type Shift } from '@prisma/client';
+import { Prisma, type Shift } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { ApiError } from '../utils/http';
-import { DAY_MS, addDays, fromMinutes, isoDate, toMinutes } from '../utils/tz';
+import { addDays, fromMinutes, isoDate, toMinutes } from '../utils/tz';
 
 export interface ShiftInput {
   name: string;
@@ -31,9 +31,6 @@ export interface ShiftInput {
   isDefault?: boolean;
   isActive?: boolean;
 }
-
-/** Max span of a roster / bulk resolve request. */
-const MAX_RANGE_DAYS = 62;
 
 // ---- Pure helpers ----
 
@@ -72,7 +69,7 @@ export function isWeeklyOff(shift: Pick<Shift, 'weeklyOffs' | 'altSaturdaysOff'>
 export const overtimeThreshold = (shift: Pick<Shift, 'overtimeAfterMinutes' | 'fullDayMinutes'>): number =>
   shift.overtimeAfterMinutes > 0 ? shift.overtimeAfterMinutes : shift.fullDayMinutes;
 
-/** Compact shape for API payloads (calendar, roster, today). */
+/** Compact shape for API payloads (calendar, today). */
 export const shiftSummary = (s: Shift) => ({
   id: s.id,
   name: s.name,
@@ -231,7 +228,7 @@ export type ShiftResolver = (employeeId: string, date: Date) => Shift;
 
 /**
  * Bulk version of resolveShift for many employees over a date range
- * (one query) — used by the daily job, roster, muster and payroll.
+ * (one query) — used by the daily job, muster and payroll.
  */
 export async function shiftResolver(companyId: string, employeeIds: string[], from: Date, to: Date): Promise<ShiftResolver> {
   const [fallback, assignments] = await Promise.all([
@@ -390,109 +387,4 @@ export async function deleteAssignment(companyId: string, id: string) {
   if (!a) throw ApiError.notFound('Assignment not found');
   await prisma.shiftAssignment.delete({ where: { id } });
   return a;
-}
-
-// ---- Roster ----
-
-export type RosterCellType = 'SHIFT' | 'WEEK_OFF' | 'HOLIDAY' | 'LEAVE' | 'HALF_LEAVE' | 'NOT_EMPLOYED';
-
-export interface RosterCell {
-  date: string;
-  type: RosterCellType;
-  shiftId: string;
-  code: string;
-  color: string;
-  label: string;
-}
-
-/**
- * Employees × days grid: shift code, weekly off, holiday or approved leave.
- * MANAGERs see themselves and their direct reports; ADMIN/HR everyone.
- */
-export async function roster(
-  companyId: string,
-  input: { from: Date; to: Date; departmentId?: string; employeeIds?: string[]; actor?: { role: Role; employeeId: string | null } }
-) {
-  const { from, to } = input;
-  const span = Math.round((to.getTime() - from.getTime()) / DAY_MS) + 1;
-  if (span < 1) throw ApiError.badRequest('"to" must be on or after "from"');
-  if (span > MAX_RANGE_DAYS) throw ApiError.badRequest(`Roster range is limited to ${MAX_RANGE_DAYS} days`);
-
-  const managerScope =
-    input.actor?.role === 'MANAGER'
-      ? { OR: [{ managerId: input.actor.employeeId }, { id: input.actor.employeeId ?? '' }] }
-      : {};
-  const employees = await prisma.employee.findMany({
-    where: {
-      companyId,
-      isActive: true,
-      ...(input.departmentId ? { departmentId: input.departmentId } : {}),
-      ...(input.employeeIds ? { id: { in: input.employeeIds } } : {}),
-      ...managerScope,
-    },
-    select: { id: true, name: true, employeeCode: true, department: true, joiningDate: true, leavingDate: true },
-    orderBy: { name: 'asc' },
-    take: 500,
-  });
-  const ids = employees.map((e) => e.id);
-  const [resolve, holidays, leaves, shifts] = await Promise.all([
-    shiftResolver(companyId, ids, from, to),
-    holidayMap(companyId, from, to),
-    prisma.leaveRequest.findMany({
-      where: { companyId, employeeId: { in: ids }, status: 'APPROVED', fromDate: { lte: to }, toDate: { gte: from } },
-      select: { employeeId: true, fromDate: true, toDate: true, halfDay: true, leaveType: { select: { code: true } } },
-    }),
-    prisma.shift.findMany({ where: { companyId }, orderBy: { startTime: 'asc' } }),
-  ]);
-
-  const days: string[] = [];
-  for (let d = from; d.getTime() <= to.getTime(); d = addDays(d, 1)) days.push(isoDate(d));
-
-  const rows = employees.map((e) => {
-    const joined = new Date(Date.UTC(e.joiningDate.getUTCFullYear(), e.joiningDate.getUTCMonth(), e.joiningDate.getUTCDate()));
-    const cells: RosterCell[] = days.map((iso) => {
-      const date = new Date(`${iso}T00:00:00.000Z`);
-      const shift = resolve(e.id, date);
-      const base = { date: iso, shiftId: shift.id, code: shift.code, color: shift.color };
-      if (date.getTime() < joined.getTime() || (e.leavingDate && date.getTime() > e.leavingDate.getTime())) {
-        return { ...base, type: 'NOT_EMPLOYED' as const, label: '—' };
-      }
-      const holiday = holidays.get(iso);
-      if (holiday) return { ...base, type: 'HOLIDAY' as const, label: holiday };
-      if (isWeeklyOff(shift, date)) return { ...base, type: 'WEEK_OFF' as const, label: 'Week off' };
-      const leave = leaves.find(
-        (l) => l.employeeId === e.id && l.fromDate.getTime() <= date.getTime() && l.toDate.getTime() >= date.getTime()
-      );
-      if (leave) {
-        return {
-          ...base,
-          type: leave.halfDay ? ('HALF_LEAVE' as const) : ('LEAVE' as const),
-          label: `${leave.leaveType.code}${leave.halfDay ? ' (½)' : ''}`,
-        };
-      }
-      return { ...base, type: 'SHIFT' as const, label: `${shift.name} ${shift.startTime}–${shift.endTime}` };
-    });
-    return { id: e.id, name: e.name, employeeCode: e.employeeCode, department: e.department, cells };
-  });
-
-  return {
-    from: isoDate(from),
-    to: isoDate(to),
-    days,
-    shifts: shifts.map((s) => ({ ...shiftSummary(s), isDefault: s.isDefault, isActive: s.isActive })),
-    employees: rows,
-  };
-}
-
-/** One employee's upcoming shifts (default: today + 13 days) with times. */
-export async function myRoster(companyId: string, employeeId: string, from: Date, days = 14) {
-  const to = addDays(from, Math.min(Math.max(days, 1), MAX_RANGE_DAYS) - 1);
-  const grid = await roster(companyId, { from, to, employeeIds: [employeeId] });
-  const row = grid.employees[0];
-  const byId = new Map(grid.shifts.map((s) => [s.id, s]));
-  return {
-    from: grid.from,
-    to: grid.to,
-    days: (row?.cells ?? []).map((c) => ({ ...c, shift: byId.get(c.shiftId) ?? null })),
-  };
 }

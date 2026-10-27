@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { api, fmtDate } from '@/lib/api';
 import { useFetch } from '@/lib/useFetch';
 import { Badge, Button, Card, Empty, ErrorNote, Field, Input, Modal, PageHeader, Select, Spinner, Table, Td } from '@/components/ui';
+import { openSecureFile } from '@/lib/secure-file';
 
 interface Doc {
   id: string;
@@ -60,10 +61,10 @@ export default function DocumentsPage() {
   };
 
   // inline=true renders the file in the browser tab; otherwise it downloads.
-  const open_ = async (id: string, inline: boolean) => {
-    const { url } = await api<{ url: string }>(`/documents/${id}/download${inline ? '?inline=true' : ''}`);
-    window.open(url, '_blank');
-  };
+  const open_ = (id: string, inline: boolean) =>
+    openSecureFile(`/documents/${id}/download${inline ? '?inline=true' : ''}`).catch((err: unknown) =>
+      window.alert(err instanceof Error ? err.message : 'Could not open the document')
+    );
 
   const remove = async (id: string) => {
     await api(`/documents/${id}`, { method: 'DELETE' });
@@ -112,16 +113,16 @@ export default function DocumentsPage() {
           <Table headers={['Name', 'Folder', 'Belongs to', 'Type', 'Size', 'Uploaded', ...(isCompanyAdmin ? [''] : ['' ])]}>
             {data.map((d) => (
               <tr key={d.id}>
-                <Td className="font-medium text-slate-900">{d.name}</Td>
+                <Td className="font-medium text-ink-900">{d.name}</Td>
                 <Td>
                   <Badge tone="slate">{d.category ?? 'General'}</Badge>
                 </Td>
                 <Td>{d.employee ? d.employee.name : <Badge tone="blue">company-wide</Badge>}</Td>
-                <Td className="text-xs text-slate-400">{d.mimeType}</Td>
+                <Td className="text-xs text-ink-400">{d.mimeType}</Td>
                 <Td>{fmtSize(d.size)}</Td>
                 <Td>
                   {fmtDate(d.uploadedOn)}
-                  {d.uploadedBy && <span className="block text-xs text-slate-400">by {d.uploadedBy.name}</span>}
+                  {d.uploadedBy && <span className="block text-xs text-ink-400">by {d.uploadedBy.name}</span>}
                 </Td>
                 <Td>
                   <div className="flex gap-2">
@@ -151,23 +152,23 @@ export default function DocumentsPage() {
 
       <Modal title="Upload a document" open={open} onClose={() => setOpen(false)}>
         <div className="space-y-3">
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-ink-500">
             Keep HR files in one safe place — offer letters, ID proofs, certificates, payslips or company policies.
             Whoever the document belongs to can open and download it anytime, from the web portal or the mobile app.
           </p>
           <ErrorNote error={error} />
           <Field label="Step 1 — Choose the file" hint="Any format works (PDF, image, Word, Excel…), up to 15 MB">
-            <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 px-4 py-6 text-center transition hover:border-indigo-300 hover:bg-indigo-50/40">
+            <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-ink-200 px-4 py-6 text-center transition hover:border-brand-300 hover:bg-brand-50/40">
               <input type="file" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
               {file ? (
                 <>
-                  <span className="text-sm font-semibold text-slate-800">{file.name}</span>
-                  <span className="mt-0.5 text-xs text-slate-400">{fmtSize(file.size)} · click to choose a different file</span>
+                  <span className="text-sm font-semibold text-ink-800">{file.name}</span>
+                  <span className="mt-0.5 text-xs text-ink-400">{fmtSize(file.size)} · click to choose a different file</span>
                 </>
               ) : (
                 <>
-                  <span className="text-sm font-medium text-indigo-600">Click to browse your computer</span>
-                  <span className="mt-0.5 text-xs text-slate-400">e.g. Aadhaar.pdf, Offer-letter.docx, Policy.xlsx</span>
+                  <span className="text-sm font-medium text-brand-600">Click to browse your computer</span>
+                  <span className="mt-0.5 text-xs text-ink-400">e.g. Aadhaar.pdf, Offer-letter.docx, Policy.xlsx</span>
                 </>
               )}
             </label>
@@ -205,7 +206,7 @@ export default function DocumentsPage() {
 
       <Modal title="Edit document details" open={editing !== null} onClose={() => setEditing(null)}>
         <div className="space-y-3">
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-ink-500">
             Change how this document is listed. The file itself stays as uploaded — to replace it, delete this
             entry and upload the new version.
           </p>

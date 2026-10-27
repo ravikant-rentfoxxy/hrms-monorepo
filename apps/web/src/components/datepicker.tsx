@@ -62,17 +62,17 @@ function Trigger({ label, placeholder, onClick, onClear }: {
       <button
         type="button"
         onClick={onClick}
-        className="flex w-full items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-left text-sm shadow-sm transition-colors hover:border-slate-300 focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-500/10"
+        className="flex w-full items-center gap-2.5 rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 text-left text-sm shadow-sm transition-colors hover:border-ink-300 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
       >
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4 shrink-0 text-indigo-500">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4 shrink-0 text-brand-500">
           <rect x="3" y="4.5" width="14" height="12" rx="2.5" />
           <path d="M3 8.5h14M7 2.5v3.5M13 2.5v3.5" strokeLinecap="round" />
         </svg>
-        <span className={`flex-1 truncate ${label ? 'font-medium text-slate-900' : 'text-slate-400'}`}>
+        <span className={`flex-1 truncate ${label ? 'font-medium text-ink-900' : 'text-ink-400'}`}>
           {label ?? placeholder}
         </span>
         {!label && (
-          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-3.5 w-3.5 text-slate-400">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-3.5 w-3.5 text-ink-400">
             <path d="M6 8l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         )}
@@ -82,7 +82,7 @@ function Trigger({ label, placeholder, onClick, onClear }: {
           type="button"
           aria-label="Clear"
           onClick={onClear}
-          className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-500"
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-ink-300 transition-colors hover:bg-ink-100 hover:text-ink-500"
         >
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-3.5 w-3.5">
             <path d="M6 6l8 8M14 6l-8 8" strokeLinecap="round" />
@@ -98,7 +98,7 @@ function NavButton({ dir, onClick }: { dir: -1 | 1; onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+      className="rounded-lg p-1.5 text-ink-500 transition-colors hover:bg-brand-50 hover:text-brand-600"
       aria-label={dir === -1 ? 'Previous' : 'Next'}
     >
       <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-4 w-4">
@@ -109,7 +109,7 @@ function NavButton({ dir, onClick }: { dir: -1 | 1; onClick: () => void }) {
 }
 
 const popCls = (openUp: boolean) =>
-  `absolute left-0 z-50 w-[300px] rounded-2xl border border-slate-100 bg-white p-3.5 shadow-xl shadow-slate-900/10 ${
+  `absolute left-0 z-50 w-[300px] rounded-2xl border border-ink-100 bg-white p-3.5 shadow-xl shadow-ink-900/10 ${
     openUp ? 'bottom-full mb-2' : 'top-full mt-2'
   }`;
 
@@ -161,7 +161,7 @@ export function DatePicker({ value, onChange, placeholder = 'Select date', clear
             <button
               type="button"
               onClick={() => setYearGrid((g) => !g)}
-              className="rounded-lg px-3 py-1 text-sm font-semibold text-slate-800 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
+              className="rounded-lg px-3 py-1 text-sm font-semibold text-ink-800 transition-colors hover:bg-brand-50 hover:text-brand-700"
             >
               {yearGrid ? `${view.y - 5} – ${view.y + 6}` : `${MONTHS[view.m]} ${view.y}`}
             </button>
@@ -179,7 +179,7 @@ export function DatePicker({ value, onChange, placeholder = 'Select date', clear
                     setYearGrid(false);
                   }}
                   className={`rounded-lg py-2 text-sm font-medium transition-colors ${
-                    y === view.y ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:bg-indigo-50 hover:text-indigo-700'
+                    y === view.y ? 'bg-brand-600 text-white shadow-sm' : 'text-ink-600 hover:bg-brand-50 hover:text-brand-700'
                   }`}
                 >
                   {y}
@@ -190,7 +190,7 @@ export function DatePicker({ value, onChange, placeholder = 'Select date', clear
             <>
               <div className="grid grid-cols-7">
                 {WEEKDAYS.map((d) => (
-                  <span key={d} className="py-1 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                  <span key={d} className="py-1 text-center text-[11px] font-semibold uppercase tracking-wide text-ink-400">
                     {d}
                   </span>
                 ))}
@@ -213,10 +213,10 @@ export function DatePicker({ value, onChange, placeholder = 'Select date', clear
                       }}
                       className={`mx-auto flex h-9 w-9 items-center justify-center rounded-full text-sm font-medium transition-colors ${
                         isSelected
-                          ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                          ? 'bg-brand-600 text-white shadow-md shadow-brand-600/30'
                           : isToday
-                            ? 'text-indigo-700 ring-1 ring-inset ring-indigo-300 hover:bg-indigo-50'
-                            : 'text-slate-700 hover:bg-indigo-50 hover:text-indigo-700'
+                            ? 'text-brand-700 ring-1 ring-inset ring-brand-300 hover:bg-brand-50'
+                            : 'text-ink-700 hover:bg-brand-50 hover:text-brand-700'
                       }`}
                     >
                       {d}
@@ -227,14 +227,14 @@ export function DatePicker({ value, onChange, placeholder = 'Select date', clear
             </>
           )}
 
-          <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2">
+          <div className="mt-2 flex items-center justify-between border-t border-ink-100 pt-2">
             <button
               type="button"
               onClick={() => {
                 onChange(todayStr);
                 setOpen(false);
               }}
-              className="rounded-lg px-2.5 py-1 text-xs font-semibold text-indigo-600 transition-colors hover:bg-indigo-50"
+              className="rounded-lg px-2.5 py-1 text-xs font-semibold text-brand-600 transition-colors hover:bg-brand-50"
             >
               Today
             </button>
@@ -245,7 +245,7 @@ export function DatePicker({ value, onChange, placeholder = 'Select date', clear
                   onChange('');
                   setOpen(false);
                 }}
-                className="rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                className="rounded-lg px-2.5 py-1 text-xs font-semibold text-ink-400 transition-colors hover:bg-ink-100 hover:text-ink-600"
               >
                 Clear
               </button>
@@ -285,7 +285,7 @@ export function MonthPicker({ value, onChange, placeholder = 'Select month' }: {
         <div className={popCls(openUp)}>
           <div className="mb-2 flex items-center justify-between">
             <NavButton dir={-1} onClick={() => setYear((y) => y - 1)} />
-            <span className="text-sm font-semibold text-slate-800">{year}</span>
+            <span className="text-sm font-semibold text-ink-800">{year}</span>
             <NavButton dir={1} onClick={() => setYear((y) => y + 1)} />
           </div>
           <div className="grid grid-cols-3 gap-1.5">
@@ -302,10 +302,10 @@ export function MonthPicker({ value, onChange, placeholder = 'Select month' }: {
                   }}
                   className={`rounded-lg py-2 text-sm font-medium transition-colors ${
                     isSelected
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                      ? 'bg-brand-600 text-white shadow-md shadow-brand-600/30'
                       : isCurrent
-                        ? 'text-indigo-700 ring-1 ring-inset ring-indigo-300 hover:bg-indigo-50'
-                        : 'text-slate-600 hover:bg-indigo-50 hover:text-indigo-700'
+                        ? 'text-brand-700 ring-1 ring-inset ring-brand-300 hover:bg-brand-50'
+                        : 'text-ink-600 hover:bg-brand-50 hover:text-brand-700'
                   }`}
                 >
                   {m.slice(0, 3)}

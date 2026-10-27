@@ -465,32 +465,6 @@ export async function expiringCertifications(companyId: string, viewer: Actor, d
   return decorate(rows).map((r) => ({ ...r, daysLeft: Math.round(((r.expiresOn as Date).getTime() - today.getTime()) / 86_400_000) }));
 }
 
-/**
- * training.service hook: a COMPLETED course becomes a verified certification
- * (issuer = the company), once per employee and course.
- */
-export async function certifyCourseCompletion(
-  companyId: string,
-  employeeId: string,
-  course: { id: string; title: string },
-  completedAt: Date
-) {
-  const existing = await prisma.employeeCertification.findFirst({ where: { companyId, employeeId, courseId: course.id } });
-  if (existing) return existing;
-  const company = await prisma.company.findUnique({ where: { id: companyId }, select: { name: true } });
-  return prisma.employeeCertification.create({
-    data: {
-      companyId,
-      employeeId,
-      name: course.title,
-      issuer: company?.name ?? '',
-      issuedOn: completedAt,
-      courseId: course.id,
-      verified: true,
-    },
-  });
-}
-
 /** Daily job: remind holders (and their manager) 30 and 7 days before a certification expires. */
 export async function sendExpiryReminders(companyId: string): Promise<number> {
   const today = todayUTC();

@@ -7,7 +7,8 @@ import { useFetch } from '@/lib/useFetch';
 import {
   Badge, Button, Card, Empty, ErrorNote, Field, Input, Modal, PageHeader, Select, Spinner, Table, Tabs, Td,
 } from '@/components/ui';
-import { EmployeeSelect, errText, humanize, openUrl, useEmployees } from '@/components/lifecycle';
+import { EmployeeSelect, errText, humanize, useEmployees } from '@/components/lifecycle';
+import { openSecureFile } from '@/lib/secure-file';
 
 interface Template {
   id: string;
@@ -42,15 +43,15 @@ interface Preview {
 /** Rendered letter as it will read on paper. */
 function PreviewPane({ preview, loading }: { preview: Preview | null; loading?: boolean }) {
   return (
-    <div className="h-full min-h-72 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+    <div className="h-full min-h-72 rounded-xl border border-ink-200 bg-ink-50/60 p-4">
       {loading && !preview ? (
         <Spinner />
       ) : !preview ? (
-        <p className="text-sm text-slate-400">Preview appears here</p>
+        <p className="text-sm text-ink-400">Preview appears here</p>
       ) : (
-        <div className="space-y-3 text-[13px] leading-relaxed text-slate-700">
+        <div className="space-y-3 text-[13px] leading-relaxed text-ink-700">
           {preview.sample && <Badge tone="amber">sample data</Badge>}
-          {preview.subject && <p className="font-semibold text-slate-900">Subject: {preview.subject}</p>}
+          {preview.subject && <p className="font-semibold text-ink-900">Subject: {preview.subject}</p>}
           {preview.body.split(/\n\s*\n/).map((p, i) => (
             <p key={i} className="whitespace-pre-line">
               {p}
@@ -163,7 +164,7 @@ function TemplateEditor({
                 type="button"
                 title={p.description}
                 onClick={() => insert(p.key)}
-                className="rounded-md bg-indigo-50 px-2 py-0.5 font-mono text-[11px] text-indigo-700 hover:bg-indigo-100"
+                className="rounded-md bg-brand-50 px-2 py-0.5 font-mono text-[11px] text-brand-700 hover:bg-brand-100"
               >
                 {`{{${p.key}}}`}
               </button>
@@ -178,12 +179,12 @@ function TemplateEditor({
               rows={16}
               value={form.body}
               onChange={(e) => setForm({ ...form, body: e.target.value })}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 font-mono text-[12px] text-slate-900 shadow-sm transition-colors focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-500/10"
+              className="w-full rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 font-mono text-[12px] text-ink-900 shadow-sm transition-colors focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
             />
           </Field>
           <div>
             <div className="mb-1.5 flex items-center justify-between gap-2">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Live preview</span>
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-500">Live preview</span>
               <div className="w-48">
                 <EmployeeSelect employees={employees} value={employeeId} onChange={setEmployeeId} placeholder="Sample employee" />
               </div>
@@ -191,7 +192,7 @@ function TemplateEditor({
             <PreviewPane preview={preview} />
           </div>
         </div>
-        <label className="flex items-center gap-2 text-sm text-slate-600">
+        <label className="flex items-center gap-2 text-sm text-ink-600">
           <input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} /> Active
         </label>
         <Button onClick={() => void save()} disabled={busy || form.name.trim().length < 2 || form.body.trim().length < 10} className="w-full">
@@ -238,8 +239,7 @@ function GeneratePanel({ templates, onGenerated }: { templates: Template[]; onGe
   };
 
   const download = async (id: string) => {
-    const { url } = await api<{ url: string }>(`/letters/${id}/download?inline=true`);
-    openUrl(url);
+    await openSecureFile(`/letters/${id}/download?inline=true`);
   };
 
   return (
@@ -307,8 +307,7 @@ export default function LettersPage() {
 
   const open = async (id: string, inline: boolean) => {
     try {
-      const { url } = await api<{ url: string }>(`/letters/${id}/download${inline ? '?inline=true' : ''}`);
-      openUrl(url);
+      await openSecureFile(`/letters/${id}/download${inline ? '?inline=true' : ''}`);
     } catch (err) {
       setError(errText(err));
     }
@@ -364,7 +363,7 @@ export default function LettersPage() {
       {(tab === 'Issued letters' || tab === 'My letters') && (
         <Card className={error ? 'mt-3' : ''}>
           {isCompanyAdmin && (
-            <div className="flex items-center justify-end border-b border-slate-100 px-5 py-3">
+            <div className="flex items-center justify-end border-b border-ink-100 px-5 py-3">
               <div className="w-64">
                 <EmployeeSelect employees={employees} value={filterEmployee} onChange={setFilterEmployee} placeholder="All employees" />
               </div>
@@ -378,7 +377,7 @@ export default function LettersPage() {
             <Table headers={['Letter', 'Type', ...(isCompanyAdmin ? ['Employee'] : []), 'Issued', '']}>
               {letters.data.map((l) => (
                 <tr key={l.id}>
-                  <Td className="font-medium text-slate-900">{l.title}</Td>
+                  <Td className="font-medium text-ink-900">{l.title}</Td>
                   <Td>
                     <Badge tone="violet">{humanize(l.type)}</Badge>
                   </Td>
@@ -415,8 +414,8 @@ export default function LettersPage() {
 
       {tab === 'Templates' && (
         <Card>
-          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
-            <h2 className="text-sm font-semibold text-slate-900">Letter templates</h2>
+          <div className="flex items-center justify-between border-b border-ink-100 px-5 py-3">
+            <h2 className="text-sm font-semibold text-ink-900">Letter templates</h2>
             <Button variant="secondary" onClick={() => setEditing('new')} disabled={!meta.data}>
               + New template
             </Button>
@@ -429,7 +428,7 @@ export default function LettersPage() {
             <Table headers={['Template', 'Type', 'Subject', 'Status', 'Updated', '']}>
               {templates.data.map((t) => (
                 <tr key={t.id}>
-                  <Td className="font-medium text-slate-900">{t.name}</Td>
+                  <Td className="font-medium text-ink-900">{t.name}</Td>
                   <Td>
                     <Badge tone="violet">{humanize(t.type)}</Badge>
                   </Td>

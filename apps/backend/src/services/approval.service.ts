@@ -42,8 +42,9 @@ export interface Actor {
 const DEFAULT_FLOW: FlowStep[] = [{ type: 'MANAGER' }];
 /** Modules whose sensible default is not "the requester's manager". */
 const MODULE_DEFAULTS: Partial<Record<ApprovalModule, FlowStep[]>> = {
-  // Hiring request: HR reviews the requirement, management/finance approves the budget.
-  REQUISITION: [{ type: 'ROLE', role: 'HR' }, { type: 'ROLE', role: 'ADMIN' }],
+  // Hiring request: one sign-off by HR or an Admin (Admins can clear HR steps). An HR / Admin
+  // requester may approve their own (SELF_APPROVE_MODULES); an HR requester gets the HR fallback step.
+  REQUISITION: [{ type: 'ROLE', role: 'HR' }],
   // Compensation in an offer is signed off by management.
   OFFER: [{ type: 'ROLE', role: 'ADMIN' }],
   // Transfer / promotion: current manager, then HR.
@@ -146,8 +147,16 @@ export async function currentStep(companyId: string, module: string, requestId: 
   });
 }
 
-export function canAct(step: Pick<ApprovalStep, 'requesterId' | 'approverRole' | 'approverEmployeeId'>, actor: Actor): boolean {
-  if (actor.employeeId && actor.employeeId === step.requesterId) return false;
+/** Modules where an HR / Admin requester may approve their own request (e.g. HR raising a requisition). */
+const SELF_APPROVE_MODULES: readonly string[] = ['REQUISITION'];
+const SELF_APPROVE_ROLES: Role[] = ['SUPER_ADMIN', 'ADMIN', 'HR'];
+const isOwnRequest = (module: string, requesterId: string, actor: Actor): boolean =>
+  !!actor.employeeId &&
+  actor.employeeId === requesterId &&
+  !(SELF_APPROVE_MODULES.includes(module) && SELF_APPROVE_ROLES.includes(actor.role));
+
+export function canAct(step: Pick<ApprovalStep, 'module' | 'requesterId' | 'approverRole' | 'approverEmployeeId'>, actor: Actor): boolean {
+  if (isOwnRequest(step.module, step.requesterId, actor)) return false;
   // A management (ADMIN) sign-off step can't be cleared by HR's override.
   if (step.approverRole === 'ADMIN') return actor.role === 'ADMIN' || actor.role === 'SUPER_ADMIN';
   if (OVERRIDE_ROLES.includes(actor.role)) return true;
@@ -174,7 +183,7 @@ export async function act(
   decision: 'APPROVED' | 'REJECTED',
   remarks?: string
 ): Promise<ActResult> {
-  if (actor.employeeId && actor.employeeId === requesterId) throw ApiError.forbidden('Cannot decide your own request');
+  if (isOwnRequest(module, requesterId, actor)) throw ApiError.forbidden('Cannot decide your own request');
   let step = await currentStep(companyId, module, requestId);
   if (!step) {
     const any = await prisma.approvalStep.count({ where: { companyId, module, requestId } });
@@ -241,7 +250,7 @@ export async function pendingFor(companyId: string, actor: Actor, module?: strin
   const current = new Map<string, ApprovalStep>();
   for (const s of pending) if (!current.has(s.requestId)) current.set(s.requestId, s);
   return [...current.values()].filter((s) => {
-    if (actor.employeeId && s.requesterId === actor.employeeId) return false;
+    if (isOwnRequest(s.module, s.requesterId, actor)) return false;
     if (s.approverRole) return s.approverRole === actor.role || (s.approverRole === 'HR' && actor.role === 'ADMIN');
     return !!actor.employeeId && s.approverEmployeeId === actor.employeeId;
   });

@@ -9,10 +9,11 @@ import { useFetch } from '@/lib/useFetch';
 import {
   Badge, Button, Card, DatePicker, Empty, ErrorNote, Field, Input, Modal, PageHeader, Select, Spinner, Table, Tabs, Td, Textarea,
 } from '@/components/ui';
-import { EmployeeSelect, errText, humanize, openUrl, useEmployees } from '@/components/lifecycle';
+import { EmployeeSelect, errText, humanize, useEmployees } from '@/components/lifecycle';
 import {
   type ExitEmployee, type Notice, type Stage, ExitStatusBadge, MiniStat, Section, StageStepper, clearanceTone,
 } from '../exit-ui';
+import { openSecureFile } from '@/lib/secure-file';
 
 interface ChecklistItem {
   label: string;
@@ -201,16 +202,16 @@ function Timeline({ data }: { data: ExitDetail }) {
       label: data.exitType === 'RESIGNATION' ? 'Resignation submitted' : `${humanize(data.exitType)} initiated`,
       detail: data.reason,
       date: data.appliedOn,
-      tone: 'bg-indigo-500',
+      tone: 'bg-brand-500',
     },
     ...data.trail.map((s) => ({
       label: `Level ${s.level} — ${s.approverName ?? 'Approver'}: ${humanize(s.status)}`,
       detail: [s.actedByName && s.actedByName !== s.approverName ? `by ${s.actedByName}` : '', s.remarks ?? ''].filter(Boolean).join(' · '),
       date: s.actedAt,
-      tone: s.status === 'APPROVED' ? 'bg-emerald-500' : s.status === 'REJECTED' ? 'bg-rose-500' : s.status === 'PENDING' ? 'bg-amber-400' : 'bg-slate-300',
+      tone: s.status === 'APPROVED' ? 'bg-emerald-500' : s.status === 'REJECTED' ? 'bg-rose-500' : s.status === 'PENDING' ? 'bg-amber-400' : 'bg-ink-300',
     })),
     ...(data.acknowledgedAt ? [{ label: 'Resignation acknowledged', date: data.acknowledgedAt, tone: 'bg-emerald-500' }] : []),
-    ...(data.status === 'WITHDRAWN' ? [{ label: 'Withdrawn by the employee', tone: 'bg-slate-400' }] : []),
+    ...(data.status === 'WITHDRAWN' ? [{ label: 'Withdrawn by the employee', tone: 'bg-ink-400' }] : []),
     ...(data.exitInterviewAt
       ? [{ label: 'Exit interview', detail: data.exitInterviewerName ? `with ${data.exitInterviewerName}` : undefined, date: data.exitInterviewAt, tone: 'bg-sky-400' }]
       : []),
@@ -225,7 +226,7 @@ function Timeline({ data }: { data: ExitDetail }) {
         ]
       : []),
     ...(data.status === 'COMPLETED' ? [{ label: 'Separated — access revoked', date: data.employee.separatedOn, tone: 'bg-violet-500' }] : []),
-    ...(data.closedAt ? [{ label: 'Case closed — profile archived', date: data.closedAt, tone: 'bg-slate-500' }] : []),
+    ...(data.closedAt ? [{ label: 'Case closed — profile archived', date: data.closedAt, tone: 'bg-ink-500' }] : []),
   ];
   return (
     <ol className="space-y-4 px-5 py-4">
@@ -233,9 +234,9 @@ function Timeline({ data }: { data: ExitDetail }) {
         <li key={i} className="flex gap-3">
           <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${e.tone}`} />
           <div>
-            <p className="text-sm font-medium text-slate-800">{e.label}</p>
-            {e.detail && <p className="text-xs text-slate-500">{e.detail}</p>}
-            {e.date && <p className="text-xs text-slate-400">{fmtDate(e.date)}</p>}
+            <p className="text-sm font-medium text-ink-800">{e.label}</p>
+            {e.detail && <p className="text-xs text-ink-500">{e.detail}</p>}
+            {e.date && <p className="text-xs text-ink-400">{fmtDate(e.date)}</p>}
           </div>
         </li>
       ))}
@@ -264,7 +265,7 @@ function DecideBox({ data, onDone }: { data: ExitDetail; onDone: () => void }) {
     <Section title="Review resignation">
       <div className="space-y-3 p-5">
         <ErrorNote error={error} />
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-ink-600">
           Review the reason, the handover needed and the notice terms ({data.noticePeriodDays} days). Confirm the last working day to accept.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -272,7 +273,7 @@ function DecideBox({ data, onDone }: { data: ExitDetail; onDone: () => void }) {
             <DatePicker value={form.approvedLastDay} onChange={(v) => setForm({ ...form, approvedLastDay: v })} />
           </Field>
           {isCompanyAdmin && (
-            <label className="flex items-center gap-2 pt-6 text-sm text-slate-600">
+            <label className="flex items-center gap-2 pt-6 text-sm text-ink-600">
               <input type="checkbox" checked={form.noticeWaived} onChange={(e) => setForm({ ...form, noticeWaived: e.target.checked })} />
               Waive notice shortfall recovery
             </label>
@@ -341,28 +342,28 @@ function NoticeCard({ data, onDone }: { data: ExitDetail; onDone: () => void }) 
         <ErrorNote error={error} />
         <div className="grid gap-3 text-sm sm:grid-cols-4">
           <div>
-            <p className="text-xs text-slate-500">Notice period</p>
-            <p className="font-semibold text-slate-900">{data.noticePeriodDays} days</p>
+            <p className="text-xs text-ink-500">Notice period</p>
+            <p className="font-semibold text-ink-900">{data.noticePeriodDays} days</p>
           </div>
           <div>
-            <p className="text-xs text-slate-500">Served</p>
-            <p className="font-semibold text-slate-900">
+            <p className="text-xs text-ink-500">Served</p>
+            <p className="font-semibold text-ink-900">
               {n.servedDays} / {n.totalDays} days
             </p>
           </div>
           <div>
-            <p className="text-xs text-slate-500">Remaining</p>
-            <p className="font-semibold text-slate-900">{n.serving ? `${n.remainingDays} days` : '—'}</p>
+            <p className="text-xs text-ink-500">Remaining</p>
+            <p className="font-semibold text-ink-900">{n.serving ? `${n.remainingDays} days` : '—'}</p>
           </div>
           <div>
-            <p className="text-xs text-slate-500">Shortfall</p>
-            <p className={`font-semibold ${data.shortfallDays ? 'text-rose-600' : 'text-slate-900'}`}>
+            <p className="text-xs text-ink-500">Shortfall</p>
+            <p className={`font-semibold ${data.shortfallDays ? 'text-rose-600' : 'text-ink-900'}`}>
               {data.noticeWaived ? 'Waived' : data.shortfallDays ? `${data.shortfallDays} days (recovered in F&F)` : 'None'}
             </p>
           </div>
         </div>
         {['APPROVED', 'COMPLETED'].includes(data.status) && (
-          <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+          <div className="h-2 overflow-hidden rounded-full bg-ink-100">
             <div className="h-full rounded-full bg-sky-500" style={{ width: `${pct}%` }} />
           </div>
         )}
@@ -381,7 +382,7 @@ function NoticeCard({ data, onDone }: { data: ExitDetail; onDone: () => void }) 
               <div className="mt-3 space-y-2">
                 <Input placeholder="Remarks (optional)" value={decision.remarks} onChange={(e) => setDecision({ ...decision, remarks: e.target.value })} />
                 {isCompanyAdmin && early && data.lastDayChangeByEmployee && (
-                  <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <label className="flex items-center gap-2 text-sm text-ink-700">
                     <input
                       type="checkbox"
                       checked={decision.noticeWaived}
@@ -403,7 +404,7 @@ function NoticeCard({ data, onDone }: { data: ExitDetail; onDone: () => void }) 
           </div>
         )}
         {!pending && data.lastDayChangeStatus && (
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-ink-500">
             Last change request ({fmtDate(data.lastDayChangeTo)}) was {data.lastDayChangeStatus.toLowerCase()}.
           </p>
         )}
@@ -411,7 +412,7 @@ function NoticeCard({ data, onDone }: { data: ExitDetail; onDone: () => void }) 
 
       <Modal title={isCompanyAdmin ? 'Change last working day' : 'Request early release / extension'} open={open} onClose={() => setOpen(false)}>
         <div className="space-y-3">
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-ink-500">
             Current last working day: <b>{fmtDate(lastDay)}</b>.{' '}
             {isCompanyAdmin ? 'The change applies immediately.' : 'HR or the reporting manager approves the request.'}
           </p>
@@ -443,7 +444,7 @@ function NoticeAttendance({ id }: { id: string }) {
         </div>
       ) : (
         <div className="space-y-3 p-5">
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-ink-400">
             {fmtDate(data.from)} – {fmtDate(data.to)}
           </p>
           <div className="grid grid-cols-3 gap-3 text-center text-sm sm:grid-cols-5">
@@ -454,30 +455,30 @@ function NoticeAttendance({ id }: { id: string }) {
               ['Absent', data.attendance.absent, 'text-rose-600'],
               ['On leave', data.attendance.leave, 'text-violet-600'],
             ].map(([label, value, tone]) => (
-              <div key={label as string} className="rounded-xl bg-slate-50 p-3">
+              <div key={label as string} className="rounded-xl bg-ink-50 p-3">
                 <p className={`text-lg font-semibold ${tone as string}`}>{value as number}</p>
-                <p className="text-xs text-slate-500">{label as string}</p>
+                <p className="text-xs text-ink-500">{label as string}</p>
               </div>
             ))}
           </div>
           {data.leaves.length > 0 ? (
-            <ul className="divide-y divide-slate-100 text-sm">
+            <ul className="divide-y divide-ink-100 text-sm">
               {data.leaves.map((l) => (
                 <li key={l.id} className="flex items-center justify-between py-2">
                   <span>
                     {l.leaveType} · {fmtDate(l.fromDate)}
                     {l.toDate !== l.fromDate && ` – ${fmtDate(l.toDate)}`}
                   </span>
-                  <span className="flex items-center gap-2 text-xs text-slate-500">
+                  <span className="flex items-center gap-2 text-xs text-ink-500">
                     {l.days}d <Badge tone={l.status === 'APPROVED' ? 'green' : 'amber'}>{humanize(l.status)}</Badge>
                   </span>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-slate-400">No leave during the notice period.</p>
+            <p className="text-sm text-ink-400">No leave during the notice period.</p>
           )}
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-ink-500">
             Leave approved {data.leaveDaysApproved}d · pending {data.leaveDaysPending}d
           </p>
         </div>
@@ -575,9 +576,9 @@ function HandoverTab({ data, onDone }: { data: ExitDetail; onDone: () => void })
           {tasks.map((t) => (
             <tr key={t.id}>
               <Td className="max-w-80">
-                <p className="font-medium text-slate-900">{t.title}</p>
-                {t.description && <p className="text-xs text-slate-500">{t.description}</p>}
-                {t.notes && <p className="mt-1 whitespace-pre-line text-xs text-slate-400">{t.notes}</p>}
+                <p className="font-medium text-ink-900">{t.title}</p>
+                {t.description && <p className="text-xs text-ink-500">{t.description}</p>}
+                {t.notes && <p className="mt-1 whitespace-pre-line text-xs text-ink-400">{t.notes}</p>}
               </Td>
               <Td>{t.handoverToName ?? '—'}</Td>
               <Td>
@@ -586,7 +587,7 @@ function HandoverTab({ data, onDone }: { data: ExitDetail; onDone: () => void })
               </Td>
               <Td>
                 <Badge tone={t.status === 'VERIFIED' ? 'green' : t.status === 'DONE' ? 'blue' : 'amber'}>{humanize(t.status)}</Badge>
-                {t.verifiedByName && <span className="block text-xs text-slate-400">{t.verifiedByName} · {fmtDate(t.verifiedAt)}</span>}
+                {t.verifiedByName && <span className="block text-xs text-ink-400">{t.verifiedByName} · {fmtDate(t.verifiedAt)}</span>}
               </Td>
               <Td>
                 <div className="flex flex-wrap justify-end gap-1">
@@ -628,7 +629,7 @@ function HandoverTab({ data, onDone }: { data: ExitDetail; onDone: () => void })
         onClose={() => setNoteFor(null)}
       >
         <div className="space-y-3">
-          <p className="text-sm font-medium text-slate-800">{noteFor?.task.title}</p>
+          <p className="text-sm font-medium text-ink-800">{noteFor?.task.title}</p>
           <Field label={noteFor?.mode === 'reopen' ? 'What is missing?' : 'Notes (optional)'}>
             <Textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} />
           </Field>
@@ -679,9 +680,9 @@ function ClearanceCard({ c, data, canAct, onDone }: { c: Clearance; data: ExitDe
     <Card className="p-4">
       <div className="mb-3 flex items-center justify-between gap-2">
         <div>
-          <p className="font-semibold text-slate-900">{c.department === 'MANAGER' ? 'Reporting manager' : humanize(c.department)}</p>
+          <p className="font-semibold text-ink-900">{c.department === 'MANAGER' ? 'Reporting manager' : humanize(c.department)}</p>
           {c.clearedByName && (
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-ink-400">
               Cleared by {c.clearedByName} · {fmtDate(c.clearedAt)}
             </p>
           )}
@@ -693,10 +694,10 @@ function ClearanceCard({ c, data, canAct, onDone }: { c: Clearance; data: ExitDe
         {c.items.map((i, idx) => (
           <li key={i.label} className="flex items-start gap-2 text-sm">
             <input type="checkbox" className="mt-1" checked={i.done} disabled={!editable || busy} onChange={() => toggle(idx)} />
-            <span className={i.done ? 'text-slate-500 line-through decoration-slate-300' : 'text-slate-800'}>
+            <span className={i.done ? 'text-ink-500 line-through decoration-ink-300' : 'text-ink-800'}>
               {i.label}
               {i.auto && <span className="ml-1.5 text-[10px] font-semibold uppercase text-emerald-600">auto</span>}
-              {i.note && <span className="block text-xs text-slate-400 no-underline">{i.note}</span>}
+              {i.note && <span className="block text-xs text-ink-400 no-underline">{i.note}</span>}
             </span>
           </li>
         ))}
@@ -715,7 +716,7 @@ function ClearanceCard({ c, data, canAct, onDone }: { c: Clearance; data: ExitDe
         </p>
       )}
       {(c.remarks || c.dues > 0) && (
-        <p className="mt-2 text-xs text-slate-500">
+        <p className="mt-2 text-xs text-ink-500">
           {c.dues > 0 && <span className="font-medium text-rose-600">Dues {fmtMoney(c.dues)} · </span>}
           {c.remarks}
         </p>
@@ -746,7 +747,7 @@ function ClearanceCard({ c, data, canAct, onDone }: { c: Clearance; data: ExitDe
             </label>
           )}
           {open.length > 0 && (
-            <label className="flex items-start gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
+            <label className="flex items-start gap-2 rounded-lg bg-ink-50 px-3 py-2 text-sm text-ink-700">
               <input type="checkbox" className="mt-1" checked={form.force} onChange={(e) => setForm({ ...form, force: e.target.checked })} />
               Clear with {open.length} open item(s): {open.map((i) => i.label).join(', ')} (explain in remarks)
             </label>
@@ -770,9 +771,9 @@ function ClearanceTab({ data, onDone }: { data: ExitDetail; onDone: () => void }
   if (data.clearances.length === 0) return <Card><Empty message="Clearances open once the exit is approved" /></Card>;
   return (
     <div>
-      <p className="mb-3 text-sm text-slate-600">
+      <p className="mb-3 text-sm text-ink-600">
         Overall clearance: <Badge tone={clearanceTone(data.clearanceStatus)}>{humanize(data.clearanceStatus)}</Badge>{' '}
-        <span className="text-xs text-slate-400">Items marked “auto” were ticked from handover, asset, loan and interview records.</span>
+        <span className="text-xs text-ink-400">Items marked “auto” were ticked from handover, asset, loan and interview records.</span>
       </p>
       <div className="grid gap-4 lg:grid-cols-2">
         {data.clearances.map((c) => (
@@ -870,7 +871,7 @@ function InterviewTab({ data, onDone }: { data: ExitDetail; onDone: () => void }
       <Section title="Schedule">
         <div className="space-y-3 p-5">
           <ErrorNote error={error} />
-          <p className="text-sm text-slate-700">
+          <p className="text-sm text-ink-700">
             {data.exitInterviewAt ? (
               <>
                 Scheduled on <b>{fmtDate(data.exitInterviewAt)}</b> at <b>{fmtTime(data.exitInterviewAt)}</b>
@@ -910,16 +911,16 @@ function InterviewTab({ data, onDone }: { data: ExitDetail; onDone: () => void }
         ) : !data.interview ? (
           <Empty message="The exit interview has not been submitted yet" />
         ) : !data.interview.answers ? (
-          <p className="p-5 text-sm text-slate-600">Submitted on {fmtDate(data.interview.submittedAt)}.</p>
+          <p className="p-5 text-sm text-ink-600">Submitted on {fmtDate(data.interview.submittedAt)}.</p>
         ) : (
           <div className="space-y-3 p-5">
             {data.interview.answers.map((a, i) => (
               <div key={i}>
-                <p className="text-xs font-semibold text-slate-500">{a.question}</p>
-                <p className="whitespace-pre-line text-sm text-slate-800">{a.answer || '—'}</p>
+                <p className="text-xs font-semibold text-ink-500">{a.question}</p>
+                <p className="whitespace-pre-line text-sm text-ink-800">{a.answer || '—'}</p>
               </div>
             ))}
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-ink-600">
               Rating: {data.interview.overallRating ? '★'.repeat(data.interview.overallRating) : '—'} · Would rejoin:{' '}
               {data.interview.wouldRejoin == null ? '—' : data.interview.wouldRejoin ? 'Yes' : 'No'} · submitted {fmtDate(data.interview.submittedAt)}
             </p>
@@ -941,7 +942,7 @@ function PayModal({ data, onClose, onDone }: { data: ExitDetail; onClose: () => 
   return (
     <Modal title="Record F&F payment" open onClose={onClose}>
       <div className="space-y-3">
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-ink-600">
           {net >= 0 ? 'Net payable' : 'Net recoverable'}: <b>{fmtMoney(Math.abs(net))}</b>
         </p>
         <ErrorNote error={error} />
@@ -1004,8 +1005,7 @@ function SettlementEditor({ data, manage, onDone }: { data: ExitDetail; manage: 
   const saveDue = () => run(() => api(`/exits/${data.id}/settlement/due-date`, { method: 'PATCH', body: { dueDate: due } }));
   const pdf = async () => {
     try {
-      const { url } = await api<{ url: string }>(`/exits/${data.id}/settlement/pdf?inline=true`);
-      openUrl(url);
+      await openSecureFile(`/exits/${data.id}/settlement/pdf?inline=true`);
     } catch (err) {
       setError(errText(err));
     }
@@ -1044,9 +1044,9 @@ function SettlementEditor({ data, manage, onDone }: { data: ExitDetail; manage: 
           <Empty message="Compute the settlement to see earnings, statutory dues and recoveries" />
         ) : (
           <div className="space-y-3">
-            <div className="grid gap-3 rounded-xl border border-slate-100 p-4 text-sm sm:grid-cols-3">
+            <div className="grid gap-3 rounded-xl border border-ink-100 p-4 text-sm sm:grid-cols-3">
               <div>
-                <p className="text-xs text-slate-500">Due by (Code on Wages: 2 working days)</p>
+                <p className="text-xs text-ink-500">Due by (Code on Wages: 2 working days)</p>
                 {manage && s.status !== 'PAID' ? (
                   <div className="mt-1 flex items-center gap-2">
                     <DatePicker value={due} onChange={setDue} />
@@ -1057,19 +1057,19 @@ function SettlementEditor({ data, manage, onDone }: { data: ExitDetail; manage: 
                     )}
                   </div>
                 ) : (
-                  <p className={`font-semibold ${s.overdue ? 'text-rose-600' : 'text-slate-900'}`}>{fmtDate(s.dueDate)}</p>
+                  <p className={`font-semibold ${s.overdue ? 'text-rose-600' : 'text-ink-900'}`}>{fmtDate(s.dueDate)}</p>
                 )}
               </div>
               <div>
-                <p className="text-xs text-slate-500">Approved</p>
-                <p className="font-semibold text-slate-900">{s.approvedAt ? `${fmtDate(s.approvedAt)}${s.approvedByName ? ` · ${s.approvedByName}` : ''}` : '—'}</p>
+                <p className="text-xs text-ink-500">Approved</p>
+                <p className="font-semibold text-ink-900">{s.approvedAt ? `${fmtDate(s.approvedAt)}${s.approvedByName ? ` · ${s.approvedByName}` : ''}` : '—'}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500">Paid</p>
-                <p className="font-semibold text-slate-900">
+                <p className="text-xs text-ink-500">Paid</p>
+                <p className="font-semibold text-ink-900">
                   {s.paidOn ? `${fmtDate(s.paidOn)} · ${humanize(s.paymentMode || 'BANK_TRANSFER')}` : '—'}
                 </p>
-                {s.paymentReference && <p className="text-xs text-slate-400">Ref {s.paymentReference}</p>}
+                {s.paymentReference && <p className="text-xs text-ink-400">Ref {s.paymentReference}</p>}
               </div>
             </div>
             <div className="-mx-5">
@@ -1080,7 +1080,7 @@ function SettlementEditor({ data, manage, onDone }: { data: ExitDetail; manage: 
                       {editable ? (
                         <Input value={it.label} onChange={(e) => patch(i, { label: e.target.value })} />
                       ) : (
-                        <span className="text-slate-800">{it.label}</span>
+                        <span className="text-ink-800">{it.label}</span>
                       )}
                     </Td>
                     <Td>
@@ -1122,18 +1122,18 @@ function SettlementEditor({ data, manage, onDone }: { data: ExitDetail; manage: 
                 + Add line
               </Button>
             )}
-            <div className="grid gap-3 rounded-xl bg-slate-50 p-4 text-sm sm:grid-cols-3">
+            <div className="grid gap-3 rounded-xl bg-ink-50 p-4 text-sm sm:grid-cols-3">
               <div>
-                <p className="text-xs uppercase tracking-wider text-slate-500">Earnings</p>
+                <p className="text-xs uppercase tracking-wider text-ink-500">Earnings</p>
                 <p className="font-semibold text-emerald-700">{fmtMoney(earnings)}</p>
               </div>
               <div>
-                <p className="text-xs uppercase tracking-wider text-slate-500">Deductions</p>
+                <p className="text-xs uppercase tracking-wider text-ink-500">Deductions</p>
                 <p className="font-semibold text-rose-600">{fmtMoney(deductions)}</p>
               </div>
               <div>
-                <p className="text-xs uppercase tracking-wider text-slate-500">{earnings - deductions >= 0 ? 'Net payable' : 'Net recoverable'}</p>
-                <p className="text-lg font-semibold text-indigo-700">{fmtMoney(Math.abs(earnings - deductions))}</p>
+                <p className="text-xs uppercase tracking-wider text-ink-500">{earnings - deductions >= 0 ? 'Net payable' : 'Net recoverable'}</p>
+                <p className="text-lg font-semibold text-brand-700">{fmtMoney(Math.abs(earnings - deductions))}</p>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -1147,7 +1147,7 @@ function SettlementEditor({ data, manage, onDone }: { data: ExitDetail; manage: 
                   Approve settlement
                 </Button>
               )}
-              {editable && !isAdmin && <span className="self-center text-xs text-slate-400">An ADMIN approves the settlement.</span>}
+              {editable && !isAdmin && <span className="self-center text-xs text-ink-400">An ADMIN approves the settlement.</span>}
               {manage && s.status === 'APPROVED' && <Button onClick={() => setPayOpen(true)}>Record payment</Button>}
             </div>
           </div>
@@ -1181,7 +1181,7 @@ function RehireModal({ data, mode, onClose, onDone }: { data: ExitDetail; mode: 
     <Modal title={mode === 'close' ? 'Close exit case' : 'Rehire eligibility'} open onClose={onClose}>
       <div className="space-y-3">
         {mode === 'close' && (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-ink-500">
             Closing archives {data.employee.name}&apos;s profile. Their records stay available to HR as a former employee.
           </p>
         )}
@@ -1219,8 +1219,7 @@ function LettersTab({ data, onDone }: { data: ExitDetail; onDone: () => void }) 
   };
   const download = async (id: string) => {
     try {
-      const { url } = await api<{ url: string }>(`/letters/${id}/download?inline=true`);
-      openUrl(url);
+      await openSecureFile(`/letters/${id}/download?inline=true`);
     } catch (err) {
       setError(errText(err));
     }
@@ -1237,16 +1236,16 @@ function LettersTab({ data, onDone }: { data: ExitDetail; onDone: () => void }) 
             const last = list[list.length - 1];
             return (
               <tr key={t}>
-                <Td className="font-medium text-slate-900">{LETTER_LABELS[t]}</Td>
+                <Td className="font-medium text-ink-900">{LETTER_LABELS[t]}</Td>
                 <Td>
                   {last ? (
                     <>
                       {fmtDate(last.createdAt)}
-                      {last.issuedByName && <span className="block text-xs text-slate-400">by {last.issuedByName}</span>}
-                      {list.length > 1 && <span className="block text-xs text-slate-400">{list.length} copies</span>}
+                      {last.issuedByName && <span className="block text-xs text-ink-400">by {last.issuedByName}</span>}
+                      {list.length > 1 && <span className="block text-xs text-ink-400">{list.length} copies</span>}
                     </>
                   ) : (
-                    <span className="text-slate-400">Not issued</span>
+                    <span className="text-ink-400">Not issued</span>
                   )}
                 </Td>
                 <Td>
@@ -1267,7 +1266,7 @@ function LettersTab({ data, onDone }: { data: ExitDetail; onDone: () => void }) 
             );
           })}
         </Table>
-        <p className="border-t border-slate-100 px-5 py-2.5 text-xs text-slate-400">
+        <p className="border-t border-ink-100 px-5 py-2.5 text-xs text-ink-400">
           Letters and the paid F&F statement are filed in the employee&apos;s documents (“Employee Letters”) and stay downloadable by HR after access is revoked.
         </p>
       </Section>
@@ -1277,10 +1276,10 @@ function LettersTab({ data, onDone }: { data: ExitDetail; onDone: () => void }) 
           <div className="space-y-3 p-5 text-sm">
             {data.closedAt ? (
               <>
-                <p className="text-slate-700">
+                <p className="text-ink-700">
                   Closed on <b>{fmtDate(data.closedAt)}</b>. Profile archived{data.employee.archivedAt ? ` on ${fmtDate(data.employee.archivedAt)}` : ''}.
                 </p>
-                <p className="text-slate-700">
+                <p className="text-ink-700">
                   Rehire:{' '}
                   {data.employee.rehireEligible == null ? (
                     <Badge>Not decided</Badge>
@@ -1289,7 +1288,7 @@ function LettersTab({ data, onDone }: { data: ExitDetail; onDone: () => void }) 
                   ) : (
                     <Badge tone="red">Not eligible</Badge>
                   )}
-                  {data.employee.rehireNote && <span className="ml-2 text-slate-500">{data.employee.rehireNote}</span>}
+                  {data.employee.rehireNote && <span className="ml-2 text-ink-500">{data.employee.rehireNote}</span>}
                 </p>
                 <Button variant="secondary" onClick={() => setModal('rehire')}>
                   Update rehire eligibility
@@ -1298,7 +1297,7 @@ function LettersTab({ data, onDone }: { data: ExitDetail; onDone: () => void }) 
             ) : (
               <>
                 {data.closeBlockers.length > 0 ? (
-                  <ul className="list-inside list-disc space-y-1 text-slate-600">
+                  <ul className="list-inside list-disc space-y-1 text-ink-600">
                     {data.closeBlockers.map((b) => (
                       <li key={b}>{b}</li>
                     ))}
@@ -1370,7 +1369,7 @@ export default function ExitDetailPage() {
 
   return (
     <div>
-      <Link href="/exits" className="mb-3 inline-block text-sm text-indigo-600 hover:underline">
+      <Link href="/exits" className="mb-3 inline-block text-sm text-brand-600 hover:underline">
         ← All exits
       </Link>
       <PageHeader
@@ -1421,14 +1420,14 @@ export default function ExitDetailPage() {
             <Section title="Separation request">
               <div className="grid gap-3 p-5 text-sm sm:grid-cols-2">
                 <div>
-                  <p className="text-xs text-slate-500">Reason</p>
-                  <p className="whitespace-pre-line text-slate-800">{data.reason}</p>
+                  <p className="text-xs text-ink-500">Reason</p>
+                  <p className="whitespace-pre-line text-ink-800">{data.reason}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500">Decision</p>
-                  <p className="text-slate-800">
+                  <p className="text-xs text-ink-500">Decision</p>
+                  <p className="text-ink-800">
                     {data.approverName ? `${humanize(data.status)} by ${data.approverName}` : humanize(data.status)}
-                    {data.remarks && <span className="block text-xs text-slate-500">{data.remarks}</span>}
+                    {data.remarks && <span className="block text-xs text-ink-500">{data.remarks}</span>}
                   </p>
                   {data.acknowledgedAt && <p className="mt-1 text-xs text-emerald-700">Acknowledged on {fmtDate(data.acknowledgedAt)}</p>}
                 </div>
@@ -1443,22 +1442,22 @@ export default function ExitDetailPage() {
             </Section>
             {data.assets.length > 0 && (
               <Section title="Assets with the employee">
-                <ul className="divide-y divide-slate-100">
+                <ul className="divide-y divide-ink-100">
                   {data.assets.map((a) => (
                     <li key={a.id} className="flex items-center justify-between px-5 py-2.5 text-sm">
                       <span>
-                        {a.name} <span className="text-xs text-slate-400">{a.tag}</span>
+                        {a.name} <span className="text-xs text-ink-400">{a.tag}</span>
                       </span>
-                      <span className="text-xs text-slate-500">
+                      <span className="text-xs text-ink-500">
                         {a.department} · {fmtMoney(a.cost)}
                       </span>
                     </li>
                   ))}
                 </ul>
                 {isCompanyAdmin && (
-                  <p className="border-t border-slate-100 px-5 py-2.5 text-xs text-slate-400">
+                  <p className="border-t border-ink-100 px-5 py-2.5 text-xs text-ink-400">
                     Record returns under{' '}
-                    <Link href="/assets" className="text-indigo-600 hover:underline">
+                    <Link href="/assets" className="text-brand-600 hover:underline">
                       Assets
                     </Link>
                     .

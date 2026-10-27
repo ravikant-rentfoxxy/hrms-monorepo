@@ -22,7 +22,7 @@ import type { Prisma, Role, TaxDeclaration, TaxProof } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { audit } from '../lib/audit';
 import { notify } from '../lib/notify';
-import { objectKey, presignedGetUrl, putObject, removeObject } from '../lib/storage';
+import { objectKey, presignedGetUrl, putObject, removeObject, FILE_LINK_TTL_SECONDS } from '../lib/storage';
 import { logger } from '../lib/logger';
 import { ApiError } from '../utils/http';
 import { revealEmployeeSecrets } from '../utils/fieldCrypto';
@@ -118,7 +118,8 @@ export interface Actor {
   employeeId: string | null;
 }
 
-const isHr = (role: Role) => role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'HR';
+/** Verifies declarations company-wide: HR and Finance (plus Admin). */
+const isHr = (role: Role) => role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'HR' || role === 'FINANCE';
 
 /** Normalises employee-entered items (HRA declared = rent × months; approved stripped). */
 function normaliseItems(items: DeclarationItem[]): DeclarationItem[] {
@@ -401,7 +402,7 @@ export async function proofUrl(companyId: string, declarationId: string, proofId
   return {
     url: await presignedGetUrl(proof.fileKey, proof.name, inline ? 'inline' : 'attachment'),
     mimeType: proof.mimeType,
-    expiresInSeconds: 600,
+    expiresInSeconds: FILE_LINK_TTL_SECONDS,
   };
 }
 

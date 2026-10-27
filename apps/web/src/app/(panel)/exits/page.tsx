@@ -37,7 +37,7 @@ function ResignModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
   return (
     <Modal title="Submit resignation" open onClose={onClose}>
       <div className="space-y-3">
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-ink-500">
           Your resignation goes to your manager / HR for approval. You can withdraw it while it is pending.
         </p>
         <ErrorNote error={error} />
@@ -78,7 +78,7 @@ function InitiateModal({ onClose, onDone }: { onClose: () => void; onDone: () =>
   return (
     <Modal title="Initiate an exit" open onClose={onClose}>
       <div className="space-y-3">
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-ink-500">
           For terminations, retirements, contract ends and absconding. The exit is approved immediately and clearances open.
         </p>
         <ErrorNote error={error} />
@@ -184,10 +184,10 @@ export default function ExitsPage() {
       {activeOwn && (
         <Card className="mb-5 flex flex-wrap items-center justify-between gap-3 p-4">
           <div className="min-w-60 flex-1">
-            <p className="text-sm font-semibold text-slate-900">
+            <p className="text-sm font-semibold text-ink-900">
               Your exit {activeOwn.code ? `(${activeOwn.code}) ` : ''}— {exitStatusLabel(activeOwn).toLowerCase()}
             </p>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-ink-400">
               Last working day {fmtDate(activeOwn.approvedLastDay ?? activeOwn.requestedLastDay)}
               {activeOwn.notice.serving && ` · ${activeOwn.notice.remainingDays} day(s) of notice left`}
               {activeOwn.handoverCount > 0 && ` · handover ${activeOwn.handoverVerified}/${activeOwn.handoverCount} verified`}
@@ -198,7 +198,7 @@ export default function ExitsPage() {
           </div>
           <Link
             href={`/exits/${activeOwn.id}`}
-            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+            className="rounded-xl border border-ink-200 bg-white px-3.5 py-2 text-sm font-medium text-ink-700 shadow-sm hover:bg-ink-50"
           >
             Open
           </Link>
@@ -241,12 +241,12 @@ export default function ExitsPage() {
             {rows.map((r) => (
               <tr key={r.id}>
                 <Td>
-                  <span className="font-mono text-xs text-slate-600">{r.code ?? '—'}</span>
-                  <span className="block text-xs text-slate-400">{fmtDate(r.appliedOn)}</span>
+                  <span className="font-mono text-xs text-ink-600">{r.code ?? '—'}</span>
+                  <span className="block text-xs text-ink-400">{fmtDate(r.appliedOn)}</span>
                 </Td>
                 <Td>
-                  <p className="font-medium text-slate-900">{r.employee.name}</p>
-                  <p className="text-xs text-slate-400">
+                  <p className="font-medium text-ink-900">{r.employee.name}</p>
+                  <p className="text-xs text-ink-400">
                     {r.employee.employeeCode} · {r.employee.designation || '—'}
                   </p>
                 </Td>
@@ -255,7 +255,7 @@ export default function ExitsPage() {
                 </Td>
                 <Td>
                   {fmtDate(r.approvedLastDay ?? r.requestedLastDay)}
-                  {r.notice.serving && <span className="block text-xs text-slate-400">{r.notice.remainingDays}d left</span>}
+                  {r.notice.serving && <span className="block text-xs text-ink-400">{r.notice.remainingDays}d left</span>}
                   {r.shortfallDays > 0 && <span className="block text-xs text-rose-500">{r.shortfallDays}d shortfall</span>}
                   {r.lastDayChangeStatus === 'PENDING' && <span className="block text-xs text-amber-600">change requested</span>}
                 </Td>
@@ -289,7 +289,7 @@ export default function ExitsPage() {
                   <ExitStatusBadge r={r} />
                 </Td>
                 <Td>
-                  <Link href={`/exits/${r.id}`} className="text-sm font-medium text-indigo-600 hover:underline">
+                  <Link href={`/exits/${r.id}`} className="text-sm font-medium text-brand-600 hover:underline">
                     Details
                   </Link>
                 </Td>

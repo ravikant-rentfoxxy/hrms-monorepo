@@ -57,9 +57,9 @@ const monthName = (d: string) => new Date(d).toLocaleDateString('en-IN', { month
 const errMsg = (err: unknown) => (err instanceof Error ? err.message : 'Failed');
 
 function ApplyModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
-  const { session, isCompanyAdmin } = useAuth();
+  const { session, canManagePayroll } = useAuth();
   const { data: directory } = useFetch<{ items: { id: string; name: string; employeeCode: string }[] }>(
-    isCompanyAdmin ? '/employees?pageSize=100' : null
+    canManagePayroll ? '/employees?pageSize=100' : null
   );
   const [employeeId, setEmployeeId] = useState(session?.employee?.id ?? '');
   const [type, setType] = useState<'LOAN' | 'SALARY_ADVANCE'>('LOAN');
@@ -102,8 +102,8 @@ function ApplyModal({ onClose, onDone }: { onClose: () => void; onDone: () => vo
           principal: Number(principal),
           tenureMonths: Number(tenure),
           reason,
-          ...(isCompanyAdmin && employeeId && employeeId !== session?.employee?.id ? { employeeId } : {}),
-          ...(isCompanyAdmin && Number(rate) > 0 ? { interestRate: Number(rate) } : {}),
+          ...(canManagePayroll && employeeId && employeeId !== session?.employee?.id ? { employeeId } : {}),
+          ...(canManagePayroll && Number(rate) > 0 ? { interestRate: Number(rate) } : {}),
         },
       });
       onDone();
@@ -119,7 +119,7 @@ function ApplyModal({ onClose, onDone }: { onClose: () => void; onDone: () => vo
     <Modal title="Loan / salary advance request" open onClose={onClose}>
       <div className="space-y-3">
         <ErrorNote error={error} />
-        {isCompanyAdmin && (
+        {canManagePayroll && (
           <Field label="Employee">
             <Select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
               <option value="">— select —</option>
@@ -144,14 +144,14 @@ function ApplyModal({ onClose, onDone }: { onClose: () => void; onDone: () => vo
           <Field label="Tenure (months)" hint={type === 'SALARY_ADVANCE' ? '1–3 months' : 'Up to 60 months'}>
             <Input type="number" min={1} max={type === 'SALARY_ADVANCE' ? 3 : 60} value={tenure} onChange={(e) => setTenure(e.target.value)} />
           </Field>
-          {isCompanyAdmin && type === 'LOAN' && (
+          {canManagePayroll && type === 'LOAN' && (
             <Field label="Interest (% p.a.)">
               <Input type="number" value={rate} onChange={(e) => setRate(e.target.value)} />
             </Field>
           )}
         </div>
         {preview && Number(principal) > 0 && (
-          <div className="rounded-xl bg-indigo-50 px-4 py-3 text-sm">
+          <div className="rounded-xl bg-brand-50 px-4 py-3 text-sm">
             EMI <b>{fmtMoney(preview.emi)}</b> × {tenure} months
             {preview.totalInterest > 0 && <> · interest {fmtMoney(preview.totalInterest)}</>} · total {fmtMoney(preview.totalRepayable)}
           </div>
@@ -168,7 +168,7 @@ function ApplyModal({ onClose, onDone }: { onClose: () => void; onDone: () => vo
 }
 
 function LoanModal({ id, onClose, onChanged }: { id: string; onClose: () => void; onChanged: () => void }) {
-  const { session, isCompanyAdmin, isManagerial } = useAuth();
+  const { session, canManagePayroll, isManagerial } = useAuth();
   const { data, loading, error, reload } = useFetch<LoanDetail>(`/loans/${id}`);
   const [remarks, setRemarks] = useState('');
   const [rate, setRate] = useState<string | null>(null);
@@ -194,8 +194,8 @@ function LoanModal({ id, onClose, onChanged }: { id: string; onClose: () => void
     post('decide', {
       decision,
       ...(remarks ? { remarks } : {}),
-      ...(isCompanyAdmin && rate !== null && rate !== '' ? { interestRate: Number(rate) } : {}),
-      ...(isCompanyAdmin && startMonth ? { startMonth } : {}),
+      ...(canManagePayroll && rate !== null && rate !== '' ? { interestRate: Number(rate) } : {}),
+      ...(canManagePayroll && startMonth ? { startMonth } : {}),
     });
 
   const own = data?.employee.id === session?.employee?.id;
@@ -208,37 +208,37 @@ function LoanModal({ id, onClose, onChanged }: { id: string; onClose: () => void
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
             <div>
-              <p className="text-xs text-slate-500">Principal</p>
+              <p className="text-xs text-ink-500">Principal</p>
               <p className="font-semibold">{fmtMoney(data.principal)}</p>
             </div>
             <div>
-              <p className="text-xs text-slate-500">EMI</p>
+              <p className="text-xs text-ink-500">EMI</p>
               <p className="font-semibold">
                 {fmtMoney(data.emi)} × {data.tenureMonths}
               </p>
             </div>
             <div>
-              <p className="text-xs text-slate-500">Interest</p>
+              <p className="text-xs text-ink-500">Interest</p>
               <p className="font-semibold">
                 {data.interestRate}% · {fmtMoney(data.totalInterest)}
               </p>
             </div>
             <div>
-              <p className="text-xs text-slate-500">Outstanding</p>
+              <p className="text-xs text-ink-500">Outstanding</p>
               <p className="font-semibold">{fmtMoney(data.balance)}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-sm text-slate-600">
+          <div className="flex items-center gap-2 text-sm text-ink-600">
             <Badge tone={loanTone(data.status)}>{data.status}</Badge>
             <span>
               Applied {fmtDate(data.appliedOn)}
               {data.startMonth ? ` · EMIs from ${monthName(data.startMonth)}` : ''} · recovered {fmtMoney(data.paid)}
             </span>
           </div>
-          <p className="text-sm text-slate-600">{data.reason}</p>
-          {data.remarks && <p className="text-sm text-slate-500">Remarks: {data.remarks}</p>}
+          <p className="text-sm text-ink-600">{data.reason}</p>
+          {data.remarks && <p className="text-sm text-ink-500">Remarks: {data.remarks}</p>}
 
-          <div className="max-h-72 overflow-y-auto rounded-xl border border-slate-100">
+          <div className="max-h-72 overflow-y-auto rounded-xl border border-ink-100">
             <Table headers={['#', 'Month', 'EMI', 'Interest', 'Principal', 'Balance', 'Recovered']}>
               {data.schedule.map((r) => (
                 <tr key={r.installment}>
@@ -254,13 +254,13 @@ function LoanModal({ id, onClose, onChanged }: { id: string; onClose: () => void
             </Table>
           </div>
           {data.extraRepayments.length > 0 && (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-ink-500">
               Other recoveries: {data.extraRepayments.map((r) => `${monthName(r.month)} ${fmtMoney(r.amount)}`).join(', ')}
             </p>
           )}
           {data.trail.length > 0 && (
             <div>
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-slate-500">Approval trail</p>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-ink-500">Approval trail</p>
               {data.trail.map((s) => (
                 <div key={s.id} className="flex items-center justify-between py-1 text-sm">
                   <span>
@@ -276,8 +276,8 @@ function LoanModal({ id, onClose, onChanged }: { id: string; onClose: () => void
 
           <ErrorNote error={actionError} />
           {data.status === 'PENDING' && !own && isManagerial && (
-            <div className="space-y-2 rounded-xl bg-slate-50 p-3">
-              {isCompanyAdmin && (
+            <div className="space-y-2 rounded-xl bg-ink-50 p-3">
+              {canManagePayroll && (
                 <div className="grid grid-cols-2 gap-3">
                   {data.type === 'LOAN' && (
                     <Field label="Interest (% p.a.)">
@@ -300,14 +300,14 @@ function LoanModal({ id, onClose, onChanged }: { id: string; onClose: () => void
               </div>
             </div>
           )}
-          {data.status === 'PENDING' && (own || isCompanyAdmin) && (
+          {data.status === 'PENDING' && (own || canManagePayroll) && (
             <Button variant="secondary" disabled={busy} onClick={() => void post('cancel', {})}>
               Cancel request
             </Button>
           )}
-          {data.status === 'ACTIVE' && isCompanyAdmin && (
-            <div className="space-y-2 rounded-xl bg-slate-50 p-3">
-              <p className="text-xs text-slate-500">
+          {data.status === 'ACTIVE' && canManagePayroll && (
+            <div className="space-y-2 rounded-xl bg-ink-50 p-3">
+              <p className="text-xs text-ink-500">
                 Close early when the outstanding {fmtMoney(data.balance)} is settled outside payroll — EMIs stop.
               </p>
               <Input value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Foreclosure remarks (required)" />
@@ -327,13 +327,13 @@ function LoanModal({ id, onClose, onChanged }: { id: string; onClose: () => void
 }
 
 export default function LoansPage() {
-  const { session, isManagerial, isCompanyAdmin } = useAuth();
+  const { session, isManagerial, canManagePayroll } = useAuth();
   const tabs = [
-    ...(isManagerial ? ['Approvals', isCompanyAdmin ? 'All loans' : 'Team loans'] : []),
+    ...(isManagerial || canManagePayroll ? ['Approvals', canManagePayroll ? 'All loans' : 'Team loans'] : []),
     ...(session?.employee ? ['My loans'] : []),
   ];
   const [tab, setTab] = useState(tabs[0] ?? 'My loans');
-  const scope = isCompanyAdmin ? 'company' : 'team';
+  const scope = canManagePayroll ? 'company' : 'team';
   const [status, setStatus] = useState('');
   const path =
     tab === 'Approvals'
@@ -352,7 +352,7 @@ export default function LoansPage() {
       <PageHeader
         title="Loans & advances"
         subtitle="Employee loans and salary advances, recovered as EMIs through payroll"
-        actions={session?.employee || isCompanyAdmin ? <Button onClick={() => setApplying(true)}>+ New request</Button> : undefined}
+        actions={session?.employee || canManagePayroll ? <Button onClick={() => setApplying(true)}>+ New request</Button> : undefined}
       />
       <div className="flex flex-wrap items-start justify-between gap-3">
         {tabs.length > 1 && <Tabs tabs={tabs} active={tab} onChange={setTab} />}
@@ -377,21 +377,21 @@ export default function LoansPage() {
               <tr key={l.id}>
                 {showEmployee && (
                   <Td>
-                    <p className="font-medium text-slate-900">{l.employee.name}</p>
-                    <p className="text-xs text-slate-400">{l.employee.employeeCode}</p>
+                    <p className="font-medium text-ink-900">{l.employee.name}</p>
+                    <p className="text-xs text-ink-400">{l.employee.employeeCode}</p>
                   </Td>
                 )}
                 <Td>{typeLabel(l.type)}</Td>
                 <Td className="font-medium">{fmtMoney(l.principal)}</Td>
                 <Td>
                   {fmtMoney(l.emi)} × {l.tenureMonths}
-                  {l.interestRate > 0 && <span className="text-xs text-slate-400"> @ {l.interestRate}%</span>}
+                  {l.interestRate > 0 && <span className="text-xs text-ink-400"> @ {l.interestRate}%</span>}
                 </Td>
                 <Td>{l.status === 'ACTIVE' ? fmtMoney(l.balance) : '—'}</Td>
                 <Td>{fmtDate(l.appliedOn)}</Td>
                 <Td>
                   <Badge tone={loanTone(l.status)}>{l.status}</Badge>
-                  {l.currentStep && <p className="mt-0.5 text-[11px] text-slate-400">Level {l.currentStep.level}</p>}
+                  {l.currentStep && <p className="mt-0.5 text-[11px] text-ink-400">Level {l.currentStep.level}</p>}
                 </Td>
                 <Td>
                   <Button variant="ghost" onClick={() => setOpenId(l.id)}>

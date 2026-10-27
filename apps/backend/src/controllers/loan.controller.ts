@@ -8,7 +8,7 @@ export const list = h(async (req, res) => {
   const { auth, tenantId } = ctx(req);
   const { scope, status, type } = req.query as unknown as { scope: 'me' | 'team' | 'company'; status?: string; type?: string };
   if (scope === 'team' && !isManagerial(auth.role)) throw ApiError.forbidden();
-  if (scope === 'company' && !(auth.role === 'SUPER_ADMIN' || auth.role === 'ADMIN' || auth.role === 'HR')) throw ApiError.forbidden();
+  if (scope === 'company' && !(auth.role === 'SUPER_ADMIN' || auth.role === 'ADMIN' || auth.role === 'HR' || auth.role === 'FINANCE')) throw ApiError.forbidden();
   ok(res, await loanService.list(tenantId, { scope, status, type, employeeId: auth.employeeId }));
 });
 

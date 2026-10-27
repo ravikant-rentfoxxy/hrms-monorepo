@@ -1,7 +1,7 @@
 /** HR documents: metadata in PostgreSQL, bytes in the MinIO bucket. */
 import { prisma } from '../lib/prisma';
 import { ApiError } from '../utils/http';
-import { objectKey, presignedGetUrl, putObject, removeObject } from '../lib/storage';
+import { objectKey, presignedGetUrl, putObject, removeObject, FILE_LINK_TTL_SECONDS } from '../lib/storage';
 
 export interface DocumentFile {
   originalname: string;
@@ -162,7 +162,7 @@ export async function downloadUrl(
   }
   return {
     url: await presignedGetUrl(document.fileKey, document.name, opts.inline ? 'inline' : 'attachment'),
-    expiresInSeconds: 600,
+    expiresInSeconds: FILE_LINK_TTL_SECONDS,
   };
 }
 

@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { api, fmtDate } from '@/lib/api';
 import { useFetch } from '@/lib/useFetch';
-import { Badge, Button, Card, Empty, ErrorNote, Field, Input, Modal, PageHeader, Select, Spinner, Table, Tabs, Td, Textarea } from '@/components/ui';
+import { Badge, Button, Card, Empty, ErrorNote, Field, Input, Modal, Select, Spinner, Stat, Table, Tabs, Td, Textarea } from '@/components/ui';
 import { errMsg, label } from '@/components/talent';
 import {
   CLOSED_STAGES, CSV_TEMPLATE, CandidateFields, JobFields, MatchBar, PIPELINE, PLATFORMS, StatusBadge, candidateFormData, emptyCandidate,
@@ -71,6 +71,15 @@ interface ImportResult {
   rows: { row: number; name: string; email: string; status: string; message: string; candidateCode?: string | null; applicationCode?: string | null }[];
 }
 
+/** The 13 pipeline stages grouped into five phases, so the board fits without sideways scrolling. */
+const PHASES: { key: string; title: string; stages: string[] }[] = [
+  { key: 'NEW', title: 'New', stages: ['APPLIED', 'ON_HOLD'] },
+  { key: 'SCREENING', title: 'Screening', stages: ['SHORTLISTED', 'HR_SCREENED'] },
+  { key: 'INTERVIEW', title: 'Interview', stages: ['INTERVIEW_SCHEDULED', 'INTERVIEW_COMPLETED', 'SELECTED'] },
+  { key: 'OFFER', title: 'Offer', stages: ['OFFERED', 'OFFER_ACCEPTED'] },
+  { key: 'JOINING', title: 'Joining', stages: ['PRE_ONBOARDING', 'DOCUMENTS_VERIFIED', 'READY_TO_JOIN', 'JOINED'] },
+];
+
 const emptyPosting = { platform: 'LINKEDIN', platformName: '', url: '', externalId: '', postedOn: '', expiresOn: '', cost: '', notes: '', status: 'PUBLISHED' };
 
 export default function JobPage() {
@@ -82,6 +91,7 @@ export default function JobPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [showClosed, setShowClosed] = useState(false);
+  const [phase, setPhase] = useState('ALL');
 
   const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState<JobForm | null>(null);
@@ -136,7 +146,7 @@ export default function JobPage() {
     if (!confirm('Delete this job? This cannot be undone.')) return;
     try {
       await api(`/recruitment/jobs/${id}`, { method: 'DELETE' });
-      router.replace('/recruitment');
+      router.replace('/recruitment?tab=Jobs');
     } catch (err) {
       setError(errMsg(err));
     }
@@ -251,186 +261,161 @@ export default function JobPage() {
     URL.revokeObjectURL(url);
   };
 
+  const active = j.applications.filter((a) => !CLOSED_STAGES.includes(a.stage));
+  const inPhase = (key: string) => active.filter((a) => (PHASES.find((ph) => ph.key === key)?.stages ?? []).includes(a.stage));
+  const shown = phase === 'ALL' ? active : inPhase(phase);
+  const stageTitle = (st: string) => PIPELINE.find((x) => x.stage === st)?.title ?? stageLabel(st);
+  const newCount = inPhase('NEW').length;
+
+  // One plain-language "what to do next" for the job's current state.
+  const next: { text: string; action?: { label: string; onClick: () => void } } | null =
+    j.status === 'FILLED'
+      ? { text: 'All positions are filled. Close the job once onboarding is done.' }
+      : j.status === 'CLOSED' || j.status === 'CANCELLED'
+        ? { text: `This job is ${j.status.toLowerCase()}. Reopen it to hire again.` }
+        : j.status === 'ON_HOLD'
+          ? { text: 'This job is on hold — resume it to continue hiring.', action: isCompanyAdmin ? { label: 'Resume', onClick: () => void setStatus('OPEN') } : undefined }
+          : !j.postings.length && j.status === 'APPROVED'
+            ? {
+                text: 'Next: advertise this job. Record where it is posted (LinkedIn, Naukri, careers page) — publishing a posting opens the job.',
+                action: isCompanyAdmin ? { label: '+ Record posting', onClick: () => openPosting() } : undefined,
+              }
+            : !active.length
+              ? { text: 'Next: add candidates who applied, or import them from a CSV.', action: isCompanyAdmin ? { label: '+ Add candidate', onClick: () => void openAdd() } : undefined }
+              : newCount
+                ? { text: `${newCount} new applicant${newCount > 1 ? 's' : ''} waiting to be screened — shortlist, hold or reject them.`, action: { label: 'Show them', onClick: () => setPhase('NEW') } }
+                : null;
+
   return (
-    <div>
-      <Link href="/recruitment" className="mb-3 inline-block text-sm text-slate-500 hover:text-indigo-600">
-        ← Recruitment
+    <div className="min-w-0">
+      <Link href="/recruitment?tab=Jobs" className="mb-3 inline-flex items-center gap-1 text-sm text-ink-500 hover:text-brand-600">
+        ← Back to jobs
       </Link>
-      <PageHeader
-        title={j.title}
-        subtitle={[j.code, j.department, j.location, j.employmentType, yrs(j.minExperience, j.maxExperience), `Hiring manager: ${j.hiringManager?.name ?? '—'}`]
-          .filter(Boolean)
-          .join(' · ')}
-        actions={
-          isCompanyAdmin && (
-            <>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setError(null);
-                  setForm(jobForm(j));
-                  setEditOpen(true);
-                }}
-              >
-                Edit
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setError(null);
-                  setCsvFile(null);
-                  setImportResult(null);
-                  setImportOpen(true);
-                }}
-                disabled={ended}
-              >
-                Import CSV
-              </Button>
-              <Button onClick={() => void openAdd()} disabled={ended}>
-                + Add candidate
-              </Button>
-            </>
-          )
-        }
-      />
-      <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-slate-500">
-        <StatusBadge status={j.status} />
-        <span>
-          {j.hired ?? 0}/{j.openings} filled
-        </span>
-        {j.requisition && (
-          <span>
-            · From requisition {j.requisition.code} ({label(j.requisition.reason)}, {label(j.requisition.priority)} priority, by {j.requisition.requestedBy?.name ?? '—'})
-          </span>
-        )}
-        {isCompanyAdmin && j.maxCtc !== undefined && (
-          <span>
-            · Budget {money(j.minCtc)} – {money(j.maxCtc)}
-          </span>
-        )}
+
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-[22px] font-semibold tracking-tight text-ink-900">{j.title}</h1>
+            <StatusBadge status={j.status} />
+          </div>
+          <p className="mt-0.5 text-sm text-ink-500">{[j.code, j.department, j.location, j.employmentType].filter(Boolean).join(' · ')}</p>
+        </div>
         {isCompanyAdmin && (
-          <span className="ml-auto flex gap-1">
-            {j.status === 'APPROVED' && <Button variant="ghost" onClick={() => void setStatus('OPEN')}>Open without posting</Button>}
-            {j.status === 'OPEN' && <Button variant="ghost" onClick={() => void setStatus('ON_HOLD')}>Put on hold</Button>}
-            {j.status === 'ON_HOLD' && <Button variant="ghost" onClick={() => void setStatus('OPEN')}>Resume</Button>}
-            {!ended && <Button variant="ghost" onClick={() => void setStatus('CLOSED')}>Close</Button>}
-            {!ended && <Button variant="ghost" onClick={() => confirm('Cancel this job? Open postings close too.') && void setStatus('CANCELLED')}>Cancel</Button>}
-            {ended && <Button variant="ghost" onClick={() => void setStatus('OPEN')}>Reopen</Button>}
-            {!j.applications.length && <Button variant="ghost" onClick={() => void remove()}>Delete</Button>}
-          </span>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setError(null);
+                setForm(jobForm(j));
+                setEditOpen(true);
+              }}
+            >
+              Edit
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setError(null);
+                setCsvFile(null);
+                setImportResult(null);
+                setImportOpen(true);
+              }}
+              disabled={ended}
+            >
+              Import CSV
+            </Button>
+            <Button onClick={() => void openAdd()} disabled={ended}>
+              + Add candidate
+            </Button>
+          </div>
         )}
       </div>
-      {notice && <p className="mb-3 rounded-xl border border-emerald-100 bg-emerald-50 px-3.5 py-2.5 text-sm text-emerald-700">{notice}</p>}
-      {!addOpen && !postingOpen && !importOpen && !editOpen && !rejectFor && <ErrorNote error={error} />}
 
-      <Card className="mb-4">
-        <div className="flex items-center justify-between px-5 pt-4">
-          <h2 className="text-sm font-semibold text-slate-900">Job postings</h2>
-          {isCompanyAdmin && !ended && (
-            <Button variant="ghost" onClick={() => openPosting()}>
-              + Record posting
+      {next && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-100 bg-brand-50/60 px-4 py-3">
+          <p className="text-sm text-brand-900">{next.text}</p>
+          {next.action && (
+            <Button variant="secondary" onClick={next.action.onClick}>
+              {next.action.label}
             </Button>
           )}
         </div>
-        {!j.postings.length ? (
-          <Empty message="Not posted anywhere yet — record where this job is advertised (LinkedIn, Naukri, careers page…)" />
-        ) : (
-          <Table headers={['Platform', 'Posted', 'Expires', 'Status', 'Applications', ...(isCompanyAdmin ? ['Cost', 'Cost / app'] : []), 'Joined', '']}>
-            {j.postings.map((p) => (
-              <tr key={p.id}>
-                <Td>
-                  <span className="font-medium">{p.label}</span>
-                  {p.url && (
-                    <a href={p.url} target="_blank" rel="noreferrer" className="ml-2 text-xs text-indigo-600">
-                      View ↗
-                    </a>
-                  )}
-                  <p className="text-xs text-slate-400">{[p.externalId, p.postedBy?.name].filter(Boolean).join(' · ')}</p>
-                </Td>
-                <Td>{fmtDate(p.postedOn)}</Td>
-                <Td>{fmtDate(p.expiresOn)}</Td>
-                <Td>
-                  <StatusBadge status={p.status} />
-                </Td>
-                <Td>{p.applications}</Td>
-                {isCompanyAdmin && <Td>{money(p.cost)}</Td>}
-                {isCompanyAdmin && <Td>{money(p.costPerApplication)}</Td>}
-                <Td>{p.hires}</Td>
-                <Td>
-                  {isCompanyAdmin && (
-                    <div className="flex flex-wrap gap-1">
-                      {p.status === 'DRAFT' && <Button variant="ghost" onClick={() => void postingStatus(p, 'PUBLISHED')}>Publish</Button>}
-                      {p.status === 'PUBLISHED' && <Button variant="ghost" onClick={() => void postingStatus(p, 'ACTIVE')}>Mark active</Button>}
-                      {!ended && (
-                        <Button
-                          variant="ghost"
-                          onClick={() => {
-                            setError(null);
-                            setRenewDate('');
-                            setRenewFor(p);
-                          }}
-                        >
-                          {['EXPIRED', 'CLOSED'].includes(p.status) ? 'Renew' : 'Extend'}
-                        </Button>
-                      )}
-                      {!['CLOSED', 'EXPIRED'].includes(p.status) && <Button variant="ghost" onClick={() => void postingStatus(p, 'CLOSED')}>Close</Button>}
-                      <Button variant="ghost" onClick={() => openPosting(p)}>
-                        Edit
-                      </Button>
-                      {p.applications === 0 && (
-                        <Button variant="ghost" onClick={() => removePosting(p)}>
-                          Delete
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </Td>
-              </tr>
-            ))}
-          </Table>
-        )}
-      </Card>
+      )}
+      {notice && <p className="mb-3 rounded-xl border border-emerald-100 bg-emerald-50 px-3.5 py-2.5 text-sm text-emerald-700">{notice}</p>}
+      {!addOpen && !postingOpen && !importOpen && !editOpen && !rejectFor && <ErrorNote error={error} />}
 
-      <div className="overflow-x-auto pb-2">
-        <div className="flex gap-3">
-          {PIPELINE.map(({ stage, title }) => {
-            const apps = j.applications.filter((a) => a.stage === stage);
-            return (
-              <div key={stage} className="w-[220px] shrink-0 rounded-2xl bg-slate-50 p-2.5">
-                <div className="mb-2 flex items-center justify-between px-1">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{title}</span>
-                  <Badge tone="slate">{apps.length}</Badge>
-                </div>
-                <div className="space-y-2">
-                  {apps.map((a) => (
-                    <Card key={a.id} className="p-3">
-                      <Link href={`/recruitment/applications/${a.id}`} className="text-sm font-medium text-slate-900 hover:text-indigo-600">
-                        {a.candidate.name}
-                      </Link>
-                      <p className="text-xs text-slate-400">
-                        {a.code} · {a.candidate.experienceYears} yrs{a.candidate.currentCompany ? ` · ${a.candidate.currentCompany}` : ''}
-                      </p>
-                      <div className="mt-1 flex flex-wrap items-center gap-1">
-                        <MatchBar score={a.match} />
-                        {a.candidate.referredById && <Badge tone="violet">Referral</Badge>}
-                        {a.posting ? <Badge tone="slate">{a.posting.label}</Badge> : a.source && <Badge tone="slate">{stageLabel(a.source)}</Badge>}
-                        {a.interviews.length > 0 && (
-                          <Badge tone="blue">
-                            {a.interviews.filter((i) => i.status === 'COMPLETED').length}/{a.interviews.filter((i) => i.status !== 'CANCELLED').length} rounds
-                          </Badge>
-                        )}
-                        {a.offer && <StatusBadge status={a.offer.status} />}
+      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat label="Positions filled" value={`${j.hired ?? 0} / ${j.openings}`} icon="check" />
+        <Stat label="Candidates in process" value={active.filter((a) => a.stage !== 'JOINED').length} icon="users" />
+        <Stat label="Live postings" value={livePostings.length} icon="megaphone" />
+        {isCompanyAdmin && j.maxCtc !== undefined ? (
+          <Stat label="Budget (CTC / yr)" value={<span className="text-lg">{money(j.minCtc)} – {money(j.maxCtc)}</span>} icon="banknote" />
+        ) : (
+          <Stat label="Experience" value={<span className="text-lg">{yrs(j.minExperience, j.maxExperience)}</span>} icon="briefcase" />
+        )}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="min-w-0 space-y-4">
+          <Card>
+            <div className="flex flex-wrap items-center justify-between gap-2 px-5 pt-4">
+              <div>
+                <h2 className="text-sm font-semibold text-ink-900">Candidates</h2>
+                <p className="text-xs text-ink-400">Pick a stage to filter. Open a candidate to schedule interviews, make an offer or move them on.</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-1.5 px-5 pt-3">
+              {[{ key: 'ALL', title: 'All', count: active.length }, ...PHASES.map((ph) => ({ key: ph.key, title: ph.title, count: inPhase(ph.key).length }))].map((ph) => (
+                <button
+                  key={ph.key}
+                  onClick={() => setPhase(ph.key)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                    phase === ph.key ? 'bg-brand-600 text-white' : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
+                  }`}
+                >
+                  {ph.title} <span className={phase === ph.key ? 'text-brand-200' : 'text-ink-400'}>{ph.count}</span>
+                </button>
+              ))}
+            </div>
+            {!shown.length ? (
+              <Empty message={active.length ? 'Nobody at this stage' : 'No candidates yet'} />
+            ) : (
+              <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-3">
+                {shown.map((a) => (
+                  <div key={a.id} className="flex min-w-0 flex-col rounded-xl border border-ink-200 p-3.5 transition-shadow hover:shadow-md">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <Link href={`/recruitment/applications/${a.id}`} className="block truncate text-sm font-semibold text-ink-900 hover:text-brand-600">
+                          {a.candidate.name}
+                        </Link>
+                        <p className="truncate text-xs text-ink-400">
+                          {a.candidate.experienceYears} yrs{a.candidate.currentCompany ? ` · ${a.candidate.currentCompany}` : ''}
+                        </p>
                       </div>
-                      {a.assignedTo && <p className="mt-1 text-xs text-slate-400">Owner: {a.assignedTo.name}</p>}
-                      {(stage === 'APPLIED' || stage === 'ON_HOLD') && (
-                        <div className="mt-2 flex flex-wrap gap-1">
+                      <Badge tone="blue">{stageTitle(a.stage)}</Badge>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-1">
+                      <MatchBar score={a.match} />
+                      {a.candidate.referredById && <Badge tone="violet">Referral</Badge>}
+                      {a.posting ? <Badge tone="slate">{a.posting.label}</Badge> : a.source && <Badge tone="slate">{stageLabel(a.source)}</Badge>}
+                      {a.interviews.length > 0 && (
+                        <Badge tone="slate">
+                          {a.interviews.filter((i) => i.status === 'COMPLETED').length}/{a.interviews.filter((i) => i.status !== 'CANCELLED').length} rounds
+                        </Badge>
+                      )}
+                      {a.offer && <StatusBadge status={a.offer.status} />}
+                    </div>
+                    {a.assignedTo && <p className="mt-1 text-xs text-ink-400">Owner: {a.assignedTo.name}</p>}
+                    <div className="mt-auto flex flex-wrap gap-1 pt-3">
+                      {(a.stage === 'APPLIED' || a.stage === 'ON_HOLD') && (
+                        <>
                           <button
                             onClick={() => void screen(a, 'SHORTLISTED')}
-                            className="rounded-lg bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
+                            className="rounded-lg bg-brand-50 px-2 py-1 text-xs font-medium text-brand-700 hover:bg-brand-100"
                           >
                             Shortlist
                           </button>
-                          {stage === 'APPLIED' && (
+                          {a.stage === 'APPLIED' && (
                             <button
                               onClick={() => void screen(a, 'ON_HOLD')}
                               className="rounded-lg bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100"
@@ -448,52 +433,184 @@ export default function JobPage() {
                           >
                             Reject
                           </button>
-                        </div>
+                        </>
                       )}
-                    </Card>
-                  ))}
-                  {!apps.length && <p className="px-1 py-3 text-center text-xs text-slate-400">—</p>}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {closed.length > 0 && (
-        <Card className="mt-4 p-4">
-          <button onClick={() => setShowClosed(!showClosed)} className="text-sm font-medium text-slate-600">
-            {showClosed ? '▾' : '▸'} Rejected / withdrawn / declined ({closed.length})
-          </button>
-          {showClosed && (
-            <div className="mt-3 divide-y divide-slate-100">
-              {closed.map((a) => (
-                <div key={a.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                  <div>
-                    <Link href={`/recruitment/applications/${a.id}`} className="font-medium hover:text-indigo-600">
-                      {a.candidate.name}
-                    </Link>
-                    <span className="ml-2">
-                      <StatusBadge status={a.stage} />
-                    </span>
-                    {a.rejectionReason && <p className="text-xs text-slate-400">{a.rejectionReason}</p>}
+                      <Link href={`/recruitment/applications/${a.id}`} className="ml-auto rounded-lg px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50">
+                        Open →
+                      </Link>
+                    </div>
                   </div>
-                  {isCompanyAdmin && !ended && (
-                    <Button variant="ghost" onClick={() => void reopen(a)}>
-                      Reopen
-                    </Button>
-                  )}
+                ))}
+              </div>
+            )}
+            {closed.length > 0 && (
+              <div className="border-t border-ink-100 px-5 py-3">
+                <button onClick={() => setShowClosed(!showClosed)} className="text-sm font-medium text-ink-600">
+                  {showClosed ? '▾' : '▸'} Rejected / withdrawn / declined ({closed.length})
+                </button>
+                {showClosed && (
+                  <div className="mt-2 divide-y divide-ink-100">
+                    {closed.map((a) => (
+                      <div key={a.id} className="flex flex-wrap items-center justify-between gap-3 py-2 text-sm">
+                        <div className="min-w-0">
+                          <Link href={`/recruitment/applications/${a.id}`} className="font-medium hover:text-brand-600">
+                            {a.candidate.name}
+                          </Link>
+                          <span className="ml-2">
+                            <StatusBadge status={a.stage} />
+                          </span>
+                          {a.rejectionReason && <p className="text-xs text-ink-400">{a.rejectionReason}</p>}
+                        </div>
+                        {isCompanyAdmin && !ended && (
+                          <Button variant="ghost" onClick={() => void reopen(a)}>
+                            Reopen
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </Card>
+
+          <Card>
+            <div className="flex flex-wrap items-center justify-between gap-2 px-5 pt-4">
+              <div>
+                <h2 className="text-sm font-semibold text-ink-900">Where it&apos;s advertised</h2>
+                <p className="text-xs text-ink-400">Job boards and pages this opening is posted on. Recorded manually.</p>
+              </div>
+              {isCompanyAdmin && !ended && (
+                <Button variant="ghost" onClick={() => openPosting()}>
+                  + Record posting
+                </Button>
+              )}
+            </div>
+            {!j.postings.length ? (
+              <Empty message="Not posted anywhere yet" />
+            ) : (
+              <div className="divide-y divide-ink-100 px-5 pb-2 pt-2">
+                {j.postings.map((p) => (
+                  <div key={p.id} className="flex flex-wrap items-start justify-between gap-3 py-3">
+                    <div className="min-w-0">
+                      <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-ink-900">
+                        {p.label}
+                        <StatusBadge status={p.status} />
+                        {p.url && (
+                          <a href={p.url} target="_blank" rel="noreferrer" className="text-xs font-normal text-brand-600">
+                            View ↗
+                          </a>
+                        )}
+                      </p>
+                      <p className="mt-0.5 text-xs text-ink-500">
+                        {[
+                          `Posted ${fmtDate(p.postedOn)}`,
+                          p.expiresOn && `expires ${fmtDate(p.expiresOn)}`,
+                          `${p.applications} applied`,
+                          `${p.hires} joined`,
+                          isCompanyAdmin && p.cost ? `cost ${money(p.cost)}${p.costPerApplication ? ` (${money(p.costPerApplication)} / application)` : ''}` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </p>
+                    </div>
+                    {isCompanyAdmin && (
+                      <div className="flex flex-wrap gap-1">
+                        {p.status === 'DRAFT' && <Button variant="ghost" onClick={() => void postingStatus(p, 'PUBLISHED')}>Publish</Button>}
+                        {p.status === 'PUBLISHED' && <Button variant="ghost" onClick={() => void postingStatus(p, 'ACTIVE')}>Mark active</Button>}
+                        {!ended && (
+                          <Button
+                            variant="ghost"
+                            onClick={() => {
+                              setError(null);
+                              setRenewDate('');
+                              setRenewFor(p);
+                            }}
+                          >
+                            {['EXPIRED', 'CLOSED'].includes(p.status) ? 'Renew' : 'Extend'}
+                          </Button>
+                        )}
+                        {!['CLOSED', 'EXPIRED'].includes(p.status) && <Button variant="ghost" onClick={() => void postingStatus(p, 'CLOSED')}>Close</Button>}
+                        <Button variant="ghost" onClick={() => openPosting(p)}>
+                          Edit
+                        </Button>
+                        {p.applications === 0 && (
+                          <Button variant="ghost" onClick={() => removePosting(p)}>
+                            Delete
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+
+        <div className="space-y-4">
+          <Card className="p-5">
+            <h2 className="mb-3 text-sm font-semibold text-ink-900">Job details</h2>
+            <dl className="space-y-2.5 text-sm">
+              {(
+                [
+                  ['Hiring manager', j.hiringManager?.name ?? '—'],
+                  ['Designation', j.designation || '—'],
+                  ['Openings', j.openings],
+                  ['Experience', yrs(j.minExperience, j.maxExperience)],
+                  ['Skills', j.skills || '—'],
+                  ['Qualifications', j.qualifications || '—'],
+                  [
+                    'Requisition',
+                    j.requisition
+                      ? `${j.requisition.code} · ${label(j.requisition.reason)} · ${label(j.requisition.priority)} priority · by ${j.requisition.requestedBy?.name ?? '—'}`
+                      : '—',
+                  ],
+                ] as [string, string | number][]
+              ).map(([k, v]) => (
+                <div key={k}>
+                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-ink-400">{k}</dt>
+                  <dd className="break-words text-ink-700">{v}</dd>
                 </div>
               ))}
-            </div>
+            </dl>
+            {j.description && (
+              <details className="mt-3 border-t border-ink-100 pt-3">
+                <summary className="cursor-pointer text-sm font-medium text-ink-600">Job description</summary>
+                <p className="mt-2 whitespace-pre-line break-words text-sm text-ink-600">{j.description}</p>
+              </details>
+            )}
+          </Card>
+          {isCompanyAdmin && (
+            <Card className="p-5">
+              <h2 className="mb-1 text-sm font-semibold text-ink-900">Job status</h2>
+              <p className="mb-3 text-xs text-ink-400">Open it to take candidates, pause it, or close it when hiring is done.</p>
+              <div className="flex flex-wrap gap-2">
+                {j.status === 'APPROVED' && <Button variant="secondary" onClick={() => void setStatus('OPEN')}>Open without posting</Button>}
+                {j.status === 'OPEN' && <Button variant="secondary" onClick={() => void setStatus('ON_HOLD')}>Put on hold</Button>}
+                {j.status === 'ON_HOLD' && <Button variant="secondary" onClick={() => void setStatus('OPEN')}>Resume</Button>}
+                {!ended && <Button variant="secondary" onClick={() => void setStatus('CLOSED')}>Close job</Button>}
+                {ended && <Button variant="secondary" onClick={() => void setStatus('OPEN')}>Reopen</Button>}
+                {!ended && (
+                  <Button variant="ghost" onClick={() => confirm('Cancel this job? Open postings close too.') && void setStatus('CANCELLED')}>
+                    Cancel job
+                  </Button>
+                )}
+                {!j.applications.length && (
+                  <Button variant="ghost" onClick={() => void remove()}>
+                    Delete
+                  </Button>
+                )}
+              </div>
+            </Card>
           )}
-        </Card>
-      )}
+        </div>
+      </div>
 
       <Modal title="Reject candidate" open={!!rejectFor} onClose={() => setRejectFor(null)}>
         <div className="space-y-3">
           <ErrorNote error={error} />
-          <p className="text-sm text-slate-500">{rejectFor?.candidate.name}</p>
+          <p className="text-sm text-ink-500">{rejectFor?.candidate.name}</p>
           <Field label="Reason">
             <Textarea value={reason} onChange={(e) => setReason(e.target.value)} />
           </Field>
@@ -563,7 +680,7 @@ export default function JobPage() {
           <Field label="Notes">
             <Textarea rows={2} value={postingForm.notes} onChange={(e) => setPostingForm({ ...postingForm, notes: e.target.value })} />
           </Field>
-          <p className="text-xs text-slate-400">Postings are recorded manually — HRMS does not publish to job boards automatically yet.</p>
+          <p className="text-xs text-ink-400">Postings are recorded manually — HRMS does not publish to job boards automatically yet.</p>
           <Button onClick={() => void savePosting()} disabled={postingForm.platform === 'OTHER' && !postingForm.platformName.trim()} className="w-full">
             Save posting
           </Button>
@@ -594,7 +711,7 @@ export default function JobPage() {
           <Tabs tabs={['New candidate', 'From talent pool']} active={addTab} onChange={setAddTab} />
           {addTab === 'New candidate' ? (
             <>
-              <p className="text-xs text-slate-400">If the email or mobile matches someone already in the talent pool, that record is reused.</p>
+              <p className="text-xs text-ink-400">If the email or mobile matches someone already in the talent pool, that record is reused.</p>
               <CandidateFields form={candForm} setForm={setCandForm} />
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Came through posting">
@@ -653,10 +770,10 @@ export default function JobPage() {
       <Modal title="Import candidates (CSV)" open={importOpen} onClose={() => setImportOpen(false)} wide>
         <div className="space-y-3">
           <ErrorNote error={error} />
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-ink-500">
             Columns: name, email, phone, skills, experienceYears, currentCtc, expectedCtc, noticePeriodDays, currentCompany, currentLocation, source,
             externalRef, postingId (optional). Existing candidates (same email or mobile) are linked, not duplicated.{' '}
-            <button className="text-indigo-600" onClick={downloadTemplate}>
+            <button className="text-brand-600" onClick={downloadTemplate}>
               Download template
             </button>
           </p>
@@ -670,11 +787,11 @@ export default function JobPage() {
             className="text-sm"
           />
           {livePostings.length > 0 && (
-            <p className="text-xs text-slate-400">Posting ids: {livePostings.map((p) => `${p.label} = ${p.id}`).join(' · ')}</p>
+            <p className="text-xs text-ink-400">Posting ids: {livePostings.map((p) => `${p.label} = ${p.id}`).join(' · ')}</p>
           )}
           {importResult && (
             <div>
-              <p className="mb-2 text-sm text-slate-600">
+              <p className="mb-2 text-sm text-ink-600">
                 {importResult.dryRun ? 'Preview' : 'Imported'}: {importResult.created} new · {importResult.linked} existing · {importResult.alreadyApplied} already applied ·{' '}
                 <span className={importResult.errors ? 'text-rose-600' : ''}>{importResult.errors} errors</span>
               </p>
@@ -687,7 +804,7 @@ export default function JobPage() {
                       <Td>{r.email}</Td>
                       <Td>
                         <Badge tone={r.status === 'ERROR' ? 'red' : r.status === 'CREATED' ? 'green' : 'amber'}>{label(r.status)}</Badge>
-                        <p className="text-xs text-slate-400">
+                        <p className="text-xs text-ink-400">
                           {r.message}
                           {r.applicationCode ? ` · ${r.applicationCode}` : ''}
                         </p>

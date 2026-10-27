@@ -65,9 +65,6 @@ async function main(): Promise<void> {
     prisma.holiday.deleteMany({ where: { companyId: company.id } }),
     prisma.announcement.deleteMany({ where: { companyId: company.id } }),
     prisma.expenseClaim.deleteMany({ where: { companyId: company.id } }),
-    prisma.goal.deleteMany({ where: { companyId: company.id } }),
-    prisma.feedback.deleteMany({ where: { companyId: company.id } }),
-    prisma.task.deleteMany({ where: { companyId: company.id } }),
     prisma.document.deleteMany({ where: { companyId: company.id } }),
     prisma.ticket.deleteMany({ where: { companyId: company.id } }),
   ]);
@@ -356,68 +353,6 @@ async function main(): Promise<void> {
         remarks: f.status === 'REJECTED' ? 'Please buy via the IT procurement portal' : null,
       },
     });
-  }
-
-  // ---- Goals + feedback ----
-  const goalPool = [
-    ['Launch Rentfoxxy app v2', 'Ship the redesigned mobile app on both stores', 'Delivery', 40],
-    ['Improve test coverage to 80%', 'Raise unit test coverage across core services', 'Quality', 25],
-    ['Mentor one junior teammate', 'Weekly 1:1s and a growth plan', 'Leadership', 15],
-    ['Close 12 enterprise deals', 'Hit the annual enterprise target', 'Sales', 50],
-    ['Redesign onboarding flow', 'New employee onboarding end to end', 'Design', 35],
-    ['Automate expense reconciliation', 'Cut monthly close time by two days', 'Finance', 30],
-  ] as const;
-  for (const e of everyone) {
-    for (let g = 0; g < rand(2, 3); g++) {
-      const [title, description, category, weightage] = goalPool[(g * 2 + e.name.length) % goalPool.length]!;
-      await prisma.goal.create({
-        data: {
-          companyId: company.id, employeeId: e.id, title, description, category, weightage,
-          progress: rand(15, 90) / 100, dueDate: daysAgo(-rand(20, 90)),
-        },
-      });
-    }
-  }
-  const feedbackFixtures: { about: string; from: string; role: string; message: string; rating: number }[] = [
-    { about: 'japhar@rentfoxxy.com', from: adminEmail, role: 'Manager', message: 'Consistently delivers ahead of schedule — the app migration was a big win.', rating: 5 },
-    { about: 'japhar@rentfoxxy.com', from: 'sneha@rentfoxxy.com', role: 'Peer', message: 'Great collaborator, always unblocks design handoffs quickly.', rating: 4 },
-    { about: 'japhar@rentfoxxy.com', from: 'rohan@rentfoxxy.com', role: 'Mentee', message: 'Super helpful code reviews — learned a lot about state management.', rating: 5 },
-    { about: 'vikram@rentfoxxy.com', from: adminEmail, role: 'Stakeholder', message: 'Runs a tight ship; sprint predictability has been excellent.', rating: 5 },
-    { about: 'sneha@rentfoxxy.com', from: 'vikram@rentfoxxy.com', role: 'Manager', message: 'The dashboard redesign measurably improved activation. Strong quarter.', rating: 5 },
-  ];
-  for (const f of feedbackFixtures) {
-    const about = byEmail.get(f.about);
-    const from = byEmail.get(f.from);
-    if (!about || !from) continue;
-    await prisma.feedback.create({
-      data: {
-        companyId: company.id, employeeId: about.id, fromEmployeeId: from.id, fromName: from.name,
-        fromRole: f.role, message: f.message, rating: f.rating, date: daysAgo(rand(2, 40)),
-      },
-    });
-  }
-
-  // ---- Tasks ----
-  const taskPool = [
-    ['Review PR #482 — payments refactor', 'Rentfoxxy App', 'High'],
-    ['Submit timesheet for this week', 'Admin', 'Medium'],
-    ['Complete POSH training module', 'Compliance', 'High'],
-    ['Update self-appraisal', 'Performance', 'Medium'],
-    ['Sprint 42 demo prep', 'Rentfoxxy App', 'Low'],
-    ['Interview backend candidates', 'Hiring', 'High'],
-    ['Write release notes v2.4', 'Rentfoxxy App', 'Low'],
-    ['Book travel for Jaipur visit', 'Sales', 'Low'],
-  ] as const;
-  for (const e of everyone) {
-    for (let t = 0; t < rand(3, 5); t++) {
-      const [title, project, priority] = taskPool[(t * 3 + e.name.length) % taskPool.length]!;
-      await prisma.task.create({
-        data: {
-          companyId: company.id, employeeId: e.id, title, project, priority,
-          due: daysAgo(rand(-14, 5)), done: Math.random() < 0.35,
-        },
-      });
-    }
   }
 
   // ---- Documents (bytes in MinIO) ----

@@ -91,11 +91,11 @@ export function StageBar({ stage, compact }: { stage: Stage; compact?: boolean }
   return (
     <div className={compact ? 'min-w-36' : ''}>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-medium text-slate-600">{stage.currentLabel}</span>
-        <span className="text-[11px] text-slate-400">{pct}%</span>
+        <span className="text-xs font-medium text-ink-600">{stage.currentLabel}</span>
+        <span className="text-[11px] text-ink-400">{pct}%</span>
       </div>
-      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
-        <div className={`h-full rounded-full ${pct === 100 ? 'bg-emerald-500' : 'bg-indigo-500'}`} style={{ width: `${pct}%` }} />
+      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-ink-100">
+        <div className={`h-full rounded-full ${pct === 100 ? 'bg-emerald-500' : 'bg-brand-500'}`} style={{ width: `${pct}%` }} />
       </div>
     </div>
   );
@@ -108,13 +108,13 @@ export function StageStepper({ stage, stopped }: { stage: Stage; stopped?: strin
     <Card className="mb-5 p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Exit progress</p>
-          <p className="text-sm font-semibold text-slate-900">{stopped ?? `Current stage: ${stage.currentLabel}`}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-500">Exit progress</p>
+          <p className="text-sm font-semibold text-ink-900">{stopped ?? `Current stage: ${stage.currentLabel}`}</p>
         </div>
-        <span className="text-sm font-semibold text-indigo-600">{pct}%</span>
+        <span className="text-sm font-semibold text-brand-600">{pct}%</span>
       </div>
-      <div className="mb-4 h-2 overflow-hidden rounded-full bg-slate-100">
-        <div className={`h-full rounded-full ${pct === 100 ? 'bg-emerald-500' : 'bg-indigo-500'}`} style={{ width: `${pct}%` }} />
+      <div className="mb-4 h-2 overflow-hidden rounded-full bg-ink-100">
+        <div className={`h-full rounded-full ${pct === 100 ? 'bg-emerald-500' : 'bg-brand-500'}`} style={{ width: `${pct}%` }} />
       </div>
       <ol className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
         {stage.steps.map((s, i) => {
@@ -126,13 +126,13 @@ export function StageStepper({ stage, stopped }: { stage: Stage; stopped?: strin
                   s.done
                     ? 'bg-emerald-500 text-white'
                     : current
-                      ? 'bg-indigo-600 text-white ring-4 ring-indigo-100'
-                      : 'bg-slate-100 text-slate-400'
+                      ? 'bg-brand-600 text-white ring-4 ring-brand-100'
+                      : 'bg-ink-100 text-ink-400'
                 }`}
               >
                 {s.done ? '✓' : i + 1}
               </span>
-              <span className={`text-xs leading-snug ${s.done ? 'text-slate-700' : current ? 'font-semibold text-indigo-700' : 'text-slate-400'}`}>
+              <span className={`text-xs leading-snug ${s.done ? 'text-ink-700' : current ? 'font-semibold text-brand-700' : 'text-ink-400'}`}>
                 {s.label}
               </span>
             </li>
@@ -146,8 +146,8 @@ export function StageStepper({ stage, stopped }: { stage: Stage; stopped?: strin
 export function Section({ title, children, actions }: { title: string; children: React.ReactNode; actions?: React.ReactNode }) {
   return (
     <Card>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-3">
-        <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink-100 px-5 py-3">
+        <h2 className="text-sm font-semibold text-ink-900">{title}</h2>
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
       </div>
       {children}
@@ -158,9 +158,9 @@ export function Section({ title, children, actions }: { title: string; children:
 export function MiniStat({ label, value, sub, accent }: { label: string; value: React.ReactNode; sub?: React.ReactNode; accent?: string }) {
   return (
     <Card className="p-4">
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{label}</p>
-      <p className={`mt-1 font-semibold ${accent ?? 'text-slate-900'}`}>{value}</p>
-      {sub && <p className="mt-0.5 text-xs text-slate-400">{sub}</p>}
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-500">{label}</p>
+      <p className={`mt-1 font-semibold ${accent ?? 'text-ink-900'}`}>{value}</p>
+      {sub && <p className="mt-0.5 text-xs text-ink-400">{sub}</p>}
     </Card>
   );
 }

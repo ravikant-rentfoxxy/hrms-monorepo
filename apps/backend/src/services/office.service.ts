@@ -108,7 +108,7 @@ export async function checkGeofence(companyId: string, lat: number, lng: number)
   const { distance, office } = best!;
   if (distance > office.radiusMeters) {
     throw ApiError.badRequest(
-      `You are ${Math.round(distance)} m from ${office.name}; must be within ${office.radiusMeters} m to punch`
+      `You are ${distance >= 1000 ? `${(distance / 1000).toFixed(1)} km` : `${Math.round(distance)} m`} from ${office.name}; must be within ${office.radiusMeters} m to punch`
     );
   }
   return { distance, office: office.name };

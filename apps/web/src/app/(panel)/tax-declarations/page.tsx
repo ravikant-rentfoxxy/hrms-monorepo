@@ -163,8 +163,8 @@ function VerifyModal({ id, onClose, onDone }: { id: string; onClose: () => void;
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <p className="font-semibold text-slate-900">{data.employee.name}</p>
-              <p className="text-xs text-slate-500">
+              <p className="font-semibold text-ink-900">{data.employee.name}</p>
+              <p className="text-xs text-ink-500">
                 {data.employee.employeeCode} · PAN {data.employee.pan || '—'} · FY {data.fy} · submitted {fmtDate(data.submittedAt)}
               </p>
             </div>
@@ -183,7 +183,7 @@ function VerifyModal({ id, onClose, onDone }: { id: string; onClose: () => void;
                   <Td className="font-mono text-xs font-semibold">{item.section}</Td>
                   <Td>
                     <p>{item.label}</p>
-                    {itemDetail(item) && <p className="text-xs text-slate-400">{itemDetail(item)}</p>}
+                    {itemDetail(item) && <p className="text-xs text-ink-400">{itemDetail(item)}</p>}
                   </Td>
                   <Td>{fmtMoney(item.declared)}</Td>
                   <Td>
@@ -202,9 +202,9 @@ function VerifyModal({ id, onClose, onDone }: { id: string; onClose: () => void;
           {data.summary.sections.length > 0 && (
             <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
               {data.summary.sections.map((s) => (
-                <div key={s.section} className="rounded-lg bg-slate-50 px-3 py-2">
-                  <p className="font-semibold text-slate-700">{s.section}</p>
-                  <p className="text-slate-500">
+                <div key={s.section} className="rounded-lg bg-ink-50 px-3 py-2">
+                  <p className="font-semibold text-ink-700">{s.section}</p>
+                  <p className="text-ink-500">
                     {fmtMoney(s.declared)} declared{s.cap !== null ? ` · cap ${fmtMoney(s.cap)}` : ''}
                   </p>
                 </div>
@@ -219,20 +219,20 @@ function VerifyModal({ id, onClose, onDone }: { id: string; onClose: () => void;
             </ul>
           )}
           {(data.previousEmployerIncome > 0 || data.previousEmployerTds > 0) && (
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-ink-600">
               Previous employer: income {fmtMoney(data.previousEmployerIncome)} · TDS {fmtMoney(data.previousEmployerTds)}
             </p>
           )}
 
           <div>
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-slate-500">Proofs</p>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-ink-500">Proofs</p>
             {data.proofs.length === 0 ? (
-              <p className="text-sm text-slate-400">No proofs uploaded</p>
+              <p className="text-sm text-ink-400">No proofs uploaded</p>
             ) : (
               data.proofs.map((p) => (
-                <div key={p.id} className="flex items-center justify-between gap-2 border-b border-slate-100 py-1.5 text-sm">
+                <div key={p.id} className="flex items-center justify-between gap-2 border-b border-ink-100 py-1.5 text-sm">
                   <span className="min-w-0 truncate">
-                    <span className="font-mono text-xs text-slate-500">{p.section}</span> · {p.name}
+                    <span className="font-mono text-xs text-ink-500">{p.section}</span> · {p.name}
                   </span>
                   <div className="flex shrink-0 items-center gap-2">
                     <Button variant="ghost" onClick={() => void view(p)}>
@@ -254,8 +254,8 @@ function VerifyModal({ id, onClose, onDone }: { id: string; onClose: () => void;
           </div>
 
           {viewer && (
-            <div className="rounded-xl border border-slate-200">
-              <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2 text-sm">
+            <div className="rounded-xl border border-ink-200">
+              <div className="flex items-center justify-between border-b border-ink-100 px-3 py-2 text-sm">
                 <span className="truncate font-medium">{viewer.name}</span>
                 <div className="flex gap-1">
                   <Button variant="ghost" onClick={() => window.open(viewer.url, '_blank')}>
@@ -298,7 +298,7 @@ function VerifyModal({ id, onClose, onDone }: { id: string; onClose: () => void;
 const STATUS_TABS: Record<string, string> = { 'To verify': 'SUBMITTED', Verified: 'VERIFIED', 'Sent back': 'REJECTED', Drafts: 'DRAFT', All: '' };
 
 export default function TaxDeclarationsPage() {
-  const { isCompanyAdmin } = useAuth();
+  const { canManagePayroll } = useAuth();
   const current = fyOf(new Date());
   const prevYear = Number(current.slice(0, 4)) - 1;
   const fys = [current, `${prevYear}-${String((prevYear + 1) % 100).padStart(2, '0')}`];
@@ -306,11 +306,11 @@ export default function TaxDeclarationsPage() {
   const [tab, setTab] = useState('To verify');
   const status = STATUS_TABS[tab] ?? '';
   const { data, loading, error, reload } = useFetch<ListResponse>(
-    isCompanyAdmin ? `/tax-declarations?fy=${fy}${status ? `&status=${status}` : ''}` : null
+    canManagePayroll ? `/tax-declarations?fy=${fy}${status ? `&status=${status}` : ''}` : null
   );
   const [openId, setOpenId] = useState<string | null>(null);
 
-  if (!isCompanyAdmin) {
+  if (!canManagePayroll) {
     return (
       <div>
         <PageHeader title="Tax declarations" />
@@ -354,8 +354,8 @@ export default function TaxDeclarationsPage() {
             {data.items.map((d) => (
               <tr key={d.id}>
                 <Td>
-                  <p className="font-medium text-slate-900">{d.employee.name}</p>
-                  <p className="text-xs text-slate-400">
+                  <p className="font-medium text-ink-900">{d.employee.name}</p>
+                  <p className="text-xs text-ink-400">
                     {d.employee.employeeCode} · {d.employee.department || '—'}
                   </p>
                 </Td>

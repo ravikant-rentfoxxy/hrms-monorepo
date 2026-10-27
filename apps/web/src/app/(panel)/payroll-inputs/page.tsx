@@ -90,7 +90,7 @@ function InputModal({
       <div className="space-y-3">
         <ErrorNote error={error} />
         {initial ? (
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-ink-600">
             {initial.employee.name} ({initial.employee.employeeCode})
           </p>
         ) : (
@@ -129,7 +129,7 @@ function InputModal({
           <Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
         </Field>
         {form.type !== 'DEDUCTION' && (
-          <label className="flex items-center gap-2 text-sm text-slate-700">
+          <label className="flex items-center gap-2 text-sm text-ink-700">
             <input type="checkbox" checked={form.taxable} onChange={(e) => setForm({ ...form, taxable: e.target.checked })} />
             Taxable
           </label>
@@ -192,7 +192,7 @@ function CsvModal({ month, onClose, onDone }: { month: string; onClose: () => vo
   return (
     <Modal title={`Bulk upload — ${month}`} open onClose={onClose} wide>
       <div className="space-y-3">
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-ink-600">
           Columns: <code className="text-xs">employeeCode, type, label, amount, taxable</code>. Types: {MANUAL_TYPES.join(', ')}.
           Validate first; valid rows are imported, invalid ones are skipped.
         </p>
@@ -206,11 +206,11 @@ function CsvModal({ month, onClose, onDone }: { month: string; onClose: () => vo
             setFile(e.target.files?.[0] ?? null);
             setResult(null);
           }}
-          className="block w-full text-sm text-slate-600"
+          className="block w-full text-sm text-ink-600"
         />
         <ErrorNote error={error} />
         {result && (
-          <div className="rounded-xl border border-slate-200/80 p-3 text-sm">
+          <div className="rounded-xl border border-ink-200/80 p-3 text-sm">
             <p>
               {result.total} rows · <span className="text-emerald-700">{result.valid} valid</span> ·{' '}
               <span className="text-rose-700">{result.invalid} invalid</span>
@@ -246,19 +246,19 @@ function CsvModal({ month, onClose, onDone }: { month: string; onClose: () => vo
 }
 
 export default function PayrollInputsPage() {
-  const { isCompanyAdmin } = useAuth();
+  const { canManagePayroll } = useAuth();
   const now = new Date();
   const [month, setMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
   const [type, setType] = useState('');
   const { data, loading, error, reload } = useFetch<ListResponse>(
-    isCompanyAdmin && month ? `/payroll-inputs?month=${month}${type ? `&type=${type}` : ''}` : null
+    canManagePayroll && month ? `/payroll-inputs?month=${month}${type ? `&type=${type}` : ''}` : null
   );
   const [editing, setEditing] = useState<PayrollInput | null | 'new'>(null);
   const [csvOpen, setCsvOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  if (!isCompanyAdmin) {
+  if (!canManagePayroll) {
     return (
       <div>
         <PageHeader title="Payroll inputs" />
@@ -362,15 +362,15 @@ export default function PayrollInputsPage() {
             {data.items.map((i) => (
               <tr key={i.id}>
                 <Td>
-                  <p className="font-medium text-slate-900">{i.employee.name}</p>
-                  <p className="text-xs text-slate-400">{i.employee.employeeCode}</p>
+                  <p className="font-medium text-ink-900">{i.employee.name}</p>
+                  <p className="text-xs text-ink-400">{i.employee.employeeCode}</p>
                 </Td>
                 <Td>
                   <Badge tone={isDeduction(i.type) ? 'red' : i.system ? 'violet' : 'green'}>{typeLabel(i.type)}</Badge>
                 </Td>
                 <Td>
                   <p>{i.label}</p>
-                  {i.note && <p className="max-w-60 truncate text-xs text-slate-400">{i.note}</p>}
+                  {i.note && <p className="max-w-60 truncate text-xs text-ink-400">{i.note}</p>}
                 </Td>
                 <Td className={`font-medium ${isDeduction(i.type) ? 'text-rose-600' : ''}`}>
                   {isDeduction(i.type) ? '−' : ''}

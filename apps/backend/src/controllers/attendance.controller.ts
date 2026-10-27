@@ -4,6 +4,7 @@ import { audit } from '../lib/audit';
 import { sendCsv } from '../utils/csv';
 import * as attendanceService from '../services/attendance.service';
 import type { PunchInput } from '../services/attendance.service';
+import type { WorkMode } from '@prisma/client';
 
 const isCompanyAdmin = (role: string) => role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'HR';
 
@@ -143,4 +144,18 @@ export const autoMark = h(async (req, res) => {
   const result = await attendanceService.autoMarkDay(tenantId, day);
   await audit(req, { entity: 'Attendance', entityId: result.date, action: 'AUTO_MARK', after: { ...result, ...closed } });
   ok(res, { ...result, ...closed });
+});
+
+/** Employees with their work mode (office / work from home / field). */
+export const workModes = h(async (req, res) => {
+  const { tenantId } = ctx(req);
+  ok(res, await attendanceService.listWorkModes(tenantId));
+});
+
+export const setWorkMode = h(async (req, res) => {
+  const { tenantId } = ctx(req);
+  const { employeeIds, workMode } = req.body as { employeeIds: string[]; workMode: WorkMode };
+  const result = await attendanceService.setWorkMode(tenantId, employeeIds, workMode);
+  await audit(req, { entity: 'WorkMode', entityId: workMode, action: 'UPDATE', after: { workMode, employeeIds, updated: result.updated } });
+  ok(res, result);
 });

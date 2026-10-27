@@ -28,8 +28,8 @@ export function CompanyLetterhead() {
 }
 
 function ProfileForm({ initial, onSaved }: { initial: CompanyProfile; onSaved: (p: CompanyProfile) => void }) {
-  const { session } = useAuth();
-  const canEdit = session?.role === 'ADMIN' || session?.role === 'SUPER_ADMIN';
+  // Admin and HR edit the letterhead (HR issues the letters); the API enforces the same.
+  const { isCompanyAdmin: canEdit } = useAuth();
   const [form, setForm] = useState({
     address: initial.address ?? '',
     email: initial.email ?? '',
@@ -99,15 +99,15 @@ function ProfileForm({ initial, onSaved }: { initial: CompanyProfile; onSaved: (
       <ErrorNote error={error} />
 
       <Card className="p-5">
-        <h2 className="mb-1 text-sm font-semibold text-slate-900">Logo</h2>
-        <p className="mb-4 text-xs text-slate-500">Shown at the top-left of every letter page. PNG or JPG, up to 2 MB — a wide logo on a white background looks best.</p>
+        <h2 className="mb-1 text-sm font-semibold text-ink-900">Logo</h2>
+        <p className="mb-4 text-xs text-ink-500">Shown at the top-left of every letter page. PNG or JPG, up to 2 MB — a wide logo on a white background looks best.</p>
         <div className="flex flex-wrap items-center gap-4">
-          <div className="flex h-20 w-60 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 p-2">
+          <div className="flex h-20 w-60 items-center justify-center rounded-xl border border-dashed border-ink-300 bg-ink-50 p-2">
             {logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element -- short-lived presigned URL
               <img src={logoUrl} alt="Company logo" className="max-h-full max-w-full object-contain" />
             ) : (
-              <span className="text-xs text-slate-400">No logo — the company name is printed instead</span>
+              <span className="text-xs text-ink-400">No logo — the company name is printed instead</span>
             )}
           </div>
           {canEdit && (
@@ -127,7 +127,7 @@ function ProfileForm({ initial, onSaved }: { initial: CompanyProfile; onSaved: (
       </Card>
 
       <Card className="p-5">
-        <h2 className="mb-4 text-sm font-semibold text-slate-900">Company details</h2>
+        <h2 className="mb-4 text-sm font-semibold text-ink-900">Company details</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Company name" hint="Managed by the platform owner">
             <Input value={initial.name} disabled />
@@ -150,8 +150,8 @@ function ProfileForm({ initial, onSaved }: { initial: CompanyProfile; onSaved: (
       </Card>
 
       <Card className="p-5">
-        <h2 className="mb-1 text-sm font-semibold text-slate-900">Signatory</h2>
-        <p className="mb-4 text-xs text-slate-500">Signs offer letters and HR letters under “For {initial.name}”.</p>
+        <h2 className="mb-1 text-sm font-semibold text-ink-900">Signatory</h2>
+        <p className="mb-4 text-xs text-ink-500">Signs offer letters and HR letters under “For {initial.name}”.</p>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Name">
             <Input value={form.signatoryName} onChange={set('signatoryName')} disabled={!canEdit} placeholder="e.g. Pankaj Yadav" />
@@ -170,7 +170,7 @@ function ProfileForm({ initial, onSaved }: { initial: CompanyProfile; onSaved: (
           {saved && <span className="text-sm text-emerald-600">Saved — new letters will use these details.</span>}
         </div>
       ) : (
-        <p className="text-xs text-slate-500">Only an Admin can change the company profile.</p>
+        <p className="text-xs text-ink-500">Only Admin or HR can change the company profile.</p>
       )}
     </div>
   );

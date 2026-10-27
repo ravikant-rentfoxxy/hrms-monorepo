@@ -12,7 +12,7 @@ import { prisma } from '../lib/prisma';
 import { ApiError } from '../utils/http';
 import { toCsv } from '../utils/csv';
 import { decryptField } from '../utils/fieldCrypto';
-import { presignedGetUrl, putObject } from '../lib/storage';
+import { presignedGetUrl, putObject, FILE_LINK_TTL_SECONDS } from '../lib/storage';
 import { amountInWords, inr, withTotals, type PayItem } from './payroll.service';
 import { fyOf, fyRange, loadStatutoryContext } from './statutory.service';
 import { emptyFacts, loadTaxContext, payslipTaxFacts, projectTax } from './tds.service';
@@ -187,7 +187,7 @@ export async function registerFile(companyId: string, runId: string) {
  * progress the document is marked provisional. Declarations count only once
  * VERIFIED (the year-end rule).
  */
-export async function form16(companyId: string, employeeId: string, fy: string) {
+export async function form16(companyId: string, employeeId: string, fy: string, opts: { inline?: boolean } = {}) {
   const { start, endExclusive } = fyRange(fy);
   const [employee, company, stat, slips] = await Promise.all([
     prisma.employee.findFirst({
@@ -242,7 +242,7 @@ export async function form16(companyId: string, employeeId: string, fy: string) 
   const key = `${companyId}/form16/${employeeId}-${fy}.pdf`;
   await putObject(key, buffer, 'application/pdf');
   const fileName = `Form16_PartB_${employee.employeeCode}_${fy}.pdf`;
-  return { url: await presignedGetUrl(key, fileName), fileName, expiresInSeconds: 600, provisional, fy };
+  return { url: await presignedGetUrl(key, fileName, opts.inline ? 'inline' : 'attachment'), fileName, expiresInSeconds: FILE_LINK_TTL_SECONDS, provisional, fy };
 }
 
 function buildForm16Pdf(input: {

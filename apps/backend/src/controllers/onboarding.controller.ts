@@ -85,6 +85,20 @@ export const completeTask = h(async (req, res) => {
   ok(res, await onboardingService.completeTask(tenantId, req.params.id as string, viewerOf(auth), req.file));
 });
 
+/** Creates the listed assets, issues them to the task's joiner and (by default) completes the task. */
+export const issueTaskAssets = h(async (req, res) => {
+  const { auth, tenantId } = ctx(req);
+  const input = req.body as Parameters<typeof onboardingService.issueTaskAssets>[3];
+  const result = await onboardingService.issueTaskAssets(tenantId, req.params.id as string, viewerOf(auth), input);
+  await audit(req, {
+    entity: 'OnboardingTask',
+    entityId: req.params.id as string,
+    action: 'ISSUE_ASSETS',
+    after: { assets: result.assets.map((a) => `${a.tag} ${a.name}`), completed: result.task.done },
+  });
+  ok(res, result, 201);
+});
+
 export const reopenTask = h(async (req, res) => {
   const { auth, tenantId } = ctx(req);
   ok(res, await onboardingService.reopenTask(tenantId, req.params.id as string, viewerOf(auth)));

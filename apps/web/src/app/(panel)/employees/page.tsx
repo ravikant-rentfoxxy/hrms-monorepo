@@ -201,9 +201,9 @@ export default function EmployeesPage() {
         {isCompanyAdmin && !former && (
           <div className="ml-auto flex items-center gap-2">
             <div className="text-right">
-              <span className="block text-xs font-medium text-slate-500">Working days for</span>
+              <span className="block text-xs font-medium text-ink-500">Working days for</span>
               {workingDays && (
-                <span className="block text-[11px] text-slate-400">
+                <span className="block text-[11px] text-ink-400">
                   {workingDays.workingDays} days
                   {workingDays.source === 'auto'
                     ? ` = ${workingDays.calendarDays} − ${workingDays.weekendDays} weekend − ${workingDays.holidayDays} holiday`
@@ -226,13 +226,13 @@ export default function EmployeesPage() {
         ) : former ? (
           <Table headers={['Employee', 'Code', 'Department', 'Designation', 'Joined', 'Separated on', 'Reason', 'Rehire']}>
             {data.items.map((emp) => (
-              <tr key={emp.id} className="hover:bg-slate-50">
+              <tr key={emp.id} className="hover:bg-ink-50">
                 <Td>
                   <Link href={`/employees/${emp.id}`} className="flex items-center gap-2.5">
                     <Avatar name={emp.name} color={emp.avatarColor} />
                     <span>
-                      <span className="block font-medium text-indigo-700 hover:underline">{emp.name}</span>
-                      <span className="block text-xs text-slate-400">{emp.user.email}</span>
+                      <span className="block font-medium text-brand-700 hover:underline">{emp.name}</span>
+                      <span className="block text-xs text-ink-400">{emp.user.email}</span>
                     </span>
                   </Link>
                 </Td>
@@ -242,7 +242,7 @@ export default function EmployeesPage() {
                 <Td>{fmtDate(emp.joiningDate)}</Td>
                 <Td>
                   {emp.separatedOn || emp.leavingDate ? fmtDate(emp.separatedOn ?? emp.leavingDate) : '—'}
-                  {emp.archivedAt && <span className="block text-xs text-slate-400">archived</span>}
+                  {emp.archivedAt && <span className="block text-xs text-ink-400">archived</span>}
                 </Td>
                 <Td className="max-w-xs truncate">{emp.separationReason || '—'}</Td>
                 <Td>
@@ -251,7 +251,7 @@ export default function EmployeesPage() {
                   ) : emp.rehireEligible === false ? (
                     <Badge tone="red">not eligible</Badge>
                   ) : (
-                    <span className="text-slate-400">—</span>
+                    <span className="text-ink-400">—</span>
                   )}
                 </Td>
               </tr>
@@ -267,16 +267,16 @@ export default function EmployeesPage() {
             {data.items.map((emp) => {
               const wd = payableBy.get(emp.id);
               return (
-                <tr key={emp.id} className="hover:bg-slate-50">
+                <tr key={emp.id} className="hover:bg-ink-50">
                   <Td>
                     <Link href={`/employees/${emp.id}`} className="flex items-center gap-2.5">
                       <Avatar name={emp.name} color={emp.avatarColor} />
                       <span>
                         <span className="flex items-center gap-1.5">
-                          <span className="font-medium text-indigo-700 hover:underline">{emp.name}</span>
+                          <span className="font-medium text-brand-700 hover:underline">{emp.name}</span>
                           <EmploymentStatusBadge status={emp.employmentStatus} hideActive />
                         </span>
-                        <span className="block text-xs text-slate-400">{emp.user.email}</span>
+                        <span className="block text-xs text-ink-400">{emp.user.email}</span>
                       </span>
                     </Link>
                   </Td>
@@ -287,7 +287,7 @@ export default function EmployeesPage() {
                   <Td>{emp.location || '—'}</Td>
                   {isCompanyAdmin && (
                     <Td>
-                      <span className={`font-semibold tabular-nums ${wd ? 'text-slate-800' : 'text-slate-300'}`}>
+                      <span className={`font-semibold tabular-nums ${wd ? 'text-ink-800' : 'text-ink-300'}`}>
                         {wd ? wd.payable : 0} / {workingDays?.workingDays ?? '…'}
                       </span>
                       {wd && wd.leave > 0 && (
@@ -365,7 +365,7 @@ export default function EmployeesPage() {
             </Field>
             <Field label="Role">
               <Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-                {['EMPLOYEE', 'MANAGER', 'HR'].map((r) => (
+                {['EMPLOYEE', 'MANAGER', 'HR', 'FINANCE'].map((r) => (
                   <option key={r}>{r}</option>
                 ))}
               </Select>
@@ -399,7 +399,7 @@ export default function EmployeesPage() {
               <Input type="email" value={form.personalEmail} onChange={(e) => setForm({ ...form, personalEmail: e.target.value })} />
             </Field>
           </div>
-          <p className="pt-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+          <p className="pt-1 text-[11px] font-semibold uppercase tracking-wider text-ink-500">
             Monthly salary structure (optional — needed for the payroll run)
           </p>
           <SalaryEditor form={salary} onChange={setSalary} />

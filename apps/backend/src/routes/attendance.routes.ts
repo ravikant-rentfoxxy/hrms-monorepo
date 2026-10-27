@@ -11,6 +11,7 @@ import {
   regularizationDecideSchema,
   regularizationSchema,
   regularizationScopeSchema,
+  workModeSchema,
 } from '../validations/attendance.validation';
 
 export const attendanceRouter = Router();
@@ -32,6 +33,8 @@ attendanceRouter.get('/export', requireRole('ADMIN', 'HR'), validate(exportQuery
 attendanceRouter.get('/muster.csv', requireRole('ADMIN', 'HR'), validate(exportQuerySchema, 'query'), controller.musterCsv);
 attendanceRouter.get('/working-days', requireRole('ADMIN', 'HR'), validate(exportQuerySchema, 'query'), controller.workingDays);
 attendanceRouter.post('/auto-mark', requireRole('ADMIN', 'HR'), validate(autoMarkSchema), controller.autoMark);
+attendanceRouter.get('/work-modes', requireRole('ADMIN', 'HR'), controller.workModes);
+attendanceRouter.put('/work-modes', requireRole('ADMIN', 'HR'), validate(workModeSchema), controller.setWorkMode);
 attendanceRouter.get('/calendar', validate(monthlyQuerySchema, 'query'), controller.calendar);
 attendanceRouter.get('/', validate(monthlyQuerySchema, 'query'), controller.monthly);
 attendanceRouter.get('/company', validate(companyDayQuerySchema, 'query'), controller.companyDay);

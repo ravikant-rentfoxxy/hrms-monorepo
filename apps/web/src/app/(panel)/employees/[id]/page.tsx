@@ -6,17 +6,22 @@ import { useAuth } from '@/lib/auth';
 import { api, fmtDate, fmtMoney } from '@/lib/api';
 import { useFetch } from '@/lib/useFetch';
 import {
-  Avatar, Badge, Button, Card, ErrorNote, Field, Input, Modal, PageHeader, Select, Spinner, Tabs, DatePicker,
+  Avatar, Badge, Button, Card, Empty, ErrorNote, Field, Icon, Input, LongText, Modal, PageHeader, Select, Spinner, Table, Tabs, Td, DatePicker,
 } from '@/components/ui';
+import { IdCardPanel } from '@/components/id-card';
 import { AuditTable, type AuditPage } from '@/components/audit-log';
 import { SalaryBreakup, SalaryEditor, ctcFor, emptySalaryForm, salaryBody, type SalaryForm } from '@/components/salary';
 import {
   CareerHistory, EmploymentStatusBadge, LifecycleTimeline, RaiseTransferModal, SourceOfHireBadge,
   type SourceApplication,
 } from '@/components/career';
+import { openSecureFile } from '@/lib/secure-file';
+import { DeleteAssetDialog, EditAssetDialog, IssueAssetsDialog, type EditableAsset } from '@/components/assets';
 
 interface EmployeeDetail {
   id: string;
+  /** Role in this company (ADMIN / HR viewers and self only). */
+  companyRole?: string | null;
   employeeCode: string;
   name: string;
   designation: string;
@@ -47,7 +52,7 @@ interface EmployeeDetail {
   salaryPfEmployer?: number;
   salaryPfEmployee?: number;
   isActive: boolean;
-  user?: { email: string; role: string; isActive: boolean; lastLoginAt: string | null; totpEnabled?: boolean };
+  user?: { email: string; role: string; isActive: boolean; lastLoginAt: string | null };
   manager: { id: string; name: string; designation?: string } | null;
   departmentId: string | null;
   designationId: string | null;
@@ -93,6 +98,283 @@ interface UpcomingRevision {
   monthly: { basic: number; hra: number; conveyance: number; medical: number; allowance: number; pfEmployer: number; pfEmployee: number };
 }
 
+interface SlipRow {
+  id: string;
+  month: string;
+  status: string;
+  gross: number;
+  totalDeductions: number;
+  net: number;
+  paidOn: string | null;
+}
+
+/** The employee's payslips: open the PDF, or (payroll staff) email a published one to the employee. */
+function SalarySlipsTab({ employeeId, email, canSend }: { employeeId: string; email: string | null; canSend: boolean }) {
+  const { data, loading, error } = useFetch<SlipRow[]>(`/payroll/payslips?employeeId=${employeeId}`);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const month = (m: string) => new Date(m).toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+
+  // Short-lived signed link (5 min) in a new tab; the shell shows the expiry notice.
+  const open = async (id: string) => {
+    try {
+      await openSecureFile(`/payroll/payslips/${id}/pdf?inline=true`);
+    } catch (err) {
+      setMsg({ ok: false, text: err instanceof Error ? err.message : 'Could not open the payslip' });
+    }
+  };
+  const send = async (slip: SlipRow) => {
+    if (!window.confirm(`Email the ${month(slip.month)} payslip to ${email}?`)) return;
+    setBusy(slip.id);
+    setMsg(null);
+    try {
+      const r = await api<{ sentTo: string; month: string }>(`/payroll/payslips/${slip.id}/email`, { method: 'POST' });
+      setMsg({ ok: true, text: `Payslip for ${r.month} sent to ${r.sentTo}.` });
+    } catch (err) {
+      setMsg({ ok: false, text: err instanceof Error ? err.message : 'Could not send the payslip' });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <Card>
+      <div className="border-b border-ink-100 px-5 py-4">
+        <h2 className="text-sm font-semibold text-ink-900">Salary slips</h2>
+        <p className="text-xs text-ink-400">
+          Published payslips are visible to the employee in the app (Payroll → Payslips).
+          {canSend && ' Use Email to also send the PDF to their inbox.'}
+        </p>
+      </div>
+      {msg && (
+        <p className={`mx-5 mt-4 rounded-xl px-3.5 py-2.5 text-sm ${msg.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>{msg.text}</p>
+      )}
+      {loading && !data ? (
+        <Spinner />
+      ) : error ? (
+        <div className="p-5">
+          <ErrorNote error={error} />
+        </div>
+      ) : !data?.length ? (
+        <Empty message="No payslips yet — they appear once a payroll run includes this employee" />
+      ) : (
+        <Table headers={['Month', 'Gross', 'Deductions', 'Net pay', 'Status', '']}>
+          {data.map((s) => (
+            <tr key={s.id}>
+              <Td className="font-medium text-ink-900">{month(s.month)}</Td>
+              <Td>{fmtMoney(s.gross)}</Td>
+              <Td className="text-rose-600">−{fmtMoney(s.totalDeductions)}</Td>
+              <Td className="font-semibold text-brand-700">{fmtMoney(s.net)}</Td>
+              <Td>
+                {s.status === 'PUBLISHED' ? <Badge tone="green">Published</Badge> : <Badge tone="amber">Draft</Badge>}
+              </Td>
+              <Td>
+                <div className="flex justify-end gap-1">
+                  <Button variant="ghost" onClick={() => void open(s.id)}>
+                    View PDF
+                  </Button>
+                  {canSend && (
+                    <Button
+                      variant="secondary"
+                      disabled={busy === s.id || s.status !== 'PUBLISHED' || !email}
+                      onClick={() => void send(s)}
+                    >
+                      {busy === s.id ? 'Sending…' : 'Email'}
+                    </Button>
+                  )}
+                </div>
+              </Td>
+            </tr>
+          ))}
+        </Table>
+      )}
+      {canSend && data?.some((s) => s.status !== 'PUBLISHED') && (
+        <p className="px-5 pb-4 pt-2 text-xs text-ink-400">Draft payslips can’t be emailed — publish the payroll run first.</p>
+      )}
+    </Card>
+  );
+}
+
+interface AssetHolding {
+  id: string;
+  issuedOn: string;
+  returnedOn: string | null;
+  expectedReturn: string | null;
+  conditionOut: string;
+  conditionIn: string;
+  notes: string;
+  asset: EditableAsset;
+}
+
+/** Company equipment issued to the employee: what they hold now, and what they returned. */
+function AssetsTab({ employeeId, employeeName, canManage }: { employeeId: string; employeeName: string; canManage: boolean }) {
+  const { data, loading, error, reload } = useFetch<AssetHolding[]>(`/assets/employee/${employeeId}?includeReturned=true`);
+  const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<AssetHolding | null>(null);
+  const [deleting, setDeleting] = useState<AssetHolding | null>(null);
+  const holding = (data ?? []).filter((a) => !a.returnedOn);
+  const returned = (data ?? []).filter((a) => a.returnedOn);
+  const value = holding.reduce((n, a) => n + (a.asset.cost || 0), 0);
+
+  if (loading && !data) return <Spinner />;
+  if (error) return <ErrorNote error={error} />;
+  return (
+    <div className="space-y-4">
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink-100 px-5 py-4">
+          <div>
+            <h2 className="text-sm font-semibold text-ink-900">With the employee</h2>
+            <p className="text-xs text-ink-400">
+              {holding.length} item{holding.length === 1 ? '' : 's'}
+              {value > 0 && ` · worth ${fmtMoney(value)}`} · must be returned before exit clearance
+            </p>
+          </div>
+          {canManage && (
+            <div className="flex items-center gap-3">
+              <a href="/assets" className="text-sm font-medium text-ink-500 hover:text-brand-600">
+                Return in Assets →
+              </a>
+              <Button onClick={() => setAdding(true)}>+ Add asset</Button>
+            </div>
+          )}
+        </div>
+        {!holding.length ? (
+          <Empty message="No company assets with this employee" />
+        ) : (
+          <Table headers={['Asset', 'Type', 'Description', 'Issued on', 'Condition', ...(canManage ? [''] : [])]}>
+            {holding.map((a) => (
+              <tr key={a.id}>
+                <Td>
+                  <p className="font-medium text-ink-900">{a.asset.name}</p>
+                  <p className="text-xs text-ink-400">{a.asset.tag}</p>
+                </Td>
+                <Td>{a.asset.category}</Td>
+                <Td className="text-xs text-ink-600">
+                  <LongText text={a.asset.notes || (a.asset.serialNumber ? `Serial no. ${a.asset.serialNumber}` : '')} />
+                </Td>
+                <Td>
+                  {fmtDate(a.issuedOn)}
+                  {a.expectedReturn && <p className="text-xs text-ink-400">return by {fmtDate(a.expectedReturn)}</p>}
+                </Td>
+                <Td>{a.conditionOut || '—'}</Td>
+                {canManage && (
+                  <Td>
+                    <div className="flex justify-end gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setEditing(a)}
+                        title="Edit"
+                        aria-label={`Edit ${a.asset.name}`}
+                        className="rounded-lg p-2 text-ink-500 transition-colors hover:bg-brand-50 hover:text-brand-700"
+                      >
+                        <Icon name="pencil" className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleting(a)}
+                        title="Delete"
+                        aria-label={`Delete ${a.asset.name}`}
+                        className="rounded-lg p-2 text-ink-500 transition-colors hover:bg-rose-50 hover:text-rose-600"
+                      >
+                        <Icon name="trash" className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </Td>
+                )}
+              </tr>
+            ))}
+          </Table>
+        )}
+      </Card>
+      {adding && (
+        <IssueAssetsDialog
+          employeeId={employeeId}
+          employeeName={employeeName}
+          submit={(items) => api(`/assets/employee/${employeeId}/issue`, { method: 'POST', body: { items } })}
+          onClose={() => setAdding(false)}
+          onDone={reload}
+        />
+      )}
+      {editing && <EditAssetDialog asset={editing.asset} assignment={editing} onClose={() => setEditing(null)} onSaved={reload} />}
+      {deleting && (
+        <DeleteAssetDialog
+          asset={{ ...deleting.asset, status: 'ASSIGNED', holder: { name: employeeName } }}
+          onClose={() => setDeleting(null)}
+          onDone={reload}
+        />
+      )}
+      {returned.length > 0 && (
+        <Card>
+          <h2 className="border-b border-ink-100 px-5 py-4 text-sm font-semibold text-ink-900">Returned</h2>
+          <Table headers={['Asset', 'Issued on', 'Returned on', 'Condition on return']}>
+            {returned.map((a) => (
+              <tr key={a.id}>
+                <Td>
+                  <p className="font-medium text-ink-700">{a.asset.name}</p>
+                  <p className="text-xs text-ink-400">{a.asset.tag}</p>
+                </Td>
+                <Td>{fmtDate(a.issuedOn)}</Td>
+                <Td>{fmtDate(a.returnedOn)}</Td>
+                <Td>{a.conditionIn || '—'}</Td>
+              </tr>
+            ))}
+          </Table>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+const ROLE_OPTIONS: { role: string; label: string; about: string }[] = [
+  { role: 'EMPLOYEE', label: 'Employee', about: 'Own profile, attendance, leave, payslips' },
+  { role: 'MANAGER', label: 'Manager', about: 'Plus team approvals and hiring requests' },
+  { role: 'HR', label: 'HR', about: 'Plus all employees, hiring, onboarding, payroll' },
+  { role: 'FINANCE', label: 'Finance', about: 'Plus payroll runs & approval, PF / ESI settings, payroll inputs, loans, tax declarations' },
+];
+
+/** Admin changes an employee's role in this company. */
+function RoleModal({ employeeId, name, current, onClose, onSaved }: { employeeId: string; name: string; current: string; onClose: () => void; onSaved: () => void }) {
+  const [role, setRole] = useState(current);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const save = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/employees/${employeeId}/role`, { method: 'POST', body: { role } });
+      onSaved();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not change the role');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal title={`Change role — ${name}`} open onClose={onClose}>
+      <div className="space-y-2">
+        <ErrorNote error={error} />
+        {ROLE_OPTIONS.map((o) => (
+          <label
+            key={o.role}
+            className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${role === o.role ? 'border-brand-400 bg-brand-50/60' : 'border-ink-200 hover:border-ink-300'}`}
+          >
+            <input type="radio" name="role" checked={role === o.role} onChange={() => setRole(o.role)} className="mt-1" />
+            <span>
+              <span className="block text-sm font-semibold text-ink-900">{o.label}</span>
+              <span className="block text-xs text-ink-500">{o.about}</span>
+            </span>
+          </label>
+        ))}
+        <p className="pt-1 text-xs text-ink-400">The change applies within a few minutes, or when they next sign in.</p>
+        <Button onClick={() => void save()} disabled={busy || role === current} className="w-full">
+          {busy ? 'Saving…' : 'Save role'}
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
 /** HR / Admin sets the employee's login password (joiners from hiring start without a usable one). */
 function SetPasswordModal({ employeeId, name, email, onClose }: { employeeId: string; name: string; email: string; onClose: () => void }) {
   const [password, setPassword] = useState('');
@@ -122,7 +404,7 @@ function SetPasswordModal({ employeeId, name, email, onClose }: { employeeId: st
           <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
             Password set. {name} can now sign in with <span className="font-semibold">{email}</span> on the app or web portal.
           </p>
-          <p className="text-xs text-slate-500">Share it privately. They should change it from My profile after signing in. Any existing sessions were signed out.</p>
+          <p className="text-xs text-ink-500">Share it privately. They should change it from My profile after signing in. Any existing sessions were signed out.</p>
           <Button className="w-full" onClick={onClose}>
             Done
           </Button>
@@ -130,8 +412,8 @@ function SetPasswordModal({ employeeId, name, email, onClose }: { employeeId: st
       ) : (
         <div className="space-y-3">
           <ErrorNote error={error} />
-          <p className="text-sm text-slate-600">
-            Login email: <span className="font-semibold text-slate-900">{email}</span>
+          <p className="text-sm text-ink-600">
+            Login email: <span className="font-semibold text-ink-900">{email}</span>
           </p>
           <Field label="New password" hint="At least 8 characters, with a letter and a number">
             <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
@@ -159,7 +441,7 @@ function HistoryTab({ id }: { id: string }) {
       <ErrorNote error={error} />
       <AuditTable items={data?.items ?? []} showEntity={false} />
       {data && data.total > data.pageSize && (
-        <div className="flex items-center justify-end gap-3 border-t border-slate-100 p-3 text-sm text-slate-500">
+        <div className="flex items-center justify-end gap-3 border-t border-ink-100 p-3 text-sm text-ink-500">
           <span>
             Page {page} of {pages}
           </span>
@@ -176,53 +458,11 @@ function HistoryTab({ id }: { id: string }) {
 }
 
 /** Corporate ID-badge style card shown at the top of the profile. */
-function EmployeeIdCard({ emp, company }: { emp: EmployeeDetail; company: string }) {
-  return (
-    <div className="mb-4 overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-950 via-indigo-900 to-violet-900 p-5 text-white shadow-lg shadow-indigo-950/20">
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-white/15 text-xs font-bold">
-            {company.slice(0, 1).toUpperCase()}
-          </span>
-          <span className="text-sm font-semibold tracking-wide">{company}</span>
-        </div>
-        <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-indigo-200">
-          Employee card
-        </span>
-      </div>
-      <div className="flex items-center gap-4">
-        <div
-          className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-xl font-bold ring-2 ring-white/30"
-          style={{ backgroundColor: emp.avatarColor || '#6366F1' }}
-        >
-          {emp.name.trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase()}
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-lg font-bold">{emp.name}</p>
-          <p className="truncate text-sm text-indigo-200">
-            {emp.designation}
-            {emp.department ? ` · ${emp.department}` : ''}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-indigo-300">Employee ID</p>
-          <p className="font-mono text-xl font-bold tracking-wider">{emp.employeeCode}</p>
-        </div>
-      </div>
-      <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1 border-t border-white/10 pt-3 text-xs text-indigo-200">
-        {emp.user?.email && <span>{emp.user.email}</span>}
-        <span>Joined {fmtDate(emp.joiningDate)}</span>
-        <span>{emp.employmentType}</span>
-      </div>
-    </div>
-  );
-}
-
 function Item({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
-      <p className="mt-0.5 text-sm text-slate-800">{value || '—'}</p>
+      <p className="text-xs font-medium uppercase tracking-wide text-ink-400">{label}</p>
+      <p className="mt-0.5 text-sm text-ink-800">{value || '—'}</p>
     </div>
   );
 }
@@ -230,7 +470,7 @@ function Item({ label, value }: { label: string; value: React.ReactNode }) {
 export default function EmployeeDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { session, isCompanyAdmin } = useAuth();
+  const { session, isCompanyAdmin, canManagePayroll } = useAuth();
   const { data: emp, loading, error, reload } = useFetch<EmployeeDetail>(`/employees/${id}`);
   const [editOpen, setEditOpen] = useState<'profile' | 'finance' | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
@@ -239,6 +479,7 @@ export default function EmployeeDetailPage() {
   const [tab, setTab] = useState('Profile');
   const [transferOpen, setTransferOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const [roleOpen, setRoleOpen] = useState(false);
   const { data: departments } = useFetch<MasterOption[]>(isCompanyAdmin ? '/masters/departments' : null);
   const { data: designations } = useFetch<MasterOption[]>(isCompanyAdmin ? '/masters/designations' : null);
   const { data: grades } = useFetch<MasterOption[]>(isCompanyAdmin ? '/masters/grades' : null);
@@ -260,6 +501,9 @@ export default function EmployeeDetailPage() {
   const tabs = [
     'Profile',
     ...(seesCareer ? ['Lifecycle timeline', 'Career history'] : []),
+    ...(canManagePayroll || isSelf ? ['Salary slips'] : []),
+    ...(seesCareer ? ['Assets'] : []),
+    ...(isCompanyAdmin || isSelf ? ['ID card'] : []),
     ...(isCompanyAdmin ? ['History'] : []),
   ];
 
@@ -374,6 +618,11 @@ export default function EmployeeDetailPage() {
                 Transfer / promote
               </Button>
             )}
+            {(session?.role === 'ADMIN' || session?.role === 'SUPER_ADMIN') && emp.isActive && !isSelf && emp.companyRole && emp.companyRole !== 'ADMIN' && (
+              <Button variant="secondary" onClick={() => setRoleOpen(true)}>
+                Role: {ROLE_OPTIONS.find((o) => o.role === emp.companyRole)?.label ?? emp.companyRole}
+              </Button>
+            )}
             {isCompanyAdmin && emp.isActive && !isSelf && emp.user && (
               <Button variant="secondary" onClick={() => setPasswordOpen(true)}>
                 Set password
@@ -391,17 +640,17 @@ export default function EmployeeDetailPage() {
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <EmploymentStatusBadge status={emp.employmentStatus} />
         {emp.employmentStatus === 'PROBATION' && emp.probationEndDate && (
-          <span className="text-xs text-slate-500">until {fmtDate(emp.probationEndDate)}</span>
+          <span className="text-xs text-ink-500">until {fmtDate(emp.probationEndDate)}</span>
         )}
         {emp.employmentStatus === 'NOTICE_PERIOD' && emp.leavingDate && (
-          <span className="text-xs text-slate-500">last day {fmtDate(emp.leavingDate)}</span>
+          <span className="text-xs text-ink-500">last day {fmtDate(emp.leavingDate)}</span>
         )}
         {(isCompanyAdmin || isSelf) && <SourceOfHireBadge hireSource={emp.hireSource} application={emp.sourceApplication} />}
         {emp.archivedAt && <Badge tone="slate">archived {fmtDate(emp.archivedAt)}</Badge>}
       </div>
 
       {separated && (
-        <Card className="mb-4 border-l-4 border-l-slate-400 p-4 text-sm text-slate-600">
+        <Card className="mb-4 border-l-4 border-l-ink-400 p-4 text-sm text-ink-600">
           Former employee — left on {fmtDate(emp.separatedOn ?? emp.leavingDate)}
           {emp.separationReason ? ` (${emp.separationReason})` : ''}.
           {emp.rehireEligible !== undefined && (
@@ -415,11 +664,15 @@ export default function EmployeeDetailPage() {
         </Card>
       )}
 
-      <EmployeeIdCard emp={emp} company={session?.activeCompany?.name ?? 'Company'} />
-
       {tabs.length > 1 && <Tabs tabs={tabs} active={tab} onChange={setTab} />}
 
-      {tab === 'History' && isCompanyAdmin ? (
+      {tab === 'ID card' && (isCompanyAdmin || isSelf) ? (
+        <IdCardPanel employeeId={isCompanyAdmin ? id : 'me'} canManage={isCompanyAdmin} />
+      ) : tab === 'Assets' && seesCareer ? (
+        <AssetsTab employeeId={id} employeeName={emp.name} canManage={isCompanyAdmin} />
+      ) : tab === 'Salary slips' && (canManagePayroll || isSelf) ? (
+        <SalarySlipsTab employeeId={id} email={emp.user?.email ?? null} canSend={canManagePayroll} />
+      ) : tab === 'History' && isCompanyAdmin ? (
         <HistoryTab id={id} />
       ) : tab === 'Career history' && seesCareer ? (
         <Card className="p-5">
@@ -433,8 +686,8 @@ export default function EmployeeDetailPage() {
         <div className="mb-5 flex items-center gap-4">
           <Avatar name={emp.name} color={emp.avatarColor} />
           <div>
-            <p className="font-semibold text-slate-900">
-              {emp.name} <span className="text-sm font-normal text-slate-400">({emp.employeeCode})</span>
+            <p className="font-semibold text-ink-900">
+              {emp.name} <span className="text-sm font-normal text-ink-400">({emp.employeeCode})</span>
             </p>
             <div className="mt-1 flex gap-2">
               {emp.isActive ? <Badge tone="green">active</Badge> : <Badge tone="red">deactivated</Badge>}
@@ -474,13 +727,10 @@ export default function EmployeeDetailPage() {
           <Item label="Probation ends" value={emp.probationEndDate ? fmtDate(emp.probationEndDate) : '—'} />
           <Item label="Confirmed on" value={emp.confirmedOn ? fmtDate(emp.confirmedOn) : '—'} />
           <Item label="Notice period" value={`${emp.noticePeriodDays} days`} />
-          {emp.user?.totpEnabled !== undefined && (
-            <Item label="Two-factor sign-in" value={emp.user.totpEnabled ? 'Enabled' : 'Off'} />
-          )}
         </div>
         {(emp.bankName !== undefined || emp.pan !== undefined) && (
           <>
-            <h3 className="mb-3 mt-6 flex items-center gap-2 border-t border-slate-100 pt-4 text-sm font-semibold text-slate-900">
+            <h3 className="mb-3 mt-6 flex items-center gap-2 border-t border-ink-100 pt-4 text-sm font-semibold text-ink-900">
               {emp.secretsMasked ? 'Identity numbers' : 'Bank, tax & statutory'}
               {emp.secretsMasked && <Badge tone="slate">masked</Badge>}
             </h3>
@@ -502,8 +752,8 @@ export default function EmployeeDetailPage() {
 
       {emp.salaryBasic !== undefined && (
         <Card className="mt-4 p-5">
-          <h3 className="mb-1 text-sm font-semibold text-slate-900">Salary Breakup</h3>
-          <p className="mb-4 text-xs text-slate-400">
+          <h3 className="mb-1 text-sm font-semibold text-ink-900">Salary Breakup</h3>
+          <p className="mb-4 text-xs text-ink-400">
             Monthly CTC {fmtMoney(monthlyCtc)} · Annual CTC {fmtMoney(monthlyCtc * 12)}
           </p>
           {upcoming && (
@@ -517,7 +767,7 @@ export default function EmployeeDetailPage() {
                   <button
                     key={v}
                     onClick={() => setSalaryView(v)}
-                    className={`rounded-md px-2.5 py-1 ${salaryView === v ? 'bg-amber-100 text-amber-900' : 'text-slate-500 hover:text-slate-800'}`}
+                    className={`rounded-md px-2.5 py-1 ${salaryView === v ? 'bg-amber-100 text-amber-900' : 'text-ink-500 hover:text-ink-800'}`}
                   >
                     {v === 'current' ? 'Current' : `From ${fmtDate(upcoming.effectiveFrom)}`}
                   </button>
@@ -563,6 +813,9 @@ export default function EmployeeDetailPage() {
       </>
       )}
 
+      {roleOpen && emp.companyRole && (
+        <RoleModal employeeId={emp.id} name={emp.name} current={emp.companyRole} onClose={() => setRoleOpen(false)} onSaved={reload} />
+      )}
       {passwordOpen && emp.user && (
         <SetPasswordModal employeeId={emp.id} name={emp.name} email={emp.user.email} onClose={() => setPasswordOpen(false)} />
       )}
@@ -650,7 +903,7 @@ export default function EmployeeDetailPage() {
           </div>
           {isCompanyAdmin && (
             <>
-              <p className="pt-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              <p className="pt-1 text-[11px] font-semibold uppercase tracking-wider text-ink-500">
                 Employment dates
               </p>
               <div className="grid grid-cols-3 gap-3">
@@ -701,8 +954,8 @@ export default function EmployeeDetailPage() {
       <Modal title={`Edit finance — ${emp.name}`} open={editOpen === 'finance'} onClose={() => setEditOpen(null)} wide>
         <div className="space-y-3">
           <ErrorNote error={editError} />
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Bank & tax</p>
-          <p className="text-xs text-slate-400">PAN, Aadhaar, account number and UAN are stored encrypted.</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-500">Bank & tax</p>
+          <p className="text-xs text-ink-400">PAN, Aadhaar, account number and UAN are stored encrypted.</p>
           <div className="grid grid-cols-2 gap-3">
             {financeKeys.map((key) => (
               <Field key={key} label={key.replace(/([A-Z])/g, ' $1')}>
@@ -720,7 +973,7 @@ export default function EmployeeDetailPage() {
           </div>
           {isCompanyAdmin && (
             <>
-              <p className="pt-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              <p className="pt-1 text-[11px] font-semibold uppercase tracking-wider text-ink-500">
                 Monthly salary structure
               </p>
               <SalaryEditor form={salary} onChange={setSalary} />

@@ -16,4 +16,4 @@ loansRouter.get('/:id', controller.detail); // owner, their manager, the current
 loansRouter.post('/:id/cancel', controller.cancel);
 // No role gate: the approval engine decides who may act (named approvers may be plain employees).
 loansRouter.post('/:id/decide', validate(decideLoanSchema), controller.decide);
-loansRouter.post('/:id/close', requireRole('ADMIN', 'HR'), validate(forecloseSchema), controller.foreclose);
+loansRouter.post('/:id/close', requireRole('ADMIN', 'HR', 'FINANCE'), validate(forecloseSchema), controller.foreclose);

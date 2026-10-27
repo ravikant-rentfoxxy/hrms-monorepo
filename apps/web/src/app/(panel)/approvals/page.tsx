@@ -56,7 +56,7 @@ export default function ApprovalsPage() {
         actions={
           <div className="flex items-center gap-2">
             {isCompanyAdmin && (
-              <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 shadow-sm">
+              <label className="flex items-center gap-2 rounded-xl border border-ink-200 bg-white px-3 py-2 text-xs font-medium text-ink-600 shadow-sm">
                 <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} />
                 All pending in company
               </label>
@@ -94,8 +94,8 @@ export default function ApprovalsPage() {
                   {item.requester && <Avatar name={item.requester.name} color={item.requester.avatarColor} />}
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold text-slate-900">{item.requester?.name ?? 'Unknown employee'}</span>
-                      <span className="text-xs text-slate-400">
+                      <span className="font-semibold text-ink-900">{item.requester?.name ?? 'Unknown employee'}</span>
+                      <span className="text-xs text-ink-400">
                         {item.requester?.employeeCode}
                         {item.requester?.department ? ` · ${item.requester.department}` : ''}
                       </span>
@@ -106,11 +106,11 @@ export default function ApprovalsPage() {
                         </Badge>
                       )}
                     </div>
-                    <p className="mt-1 text-sm font-medium text-slate-800">{item.summary.title}</p>
+                    <p className="mt-1 text-sm font-medium text-ink-800">{item.summary.title}</p>
                     {item.summary.description && (
-                      <p className="mt-0.5 line-clamp-2 text-sm text-slate-500">{item.summary.description}</p>
+                      <p className="mt-0.5 line-clamp-2 text-sm text-ink-500">{item.summary.description}</p>
                     )}
-                    <p className="mt-1 text-xs text-slate-400">
+                    <p className="mt-1 text-xs text-ink-400">
                       {range && <>{range} · </>}
                       {item.summary.amount !== null && item.module !== 'SALARY_REVISION' && <>{fmtMoney(item.summary.amount)} · </>}
                       waiting since {fmtDate(item.waitingSince)}

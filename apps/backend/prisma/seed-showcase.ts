@@ -58,8 +58,6 @@ import * as handoverService from '../src/services/exit-handover.service';
 import * as clearanceService from '../src/services/exit-clearance.service';
 import * as settlementService from '../src/services/settlement.service';
 import * as transferService from '../src/services/transfer.service';
-import * as reviewService from '../src/services/review.service';
-import * as trainingService from '../src/services/training.service';
 import * as surveyService from '../src/services/survey.service';
 import * as requisitionService from '../src/services/requisition.service';
 import * as postingService from '../src/services/job-posting.service';
@@ -1571,109 +1569,10 @@ async function seedFormerEmployees() {
 }
 
 // ---------------------------------------------------------------------------
-// 10. Performance: goals, feedback, review cycles (closed → increments), promotion
+// 10. Promotion via transfer
 // ---------------------------------------------------------------------------
 
-async function seedPerformance() {
-  const goalBank: Record<string, [string, string, string][]> = {
-    Engineering: [['Ship Bharat Payments UPI autopay', 'Go-live with < 0.5% failure rate', 'Delivery'], ['Cut p95 API latency to 250 ms', 'Platform performance', 'Quality'], ['Raise test coverage to 80%', 'Core services', 'Quality'], ['Mentor two associates', 'Weekly 1:1s and growth plans', 'Leadership']],
-    Product: [['Launch Acme Retail app v2', 'Checkout + loyalty', 'Delivery'], ['Run 20 customer discovery calls', 'Fintech segment', 'Discovery'], ['Define FY27 platform roadmap', 'With engineering leads', 'Strategy']],
-    Design: [['Design system v2', 'Tokens + 40 components', 'Design'], ['Usability study for onboarding', '8 sessions, report shared', 'Research']],
-    Sales: [['Close ₹1.2 Cr new ARR', 'West region mid-market', 'Sales'], ['Build 3x pipeline coverage', 'Qualified opportunities', 'Sales'], ['Renew top-10 accounts', 'Zero churn', 'Retention']],
-    Marketing: [['Generate 600 MQLs', 'Webinars + paid', 'Growth'], ['Publish 24 blog posts', 'SEO cluster: payroll India', 'Content']],
-    'Human Resources': [['Hire 12 people on time', 'Within budget', 'Hiring'], ['Launch the new LMS', '90% mandatory course completion', 'Learning']],
-    Finance: [['Close books by working day 4', 'Monthly close', 'Finance'], ['Zero statutory filing delays', 'PF/ESI/TDS on time', 'Compliance']],
-    Operations: [['Office move readiness — Mumbai', 'Vendor + layout sign-off', 'Operations'], ['Reduce facility cost by 8%', 'Renegotiate AMC contracts', 'Operations']],
-    'Customer Success': [['CSAT ≥ 92%', 'Monthly average', 'Customer'], ['First response < 15 min (P1)', '24x7 support', 'Customer'], ['Publish 30 help articles', 'Self-serve deflection', 'Content']],
-  };
-  const goals: Prisma.GoalCreateManyInput[] = [];
-  for (const emp of E.values()) {
-    if (emp.leaving) continue;
-    const bank = goalBank[emp.dept] ?? goalBank.Operations!;
-    const n = Math.min(bank.length, emp.joining > ago(30) ? 2 : 3);
-    for (let i = 0; i < n; i++) {
-      const [title, description, category] = bank[(i + emp.name.length) % bank.length]!;
-      goals.push({
-        companyId: C, employeeId: emp.id, title, description, category, weightage: i === 0 ? 50 : Math.round(50 / (n - 1)),
-        progress: Math.round((emp.joining > ago(30) ? ri(5, 25) : ri(25, 95))) / 100, dueDate: ymd(FY_START_YEAR + 1, 3, 31),
-        createdAt: emp.joining > ymd(FY_START_YEAR, 4, 1) ? emp.joining : ymd(FY_START_YEAR, 4, 8),
-      });
-    }
-  }
-  await prisma.goal.createMany({ data: goals });
-  const fb: [string, string, string, string, number][] = [
-    ['aditya', 'vikram', 'Manager', 'Aditya led the UPI autopay design with great clarity — the team trusts his calls.', 5],
-    ['priya', 'aditya', 'Peer', 'Priya’s checkout revamp PRs are a model for the team — clean and well tested.', 5],
-    ['priya', 'vikram', 'Manager', 'Excellent ownership of the Acme release; next step is leading a squad.', 5],
-    ['rahul', 'vikram', 'Manager', 'Rahul’s Kubernetes upgrade went flawlessly. Please document more as you go.', 4],
-    ['karthik', 'priya', 'Peer', 'Always available for pairing; picked up the payments domain fast.', 4],
-    ['ananya', 'siddharth', 'Manager', 'Strong discovery work — the loyalty insights changed the roadmap.', 5],
-    ['riya', 'ananya', 'Peer', 'Design reviews with Riya are the highlight of the sprint.', 5],
-    ['aman', 'riya', 'Manager', 'Great visual craft; work on presenting design rationale to stakeholders.', 4],
-    ['farhan', 'neha', 'Manager', 'Top performer this quarter — closed both Ahmedabad renewals.', 5],
-    ['pooja', 'farhan', 'Peer', 'Pooja handled the Torrent demo brilliantly at short notice.', 4],
-    ['manish', 'neha', 'Manager', 'Activity numbers are good; focus on qualification quality.', 3],
-    ['shreya', 'nikhil', 'Manager', 'The payroll-compliance blog series is driving real organic traffic.', 4],
-    ['lakshmi', 'suresh', 'Manager', 'Month-end close is now consistently on day 4 — thank you.', 4],
-    ['rajesh', 'meera', 'Manager', 'Handled the P1 outage calmly and kept the customer informed.', 5],
-    ['divya', 'rajesh', 'Peer', 'Reliable on night shifts; great handover notes.', 4],
-    ['harish', 'meera', 'Manager', 'Picking up the product well; keep building ticket-triage speed.', 4],
-    ['vikram', 'arjun', 'Stakeholder', 'Engineering predictability is the best it has been — great job.', 5],
-    ['kavya', 'arjun', 'Stakeholder', 'Hiring this half has been fast and well run.', 5],
-    ['rohan', 'kavya', 'Manager', 'Very responsive to employee queries; keep sharpening payroll knowledge.', 4],
-  ];
-  await prisma.feedback.createMany({
-    data: fb.map(([about, from, role, message, rating]) => ({
-      companyId: C, employeeId: e(about).id, fromEmployeeId: e(from).id, fromName: e(from).name, fromRole: role, message, rating, date: pastInstant(ago(ri(3, 80))),
-    })),
-  });
-
-  // ---- Closed cycle: H2 of last FY → increments effective 1 April ----
-  const ratings: Record<string, number> = {
-    aditya: 5, priya: 5, rahul: 4, ananya: 4, riya: 4, meera: 4, farhan: 4, vikram: 4, neha: 4, siddharth: 4, kavya: 4, divya: 4,
-    suresh: 3, nikhil: 3, lakshmi: 3, rohan: 3, ganesh: 3, sunita: 3, rajesh: 3, dev: 3, pooja: 3, shreya: 3, manish: 2, arjun: 4,
-  };
-  const closed = await reviewService.createCycle(C, {
-    name: `H2 FY ${FY_START_YEAR - 1}-${String(FY_START_YEAR % 100).padStart(2, '0')} Performance Review`,
-    periodStart: ymd(FY_START_YEAR - 1, 10, 1), periodEnd: ymd(FY_START_YEAR, 3, 31), selfReviewDue: ymd(FY_START_YEAR, 4, 10),
-    managerReviewDue: ymd(FY_START_YEAR, 4, 20), ratingScale: 5,
-  });
-  await reviewService.launchCycle(C, closed.id);
-  const submitAll = async (cycleId: string, type: 'SELF' | 'MANAGER', filter: (rev: { employeeId: string; reviewerId: string | null }) => boolean, when: Date) => {
-    const revs = await prisma.review.findMany({ where: { companyId: C, cycleId, type } });
-    for (const rv of revs) {
-      if (!filter(rv)) continue;
-      const k = [...E.values()].find((x) => x.id === rv.employeeId)!.key;
-      const reviewer = [...E.values()].find((x) => x.id === rv.reviewerId)!;
-      const base = ratings[k] ?? 3;
-      await reviewService.submitReview(C, rv.id, { role: reviewer.role, employeeId: reviewer.id }, {
-        rating: type === 'SELF' ? Math.min(5, base + ri(0, 1)) : base,
-        strengths: type === 'SELF' ? 'Delivered my key goals on time; took ownership beyond my role.' : 'Consistent delivery, dependable under pressure, good collaborator.',
-        improvements: type === 'SELF' ? 'Want to improve estimation and stakeholder communication.' : 'Delegate more; share context earlier with the wider team.',
-        comments: '', goalRatings: [], draft: false,
-      });
-      await prisma.review.update({ where: { id: rv.id }, data: { submittedAt: at(addD(when, ri(0, 6)), '17:00') } });
-    }
-  };
-  await submitAll(closed.id, 'SELF', () => true, ymd(FY_START_YEAR, 4, 2));
-  await reviewService.advanceCycle(C, closed.id);
-  await submitAll(closed.id, 'MANAGER', () => true, ymd(FY_START_YEAR, 4, 12));
-  await reviewService.advanceCycle(C, closed.id); // → CALIBRATION
-  const outcomes = await prisma.reviewOutcome.findMany({ where: { companyId: C, cycleId: closed.id } });
-  for (const o of outcomes) {
-    if (o.employeeId === e('arjun').id) await reviewService.updateOutcome(C, o.id, { incrementPercent: 0, remarks: 'Board-approved compensation' });
-    if (o.employeeId === e('priya').id) await reviewService.updateOutcome(C, o.id, { promotion: true, newDesignation: 'Senior Software Engineer', remarks: 'Promoted for leading the checkout revamp' });
-  }
-  await reviewService.approveOutcomes(C, closed.id);
-  for (const o of await prisma.reviewOutcome.findMany({ where: { companyId: C, cycleId: closed.id, status: 'APPROVED' } })) {
-    if (o.incrementPercent > 0 || o.promotion) {
-      await reviewService.applyOutcome(C, o.id, actor('kavya'), { effectiveFrom: ymd(FY_START_YEAR, 4, 1), req: reqOf('kavya') });
-    }
-  }
-  await reviewService.advanceCycle(C, closed.id); // → CLOSED
-  await prisma.reviewCycle.update({ where: { id: closed.id }, data: { createdAt: at(ymd(FY_START_YEAR, 3, 25), '10:00') } });
-  await prisma.salaryRevision.updateMany({ where: { companyId: C }, data: { createdAt: at(ymd(FY_START_YEAR, 4, 25), '12:00') } });
-
+async function seedPromotion() {
   // ---- Promotion via transfer: Farhan → Senior Account Executive (effective 1st of M-3) ----
   const promo = await transferService.create(C, actor('neha'), {
     employeeId: e('farhan').id, type: 'PROMOTION', toDesignationId: ids.desig.get('Senior Account Executive'), toGradeId: ids.grade.get('G4'),
@@ -1851,70 +1750,6 @@ async function seedOpenExits() {
 // ---------------------------------------------------------------------------
 
 async function seedTalent() {
-  // ---- Active review cycle (H1 of this FY) in MANAGER_REVIEW ----
-  const active = await reviewService.createCycle(C, {
-    name: `H1 FY ${FY_START_YEAR}-${String((FY_START_YEAR + 1) % 100).padStart(2, '0')} Performance Review`,
-    periodStart: ymd(FY_START_YEAR, 4, 1), periodEnd: ymd(FY_START_YEAR, 9, 30), selfReviewDue: addD(TODAY, -4), managerReviewDue: addD(TODAY, 9), ratingScale: 5, includePeer: false,
-  });
-  await reviewService.launchCycle(C, active.id);
-  const selfRevs = await prisma.review.findMany({ where: { companyId: C, cycleId: active.id, type: 'SELF' } });
-  const byId = new Map([...E.values()].map((x) => [x.id, x]));
-  for (const rv of selfRevs) {
-    if (rnd() > 0.72) continue;
-    const emp = byId.get(rv.employeeId)!;
-    await reviewService.submitReview(C, rv.id, { role: emp.role, employeeId: emp.id }, {
-      rating: ri(3, 5), strengths: 'Owned my deliverables end to end; helped teammates unblock.', improvements: 'Better planning for cross-team dependencies.',
-      comments: '', goalRatings: [], draft: false,
-    });
-    await prisma.review.update({ where: { id: rv.id }, data: { submittedAt: pastInstant(ago(ri(5, 15)), '18:00') } });
-  }
-  await reviewService.advanceCycle(C, active.id); // → MANAGER_REVIEW
-  const mgrRevs = await prisma.review.findMany({ where: { companyId: C, cycleId: active.id, type: 'MANAGER' } });
-  let vikramDone = 0;
-  for (const rv of mgrRevs) {
-    const reviewer = byId.get(rv.reviewerId ?? '')!;
-    if (!reviewer) continue;
-    if (reviewer.key === 'vikram' ? vikramDone >= 2 : rnd() > 0.45) continue;
-    if (reviewer.key === 'vikram') vikramDone++;
-    await reviewService.submitReview(C, rv.id, { role: reviewer.role, employeeId: reviewer.id }, {
-      rating: ri(3, 5), strengths: 'Reliable and proactive; quality of work is high.', improvements: 'Take on more visible, cross-functional work.',
-      comments: '', goalRatings: [], draft: false,
-    });
-    await prisma.review.update({ where: { id: rv.id }, data: { submittedAt: pastInstant(ago(ri(0, 3)), '17:00') } });
-  }
-  await prisma.reviewCycle.update({ where: { id: active.id }, data: { createdAt: pastInstant(ago(21)) } });
-
-  // ---- Training ----
-  const courses: [string, string, string, number, boolean, number][] = [
-    ['POSH Awareness 2026', 'Prevention of sexual harassment — mandatory annual refresher', 'Compliance', 45, true, 30],
-    ['Information Security Essentials', 'Phishing, passwords, device security and data handling', 'Compliance', 60, true, 30],
-    ['DPDP Act 2023 — Data Privacy Basics', "India's Digital Personal Data Protection Act for everyone handling customer data", 'Compliance', 40, true, 45],
-    ['Effective Communication at Work', 'Writing clearly, running meetings, giving feedback', 'Soft skills', 90, false, 60],
-    ['AWS Cloud Practitioner — Exam Prep', 'Self-paced prep for the AWS CCP certification', 'Technical', 600, false, 90],
-    ['Leading Teams: First-time Managers', 'Delegation, 1:1s, hiring and performance conversations', 'Leadership', 240, false, 60],
-  ];
-  const active2 = [...E.values()].filter((x) => !x.leaving);
-  for (const [title, description, category, durationMinutes, mandatory, dueDays] of courses) {
-    const course = await trainingService.createCourse(C, { title, description, category, durationMinutes, mandatory, dueDays, contentUrl: `https://learn.nimbus.test/${title.toLowerCase().replace(/\W+/g, '-')}` });
-    const target = mandatory ? active2 : category === 'Technical' ? active2.filter((x) => x.dept === 'Engineering') : category === 'Leadership' ? active2.filter((x) => ['aditya', 'riya', 'meera', 'nikhil', 'suresh'].includes(x.key)) : active2.filter(() => rnd() < 0.4);
-    if (target.length === 0) continue;
-    const assignedOn = mandatory ? ago(40) : ago(ri(20, 50));
-    await trainingService.assign(C, course.id, { employeeIds: target.map((x) => x.id), departments: [], all: false, dueDate: addD(assignedOn, dueDays) });
-    const enrolls = await prisma.courseEnrollment.findMany({ where: { companyId: C, courseId: course.id } });
-    for (const en of enrolls) {
-      const emp = byId.get(en.employeeId)!;
-      await prisma.courseEnrollment.update({ where: { id: en.id }, data: { assignedOn: at(assignedOn, '10:00') } });
-      const roll = rnd();
-      if (emp.joining > ago(20)) continue;
-      if (roll < (mandatory ? 0.55 : 0.3)) {
-        await trainingService.complete(C, emp.id, en.id, ri(70, 100));
-        await prisma.courseEnrollment.update({ where: { id: en.id }, data: { completedAt: pastInstant(ago(ri(2, 30))) } });
-      } else if (roll < 0.8) {
-        await trainingService.updateProgress(C, emp.id, en.id, ri(15, 85) / 100);
-      }
-    }
-  }
-
   // ---- Certifications & skills ----
   const certs: [string, string, string, number | null, number | null, boolean][] = [
     ['aditya', 'AWS Certified Solutions Architect – Associate', 'Amazon Web Services', 1080, 18, true],
@@ -2054,23 +1889,6 @@ async function seedTalent() {
     await prisma.announcementRead.createMany({ data: readers.map((r) => ({ announcementId: a.id, employeeId: r.id })) });
   }
 
-  // ---- Tasks ----
-  const pool: [string, string, string][] = [
-    ['Submit investment proofs for FY declaration', 'Finance', 'High'], ['Complete POSH refresher course', 'Compliance', 'Medium'],
-    ['Prepare sprint demo', 'Acme Retail App', 'High'], ['Update OKR progress in the HRMS', 'Performance', 'Medium'],
-    ['Review PRs for the release branch', 'Nimbus Cloud Platform', 'High'], ['Book travel for the client visit', 'Sales', 'Low'],
-    ['Write the H1 self review', 'Performance', 'High'], ['Clean up the Jira backlog', 'Product', 'Low'],
-    ['Renew the AWS certification', 'Learning', 'Medium'], ['Share the weekly support report', 'Customer Success', 'Medium'],
-  ];
-  const taskRows: Prisma.TaskCreateManyInput[] = [];
-  for (const emp of everyone) {
-    for (let t = 0; t < ri(2, 4); t++) {
-      const [title, project, priority] = pool[(t * 3 + emp.name.length) % pool.length]!;
-      taskRows.push({ companyId: C, employeeId: emp.id, title, project, priority, due: addD(TODAY, ri(-6, 14)), done: rnd() < 0.35, createdAt: pastInstant(ago(ri(3, 20))) });
-    }
-  }
-  await prisma.task.createMany({ data: taskRows });
-
   // ---- Helpdesk ----
   const tickets: [string, string, string, string, 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED', number][] = [
     ['sneha', 'VPN access to the staging cluster', 'IT', 'Need VPN + kubectl access for the staging cluster to start on my first ticket.', 'IN_PROGRESS', 2],
@@ -2122,9 +1940,6 @@ async function summary() {
     ['Expense claims', await prisma.expenseClaim.count({ where })],
     ['Travel requests', await prisma.travelRequest.count({ where })],
     ['Timesheet weeks', await prisma.timesheetWeek.count({ where })],
-    ['Goals / feedback', (await prisma.goal.count({ where })) + (await prisma.feedback.count({ where }))],
-    ['Review cycles / reviews', (await prisma.reviewCycle.count({ where })) * 1000 + (await prisma.review.count({ where }))],
-    ['Course enrollments', await prisma.courseEnrollment.count({ where })],
     ['Certifications / skills', (await prisma.employeeCertification.count({ where })) * 1000 + (await prisma.employeeSkill.count({ where }))],
     ['Survey responses', await prisma.surveyResponse.count({ where })],
     ['Kudos', await prisma.recognition.count({ where })],
@@ -2168,11 +1983,11 @@ async function main() {
   await step('timesheets', seedTimesheets);
   await step('tax, loans, payroll inputs, travel, expenses, encashment', seedMoney);
   await step('former employees (completed exits)', seedFormerEmployees);
-  await step('goals, feedback, closed review cycle, promotion', seedPerformance);
+  await step('promotion via transfer', seedPromotion);
   await step('payroll runs (3 paid)', seedPayroll);
   await step('onboarding, confirmations, transfers, letters, documents', seedLifecycle);
   await step('serving notice + pending resignation', seedOpenExits);
-  await step('reviews, learning, surveys, kudos, announcements, tasks, tickets', seedTalent);
+  await step('certifications, surveys, kudos, announcements, tickets', seedTalent);
   await step('current-month draft payroll', seedDraftRun);
   const portal = await recruitmentService.createPortalLink(C, APPS.get('Ankita Rane')!, 30);
   portalCandidate = portal.url;

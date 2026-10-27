@@ -61,16 +61,16 @@ export default function AnnouncementsPage() {
       ) : (
         <div className="space-y-3">
           {data.map((a) => (
-            <Card key={a.id} className={`p-4 ${!a.read ? 'ring-1 ring-indigo-200' : ''}`}>
+            <Card key={a.id} className={`p-4 ${!a.read ? 'ring-1 ring-brand-200' : ''}`}>
               <div className="flex items-start justify-between gap-3">
                 <div className="cursor-pointer" onClick={() => void markRead(a)}>
                   <div className="flex items-center gap-2">
-                    <h2 className={`text-sm ${a.read ? 'text-slate-700' : 'font-semibold text-slate-900'}`}>{a.title}</h2>
+                    <h2 className={`text-sm ${a.read ? 'text-ink-700' : 'font-semibold text-ink-900'}`}>{a.title}</h2>
                     {!a.read && <Badge tone="blue">new</Badge>}
                     <Badge tone="slate">{a.category}</Badge>
                   </div>
-                  <p className="mt-1 whitespace-pre-wrap text-sm text-slate-600">{a.body}</p>
-                  <p className="mt-2 text-xs text-slate-400">
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-ink-600">{a.body}</p>
+                  <p className="mt-2 text-xs text-ink-400">
                     {a.author?.name ?? 'HR'} · {fmtDate(a.postedOn)}
                   </p>
                 </div>

@@ -1,7 +1,7 @@
 /**
  * Demo data seeder — fills the database with realistic data for showcasing
  * the admin panel (two companies, employees, 30 days of attendance, leaves,
- * payslips, expenses with receipts, goals, feedback, tasks, documents,
+ * payslips, expenses with receipts, documents,
  * tickets, announcements and holidays).
  *
  * Re-runnable: it deletes and recreates the demo companies each time.
@@ -318,92 +318,6 @@ async function seedCompany(opts: {
     });
   }
 
-  // ---- Goals + 360° feedback ----
-  const goalTitles = [
-    ['Ship payroll module v2', 'Deliver the revamped payroll flow with zero P0 bugs', 'Delivery', 40],
-    ['Improve test coverage to 80%', 'Raise unit test coverage across core services', 'Quality', 25],
-    ['Mentor one junior teammate', 'Weekly 1:1s and a growth plan for a junior engineer', 'Leadership', 15],
-    ['Close 12 enterprise deals', 'Hit the annual enterprise sales target', 'Sales', 50],
-    ['Redesign onboarding flow', 'New employee onboarding experience end to end', 'Design', 35],
-    ['Automate expense reconciliation', 'Cut monthly close time by two days', 'Finance', 30],
-  ] as const;
-  for (const person of opts.people) {
-    const e = emp(person.code);
-    const count = rand(2, 3);
-    for (let g = 0; g < count; g++) {
-      const [title, description, category, weightage] = goalTitles[(g + person.code.length) % goalTitles.length]!;
-      await prisma.goal.create({
-        data: {
-          companyId: company.id,
-          employeeId: e.id,
-          title,
-          description,
-          category,
-          weightage,
-          progress: Math.round(rand(15, 90)) / 100,
-          dueDate: daysAgo(-rand(20, 90)),
-        },
-      });
-    }
-  }
-  const feedbackFixtures: { about: string; from: string; role: string; message: string; rating: number }[] = [
-    { about: 'ACME-004', from: 'ACME-002', role: 'Manager', message: 'Bob consistently delivers ahead of schedule and his code reviews lift the whole team.', rating: 5 },
-    { about: 'ACME-004', from: 'ACME-005', role: 'Peer', message: 'Great collaborator — always makes time to unblock design handoffs.', rating: 4 },
-    { about: 'ACME-005', from: 'ACME-002', role: 'Manager', message: 'Carol’s redesign of the dashboard measurably improved activation. Strong quarter.', rating: 5 },
-    { about: 'ACME-005', from: 'ACME-006', role: 'Peer', message: 'Design specs are always crisp and ready — makes frontend work a breeze.', rating: 4 },
-    { about: 'ACME-002', from: 'ACME-001', role: 'Stakeholder', message: 'Rahul runs a tight ship. Sprint predictability has been excellent.', rating: 5 },
-    { about: 'ACME-006', from: 'ACME-002', role: 'Manager', message: 'Dev picked up the new design system quickly; next step is owning a feature end to end.', rating: 4 },
-  ];
-  for (const f of feedbackFixtures) {
-    const about = byCode.get(f.about);
-    const from = byCode.get(f.from);
-    if (!about || !from) continue;
-    await prisma.feedback.create({
-      data: {
-        companyId: company.id,
-        employeeId: about.id,
-        fromEmployeeId: from.id,
-        fromName: from.name,
-        fromRole: f.role,
-        message: f.message,
-        rating: f.rating,
-        date: daysAgo(rand(2, 40)),
-      },
-    });
-  }
-
-  // ---- Tasks ----
-  const taskPool = [
-    ['Review Q3 appraisal docs', 'People Ops', 'High'],
-    ['Prepare sprint 42 demo', 'HRMS App', 'High'],
-    ['Fix attendance edge case on month end', 'HRMS App', 'Medium'],
-    ['Update client proposal deck', 'Sales', 'High'],
-    ['Book travel for Pune visit', 'Sales', 'Low'],
-    ['Complete security training', 'Compliance', 'Medium'],
-    ['Submit investment declarations', 'Finance', 'Medium'],
-    ['Interview backend candidates', 'Hiring', 'High'],
-    ['Write release notes v2.4', 'HRMS App', 'Low'],
-    ['Clean up design file library', 'Design System', 'Low'],
-  ] as const;
-  for (const person of opts.people) {
-    const e = emp(person.code);
-    const count = rand(3, 5);
-    for (let t = 0; t < count; t++) {
-      const [title, project, priority] = taskPool[(t * 3 + person.code.length) % taskPool.length]!;
-      await prisma.task.create({
-        data: {
-          companyId: company.id,
-          employeeId: e.id,
-          title,
-          project,
-          priority,
-          due: daysAgo(rand(-14, 5)),
-          done: Math.random() < 0.35,
-        },
-      });
-    }
-  }
-
   // ---- Documents (bytes in MinIO) ----
   const docs: { name: string; owner: string | null; by: string; content: string }[] = [
     { name: 'Employee Handbook 2026.pdf', owner: null, by: 'ACME-001', content: 'ACME CORP — EMPLOYEE HANDBOOK 2026\nCulture, conduct, benefits and everything in between.' },
@@ -493,8 +407,6 @@ async function main(): Promise<void> {
     prisma.leaveRequest.count(),
     prisma.payslip.count(),
     prisma.expenseClaim.count(),
-    prisma.goal.count(),
-    prisma.task.count(),
     prisma.document.count(),
     prisma.ticket.count(),
     prisma.announcement.count(),
@@ -502,7 +414,7 @@ async function main(): Promise<void> {
   /* eslint-disable no-console */
   console.log(`Seeded: ${acme.name} + ${globex.name}`);
   console.log(
-    `employees=${counts[0]} attendance=${counts[1]} leaves=${counts[2]} payslips=${counts[3]} expenses=${counts[4]} goals=${counts[5]} tasks=${counts[6]} documents=${counts[7]} tickets=${counts[8]} announcements=${counts[9]}`
+    `employees=${counts[0]} attendance=${counts[1]} leaves=${counts[2]} payslips=${counts[3]} expenses=${counts[4]} documents=${counts[5]} tickets=${counts[6]} announcements=${counts[7]}`
   );
   console.log('\nDemo logins:');
   console.log('  Super admin : superadmin@hrms.local / SuperAdmin@123');

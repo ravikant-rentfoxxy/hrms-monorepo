@@ -119,10 +119,10 @@ export function MatchBar({ score }: { score: number }) {
   const color = score >= 75 ? 'bg-emerald-500' : score >= 50 ? 'bg-amber-500' : 'bg-rose-500';
   return (
     <span className="inline-flex items-center gap-1.5" title={`Match score ${score}%`}>
-      <span className="h-1.5 w-12 overflow-hidden rounded-full bg-slate-100">
+      <span className="h-1.5 w-12 overflow-hidden rounded-full bg-ink-100">
         <span className={`block h-full ${color}`} style={{ width: `${Math.max(4, score)}%` }} />
       </span>
-      <span className="text-xs tabular-nums text-slate-500">{score}%</span>
+      <span className="text-xs tabular-nums text-ink-500">{score}%</span>
     </span>
   );
 }
@@ -173,14 +173,19 @@ export function RequisitionFields({
 }: {
   form: RequisitionForm;
   setForm: (f: RequisitionForm) => void;
-  people: { id: string; name: string }[];
+  people: { id: string; name: string; designation?: string }[];
   departments: { id: string; name: string }[];
 }) {
   const set = (k: keyof RequisitionForm) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
+  // "Replacing" lists the chosen department's people; without a department it falls back to everyone.
+  const deptPeople = useFetch<{ items: { id: string; name: string; designation: string }[] }>(
+    form.reason === 'REPLACEMENT' && form.departmentId ? `/employees?departmentId=${form.departmentId}&pageSize=100` : null
+  );
+  const replaceable = form.departmentId ? (deptPeople.data?.items ?? []) : people;
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Job title">
+        <Field label="Job title" required>
           <Input value={form.title} onChange={set('title')} placeholder="e.g. Senior Backend Engineer" />
         </Field>
         <Field label="Designation">
@@ -192,7 +197,7 @@ export function RequisitionFields({
           label="Department"
           hint={departments.length === 0 ? 'No departments yet — HR can add them under Settings → Masters' : undefined}
         >
-          <Select value={form.departmentId} onChange={set('departmentId')}>
+          <Select value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value, replacementForId: '' })}>
             <option value="">{departments.length === 0 ? '— none set up —' : '— select —'}</option>
             {departments.map((d) => (
               <option key={d.id} value={d.id}>
@@ -222,7 +227,7 @@ export function RequisitionFields({
         <Field label="Budget min CTC (₹/yr)">
           <Input type="number" min={0} value={form.budgetMinCtc} onChange={set('budgetMinCtc')} />
         </Field>
-        <Field label="Budget max CTC (₹/yr)">
+        <Field label="Budget max CTC (₹/yr)" required>
           <Input type="number" min={0} value={form.budgetMaxCtc} onChange={set('budgetMaxCtc')} />
         </Field>
       </div>
@@ -262,12 +267,22 @@ export function RequisitionFields({
       </div>
       <div className="grid grid-cols-2 gap-3">
         {form.reason === 'REPLACEMENT' && (
-          <Field label="Replacing">
+          <Field
+            label="Replacing"
+            required
+            hint={
+              !form.departmentId
+                ? 'Select a department to see only its people'
+                : !deptPeople.loading && replaceable.length === 0
+                  ? 'No employees in this department'
+                  : undefined
+            }
+          >
             <Select value={form.replacementForId} onChange={set('replacementForId')}>
-              <option value="">— select employee —</option>
-              {people.map((p) => (
+              <option value="">{deptPeople.loading ? 'Loading…' : '— select employee —'}</option>
+              {replaceable.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name}
+                  {p.designation ? `${p.name} — ${p.designation}` : p.name}
                 </option>
               ))}
             </Select>
@@ -284,11 +299,16 @@ export function RequisitionFields({
           </Select>
         </Field>
       </div>
-      <Field label="Business justification">
-        <Textarea rows={3} value={form.justification} onChange={set('justification')} />
+      {/* Limits mirror the API: justification 10+ to submit, max 5,000; description optional, max 10,000. */}
+      <Field
+        label="Business justification"
+        required
+        hint={`At least 10 characters to submit, up to 5,000 · ${form.justification.trim().length < 10 ? `${10 - form.justification.trim().length} more needed` : `${form.justification.length.toLocaleString('en-IN')} / 5,000`}`}
+      >
+        <Textarea rows={3} maxLength={5000} value={form.justification} onChange={set('justification')} placeholder="Why is this hire needed?" />
       </Field>
-      <Field label="Job description">
-        <Textarea rows={4} value={form.description} onChange={set('description')} />
+      <Field label="Job description" hint={`Optional, up to 10,000 characters · ${form.description.length.toLocaleString('en-IN')} / 10,000`}>
+        <Textarea rows={4} maxLength={10000} value={form.description} onChange={set('description')} />
       </Field>
     </div>
   );

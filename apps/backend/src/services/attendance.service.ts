@@ -1,6 +1,7 @@
 /**
- * Attendance business logic: geofenced punches measured against the
- * employee's shift, regularization (REGULARIZATION approval chain), monthly
+ * Attendance business logic: punches measured against the employee's shift
+ * (geofenced for OFFICE work mode; REMOTE / FIELD punch anywhere with the
+ * location recorded), regularization (REGULARIZATION approval chain), monthly
  * calendars, payable days, muster exports and the daily auto-marking.
  *
  * Shift rules (see shift.service):
@@ -13,7 +14,7 @@
  *   night     → a punch before the previous day's shift end belongs to the
  *               previous day's record
  */
-import type { AttendanceRecord, AttendanceStatus, Role, Shift } from '@prisma/client';
+import type { AttendanceRecord, AttendanceStatus, Role, Shift, WorkMode } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { notify } from '../lib/notify';
 import { ApiError } from '../utils/http';
@@ -72,6 +73,27 @@ export async function attendanceDateFor(companyId: string, employeeId: string, n
   return { date: today, shift: await resolveShift(companyId, employeeId, today), tz: zone };
 }
 
+export const WORK_MODE_LABEL: Record<WorkMode, string> = {
+  OFFICE: 'Work from office',
+  REMOTE: 'Work from home',
+  FIELD: 'Field work',
+};
+
+async function workModeOf(companyId: string, employeeId: string): Promise<WorkMode> {
+  const e = await prisma.employee.findFirst({ where: { id: employeeId, companyId }, select: { workMode: true } });
+  return e?.workMode ?? 'OFFICE';
+}
+
+/**
+ * OFFICE work mode must be inside an office geofence (throws otherwise).
+ * Work from home / field work punch from anywhere: the coordinates are
+ * recorded, no distance is checked.
+ */
+async function locatePunch(companyId: string, mode: WorkMode, input: PunchInput) {
+  if (mode !== 'OFFICE') return { distance: null as number | null };
+  return checkGeofence(companyId, input.latitude, input.longitude);
+}
+
 async function hasHalfDayLeave(companyId: string, employeeId: string, date: Date) {
   const leave = await prisma.leaveRequest.findFirst({
     where: { companyId, employeeId, status: 'APPROVED', halfDay: true, fromDate: { lte: date }, toDate: { gte: date } },
@@ -86,7 +108,8 @@ export async function checkIn(companyId: string, employeeId: string, input: Punc
   const existing = await prisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId, date } } });
   if (existing?.checkIn) throw ApiError.conflict('Already checked in today');
 
-  const { distance } = await checkGeofence(companyId, input.latitude, input.longitude);
+  const workMode = await workModeOf(companyId, employeeId);
+  const { distance } = await locatePunch(companyId, workMode, input);
 
   const info = await dayInfo(companyId, employeeId, date);
   const { start } = shiftWindow(shift, date, tz);
@@ -99,6 +122,7 @@ export async function checkIn(companyId: string, employeeId: string, input: Punc
     checkInLat: input.latitude,
     checkInLng: input.longitude,
     checkInDistance: distance,
+    workMode,
     note: input.note,
     shiftId: shift.id,
     lateMinutes: isLate ? lateBy : 0,
@@ -166,7 +190,8 @@ export async function checkOut(companyId: string, employeeId: string, input: Pun
   if (!record?.checkIn) throw ApiError.badRequest('Check in first');
   if (record.checkOut) throw ApiError.conflict('Already checked out today');
 
-  const { distance } = await checkGeofence(companyId, input.latitude, input.longitude);
+  // The mode the day started with decides the check-out rule too.
+  const { distance } = await locatePunch(companyId, record.workMode ?? (await workModeOf(companyId, employeeId)), input);
   const shift = await recordShift(companyId, record);
   const [info, halfDayLeave] = await Promise.all([
     dayInfo(companyId, employeeId, record.date),
@@ -216,13 +241,14 @@ export async function todayRecord(employeeId: string, companyId?: string) {
 export async function todaySummary(companyId: string, employeeId: string) {
   const now = new Date();
   const { date, tz } = await attendanceDateFor(companyId, employeeId, now);
-  const [record, info, leave] = await Promise.all([
+  const [record, info, leave, workMode] = await Promise.all([
     todayRecord(employeeId, companyId),
     dayInfo(companyId, employeeId, date),
     prisma.leaveRequest.findFirst({
       where: { companyId, employeeId, status: 'APPROVED', fromDate: { lte: date }, toDate: { gte: date } },
       select: { id: true, halfDay: true, leaveType: { select: { code: true, name: true } } },
     }),
+    workModeOf(companyId, employeeId),
   ]);
   const shift = record?.shiftId ? await recordShift(companyId, record) : info.shift;
   const window = shiftWindow(shift, record?.date ?? date, tz);
@@ -236,6 +262,10 @@ export async function todaySummary(companyId: string, employeeId: string) {
     isWeeklyOff: info.isWeeklyOff,
     holiday: info.holiday,
     leave,
+    /** OFFICE = punch inside the office geofence; REMOTE / FIELD = punch anywhere (location recorded). */
+    workMode,
+    workModeLabel: WORK_MODE_LABEL[workMode],
+    geofenced: workMode === 'OFFICE',
     record,
   };
 }
@@ -307,7 +337,7 @@ export async function companyDay(companyId: string, date: Date, actor?: { role: 
   const scope = actor?.role === 'MANAGER' ? { employee: { managerId: actor.employeeId } } : {};
   const records = await prisma.attendanceRecord.findMany({
     where: { companyId, date: dateOnlyUTC(date), ...scope },
-    include: { employee: { select: { id: true, name: true, department: true, designation: true } } },
+    include: { employee: { select: { id: true, name: true, department: true, designation: true, workMode: true } } },
     orderBy: { checkIn: 'asc' },
   });
   const shiftIds = [...new Set(records.map((r) => r.shiftId).filter((x): x is string => !!x))];
@@ -754,4 +784,41 @@ export async function closeMissedCheckouts(companyId: string, now = new Date()) 
     });
   }
   return { closed: closed.length };
+}
+
+// ---- Work mode (office / work from home / field) — set by HR or Admin ----
+
+/** Current employees with their work mode (Attendance → Work mode). */
+export async function listWorkModes(companyId: string) {
+  const items = await prisma.employee.findMany({
+    where: { companyId, isActive: true, archivedAt: null },
+    select: { id: true, name: true, employeeCode: true, department: true, designation: true, workMode: true },
+    orderBy: { name: 'asc' },
+  });
+  const counts = { OFFICE: 0, REMOTE: 0, FIELD: 0 } as Record<WorkMode, number>;
+  for (const e of items) counts[e.workMode]++;
+  return { items, counts };
+}
+
+/** Set one work mode for many employees; takes effect from their next check-in. */
+export async function setWorkMode(companyId: string, employeeIds: string[], workMode: WorkMode) {
+  const ids = [...new Set(employeeIds)];
+  const before = await prisma.employee.findMany({
+    where: { companyId, id: { in: ids } },
+    select: { id: true, workMode: true },
+  });
+  if (before.length !== ids.length) throw ApiError.badRequest('Some employees do not belong to this company');
+  const changed = before.filter((e) => e.workMode !== workMode);
+  if (changed.length > 0) {
+    await prisma.employee.updateMany({ where: { companyId, id: { in: changed.map((e) => e.id) } }, data: { workMode } });
+    await notify(companyId, changed.map((e) => e.id), {
+      event: 'attendance.work_mode',
+      title: `Attendance mode: ${WORK_MODE_LABEL[workMode]}`,
+      body: workMode === 'OFFICE'
+        ? 'Check in from within the office location.'
+        : 'You can check in from anywhere; your location is recorded with each punch.',
+      link: '/attendance',
+    });
+  }
+  return { updated: changed.length };
 }

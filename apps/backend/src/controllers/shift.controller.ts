@@ -1,7 +1,6 @@
-import { ApiError, h, ok } from '../utils/http';
+import { h, ok } from '../utils/http';
 import { ctx, employeeIdOrThrow, isManagerial } from '../middleware/auth';
 import { audit, diff } from '../lib/audit';
-import { dateOnlyUTC } from '../utils/geo';
 import * as shiftService from '../services/shift.service';
 import type { AssignInput, ShiftInput } from '../services/shift.service';
 
@@ -59,19 +58,4 @@ export const removeAssignment = h(async (req, res) => {
   const removed = await shiftService.deleteAssignment(tenantId, req.params.id as string);
   await audit(req, { entity: 'ShiftAssignment', entityId: removed.id, action: 'DELETE', before: removed });
   ok(res, { deleted: true });
-});
-
-/** Employees × days grid (ADMIN/HR all, MANAGER own team). */
-export const roster = h(async (req, res) => {
-  const { auth, tenantId } = ctx(req);
-  const { from, to, departmentId } = req.query as unknown as { from: Date; to: Date; departmentId?: string };
-  ok(res, await shiftService.roster(tenantId, { from, to, departmentId, actor: auth }));
-});
-
-/** The caller's own shifts for the next N days (default 14). */
-export const myRoster = h(async (req, res) => {
-  const { tenantId } = ctx(req);
-  const { from, days } = req.query as unknown as { from?: Date; days: number };
-  if (from && Number.isNaN(from.getTime())) throw ApiError.badRequest('Invalid from date');
-  ok(res, await shiftService.myRoster(tenantId, employeeIdOrThrow(req), from ?? dateOnlyUTC(), days));
 });

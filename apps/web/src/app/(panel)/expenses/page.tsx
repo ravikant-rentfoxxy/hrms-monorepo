@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { api, fmtDate, fmtMoney } from '@/lib/api';
 import { useFetch } from '@/lib/useFetch';
 import {
-  Badge, Button, Card, Empty, ErrorNote, Field, Input, Modal, PageHeader, Spinner, Table, Tabs, Td, Textarea, statusTone, DatePicker } from '@/components/ui';
+  Badge, Button, Card, Empty, ErrorNote, Field, Input, LongText, Modal, PageHeader, Spinner, Table, Tabs, Td, Textarea, statusTone, DatePicker } from '@/components/ui';
 import { ApprovalTrail, DecideModal } from '@/components/approvals';
 
 interface Expense {
@@ -95,7 +95,7 @@ function ClaimModal({ onClose, onDone }: { onClose: () => void; onDone: () => vo
           <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
         </Field>
         <Field label="Receipt (any file format)">
-          <input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="block w-full text-sm text-slate-600" />
+          <input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="block w-full text-sm text-ink-600" />
         </Field>
         <Button
           onClick={() => void submit()}
@@ -146,21 +146,23 @@ export default function ExpensesPage() {
     <Table headers={[...(isApprovals ? ['Employee'] : []), 'Category', 'Description', 'Amount', 'Date', 'Status', 'Receipt', '']}>
       {items.map((e) => (
         <tr key={e.id}>
-          {isApprovals && <Td className="font-medium text-slate-900">{e.employee?.name}</Td>}
+          {isApprovals && <Td className="font-medium text-ink-900">{e.employee?.name}</Td>}
           <Td>{e.category}</Td>
-          <Td className="max-w-50 truncate">{e.description}</Td>
+          <Td>
+            <LongText text={e.description} />
+          </Td>
           <Td className="font-medium">{fmtMoney(e.amount)}</Td>
           <Td>{fmtDate(e.date)}</Td>
           <Td>
             <Badge tone={statusTone(e.status)}>{e.status}</Badge>
             {e.approval && e.approval.totalLevels > 1 && (
-              <span className="mt-0.5 block text-[11px] text-slate-400">
+              <span className="mt-0.5 block text-[11px] text-ink-400">
                 level {e.approval.level}/{e.approval.totalLevels}
                 {e.approval.waitingOn ? ` · ${e.approval.waitingOn}` : ''}
               </span>
             )}
             {e.approval && e.approval.totalLevels === 1 && e.approval.waitingOn && (
-              <span className="mt-0.5 block text-[11px] text-slate-400">with {e.approval.waitingOn}</span>
+              <span className="mt-0.5 block text-[11px] text-ink-400">with {e.approval.waitingOn}</span>
             )}
           </Td>
           <Td>

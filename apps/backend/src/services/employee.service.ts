@@ -58,6 +58,7 @@ export interface EmployeeProfileInput {
   designationId?: string | null;
   gradeId?: string | null;
   officeId?: string | null;
+  workMode?: 'OFFICE' | 'REMOTE' | 'FIELD';
   gender?: string;
   maritalStatus?: string;
   personalEmail?: string;
@@ -81,7 +82,7 @@ export interface CreateEmployeeInput extends EmployeeProfileInput {
   password?: string;
   /** Auto-generated when omitted (the normal case — HR never types it). */
   employeeCode?: string;
-  role: 'HR' | 'MANAGER' | 'EMPLOYEE';
+  role: 'HR' | 'MANAGER' | 'EMPLOYEE' | 'FINANCE';
 }
 
 /**
@@ -149,7 +150,7 @@ const AUDITED_FIELDS = [
   'phone', 'location', 'joiningDate', 'leavingDate', 'dateOfBirth', 'bloodGroup', 'address', 'emergencyContact',
   'bankName', 'accountNumber', 'ifsc', 'pan', 'pfNumber', 'uan', 'aadhaarNumber', 'fatherName', 'esiNumber',
   'employmentType', 'gender', 'maritalStatus', 'personalEmail', 'probationEndDate', 'confirmedOn', 'noticePeriodDays',
-  'taxRegime', 'isActive', 'salaryBasic', 'salaryHra', 'salaryConveyance', 'salaryMedical', 'salaryAllowance',
+  'taxRegime', 'workMode', 'isActive', 'salaryBasic', 'salaryHra', 'salaryConveyance', 'salaryMedical', 'salaryAllowance',
   'salaryPfEmployer', 'salaryPfEmployee',
 ] as const;
 
@@ -384,6 +385,26 @@ export interface ProfileViewer {
   role?: Role;
 }
 
+/** Company roles an Admin can assign to an employee (Admin itself is granted from the platform). */
+export const ASSIGNABLE_ROLES = ['EMPLOYEE', 'MANAGER', 'HR', 'FINANCE'] as const;
+
+/**
+ * Changes an employee's role in this company. ADMIN only (route); an Admin's
+ * own role and other Admins are left alone. Takes effect on the employee's
+ * next token refresh (within minutes) — the session re-reads the membership.
+ */
+export async function setEmployeeRole(companyId: string, employeeId: string, role: (typeof ASSIGNABLE_ROLES)[number], actor: { userId: string }) {
+  const employee = await prisma.employee.findFirst({ where: { id: employeeId, companyId }, select: { userId: true, name: true } });
+  if (!employee) throw ApiError.notFound('Employee not found');
+  if (!employee.userId) throw ApiError.badRequest(`${employee.name} has no login account`);
+  if (employee.userId === actor.userId) throw ApiError.badRequest('You cannot change your own role');
+  const membership = await prisma.membership.findUnique({ where: { userId_companyId: { userId: employee.userId, companyId } } });
+  if (!membership) throw ApiError.badRequest(`${employee.name} has no access to this company`);
+  if (membership.role === 'ADMIN' || membership.role === 'SUPER_ADMIN') throw ApiError.forbidden('An Admin’s role cannot be changed here');
+  const after = await prisma.membership.update({ where: { id: membership.id }, data: { role } });
+  return { before: membership.role, after: after.role };
+}
+
 /**
  * Full profile. The employee themself and ADMIN/HR see everything (identity
  * numbers decrypted). Other viewers lose bank / salary / personal fields;
@@ -394,7 +415,7 @@ export async function getEmployee(companyId: string, employeeId: string, opts: P
   const employee = await prisma.employee.findFirst({
     where: { id: employeeId, companyId },
     include: {
-      user: { select: { email: true, role: true, isActive: true, lastLoginAt: true, totpEnabled: true } },
+      user: { select: { email: true, role: true, isActive: true, lastLoginAt: true } },
       manager: { select: { id: true, name: true, designation: true } },
       departmentRef: { select: { id: true, name: true, code: true, headId: true } },
       designationRef: { select: { id: true, name: true, level: true } },
@@ -410,7 +431,13 @@ export async function getEmployee(companyId: string, employeeId: string, opts: P
     },
   });
   if (!employee) throw ApiError.notFound('Employee not found');
-  if (opts.isSelf || opts.isPrivileged) return { ...revealEmployeeSecrets(employee), secretsMasked: false };
+  if (opts.isSelf || opts.isPrivileged) {
+    // The company role (membership), so ADMIN/HR can see and change it.
+    const membership = employee.userId
+      ? await prisma.membership.findUnique({ where: { userId_companyId: { userId: employee.userId, companyId } }, select: { role: true } })
+      : null;
+    return { ...revealEmployeeSecrets(employee), secretsMasked: false, companyRole: membership?.role ?? null };
+  }
 
   const pub: Record<string, unknown> = { ...employee };
   for (const f of PRIVATE_FIELDS) delete pub[f];

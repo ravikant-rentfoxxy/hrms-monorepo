@@ -29,12 +29,14 @@ export const assetUpdateSchema = z.object({
 
 export const assignAssetSchema = z.object({
   employeeId: z.string().uuid(),
+  issuedOn: z.coerce.date().nullable().optional(),
   expectedReturn: z.coerce.date().nullable().optional(),
   conditionOut: z.string().max(60).optional(),
   notes: z.string().max(500).optional(),
 });
 
 export const returnAssetSchema = z.object({
+  returnedOn: z.coerce.date().nullable().optional(),
   conditionIn: z.string().trim().min(2).max(60),
   status: z.enum(['AVAILABLE', 'IN_REPAIR']).default('AVAILABLE'),
   notes: z.string().max(500).optional(),
@@ -45,3 +47,29 @@ export const listAssetsQuerySchema = z.object({
   category: z.enum(ASSET_CATEGORIES).optional(),
   q: z.string().max(80).optional(),
 });
+
+/** Rows of name + count (+ serial for a single unit): new assets issued straight to one employee. */
+export const newAssetItemsSchema = z
+  .array(
+    z.object({
+      name: z.string().trim().min(2).max(120),
+      category: z.enum(ASSET_CATEGORIES).default('Other'),
+      count: z.coerce.number().int().min(1).max(20),
+      serialNumber: z.string().trim().max(80).optional(),
+      description: z.string().trim().max(1000).optional(),
+      issuedOn: z.coerce.date().nullable().optional(),
+    })
+  )
+  .min(1)
+  .max(20);
+
+export const issueAssetsSchema = z.object({ items: newAssetItemsSchema, issuedOn: z.coerce.date().nullable().optional() });
+
+export const assignmentDatesSchema = z
+  .object({
+    issuedOn: z.coerce.date(),
+    expectedReturn: z.coerce.date().nullable(),
+    returnedOn: z.coerce.date(),
+  })
+  .partial()
+  .refine((d) => Object.keys(d).length > 0, 'Nothing to change');

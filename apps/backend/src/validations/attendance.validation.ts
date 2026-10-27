@@ -67,3 +67,8 @@ export const officeUpdateSchema = z
   })
   .partial()
   .extend({ isActive: z.boolean().optional() });
+
+export const workModeSchema = z.object({
+  employeeIds: z.array(z.string().uuid()).min(1).max(1000),
+  workMode: z.enum(['OFFICE', 'REMOTE', 'FIELD']),
+});

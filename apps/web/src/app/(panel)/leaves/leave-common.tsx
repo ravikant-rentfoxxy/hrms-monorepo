@@ -132,7 +132,7 @@ export function LeaveNav() {
             key={i.href}
             href={i.href}
             className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm font-medium transition-colors ${
-              active ? 'border-indigo-200 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+              active ? 'border-brand-200 bg-brand-50 text-brand-700' : 'border-ink-200 bg-white text-ink-600 hover:bg-ink-50'
             }`}
           >
             <Icon name={i.icon} className="h-4 w-4" />
@@ -147,7 +147,7 @@ export function LeaveNav() {
 /** Vertical approval timeline. */
 export function Trail({ steps }: { steps?: TrailStep[] }) {
   if (!steps || steps.length === 0) {
-    return <p className="text-sm text-slate-400">Awaiting the reporting manager (approval chain starts on first action).</p>;
+    return <p className="text-sm text-ink-400">Awaiting the reporting manager (approval chain starts on first action).</p>;
   }
   return (
     <ol className="space-y-3">
@@ -161,22 +161,22 @@ export function Trail({ steps }: { steps?: TrailStep[] }) {
                   ? 'bg-rose-100 text-rose-700'
                   : s.status === 'PENDING'
                     ? 'bg-amber-100 text-amber-700'
-                    : 'bg-slate-100 text-slate-500'
+                    : 'bg-ink-100 text-ink-500'
             }`}
           >
             {s.level}
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-medium text-slate-800">{s.approverName ?? 'Approver'}</span>
+              <span className="text-sm font-medium text-ink-800">{s.approverName ?? 'Approver'}</span>
               <Badge tone={statusTone(s.status)}>{s.status}</Badge>
             </div>
             {s.actedAt && (
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-ink-500">
                 {s.actedByName ?? '—'} · {fmtDate(s.actedAt)}
               </p>
             )}
-            {s.remarks && <p className="mt-0.5 text-sm text-slate-600">“{s.remarks}”</p>}
+            {s.remarks && <p className="mt-0.5 text-sm text-ink-600">“{s.remarks}”</p>}
           </div>
         </li>
       ))}
@@ -191,17 +191,17 @@ export function BalanceCards({ balances }: { balances: Balance[] }) {
       {balances.map((b) => (
         <Card key={b.leaveType.id} className="p-4">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{b.leaveType.name}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-ink-500">{b.leaveType.name}</p>
             <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: b.leaveType.color }} />
           </div>
-          <p className="mt-1 text-2xl font-semibold text-slate-900">
+          <p className="mt-1 text-2xl font-semibold text-ink-900">
             {fmtDays(b.available)}
-            <span className="text-sm font-normal text-slate-400"> / {fmtDays(b.total)}</span>
+            <span className="text-sm font-normal text-ink-400"> / {fmtDays(b.total)}</span>
           </p>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-ink-400">
             used {fmtDays(b.used)} · pending {fmtDays(b.pending)}
           </p>
-          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 border-t border-slate-100 pt-2 text-[11px] text-slate-500">
+          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 border-t border-ink-100 pt-2 text-[11px] text-ink-500">
             <span>{b.leaveType.isCompOff ? 'earned' : 'accrued'} {fmtDays(b.accrued)}</span>
             {b.carriedForward !== 0 && <span>carried {fmtDays(b.carriedForward)}</span>}
             {b.adjusted !== 0 && <span>adjusted {b.adjusted > 0 ? '+' : ''}{fmtDays(b.adjusted)}</span>}

@@ -177,7 +177,7 @@ export default function LeaveLedgerPage() {
             <select
               value={year}
               onChange={(e) => setYear(Number(e.target.value))}
-              className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+              className="rounded-lg border border-ink-300 px-2 py-1.5 text-sm"
             >
               {[thisYear - 2, thisYear - 1, thisYear, thisYear + 1].map((y) => (
                 <option key={y}>{y}</option>
@@ -258,11 +258,11 @@ export default function LeaveLedgerPage() {
                     {fmtDays(e.change)}
                   </Td>
                   <Td>{fmtDays(e.runningBalance)}</Td>
-                  <Td className="max-w-72 text-xs text-slate-500">
+                  <Td className="max-w-72 text-xs text-ink-500">
                     {e.reason}
                     {e.expiresOn && <span className="block">expires {fmtDate(e.expiresOn)}</span>}
                   </Td>
-                  <Td className="text-xs text-slate-500">{e.createdByName ?? 'System'}</Td>
+                  <Td className="text-xs text-ink-500">{e.createdByName ?? 'System'}</Td>
                 </tr>
               ))}
             </Table>

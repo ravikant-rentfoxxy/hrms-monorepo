@@ -97,10 +97,10 @@ function Row({ label, value, bold, negative, muted }: {
 }) {
   return (
     <div className="flex items-center justify-between py-1.5">
-      <span className={`text-sm ${bold ? 'font-semibold text-slate-900' : muted ? 'text-slate-400' : 'text-slate-600'}`}>
+      <span className={`text-sm ${bold ? 'font-semibold text-ink-900' : muted ? 'text-ink-400' : 'text-ink-600'}`}>
         {label}
       </span>
-      <span className={`text-sm tabular-nums ${bold ? 'font-semibold text-slate-900' : muted ? 'text-slate-400' : 'text-slate-700'}`}>
+      <span className={`text-sm tabular-nums ${bold ? 'font-semibold text-ink-900' : muted ? 'text-ink-400' : 'text-ink-700'}`}>
         {negative ? `-${fmtMoney(value)}` : fmtMoney(value)}
       </span>
     </div>
@@ -133,7 +133,7 @@ export function SalaryEditor({ form, onChange }: { form: SalaryForm; onChange: (
 
   return (
     <div>
-      <div className="mb-3 flex items-end gap-2 rounded-lg bg-indigo-50/60 p-2.5">
+      <div className="mb-3 flex items-end gap-2 rounded-lg bg-brand-50/60 p-2.5">
         <div className="flex-1">
           <Field label="Auto-fill from monthly CTC (optional)" hint="Basic 50% of CTC · HRA 40% of basic · PF 12% · gratuity 4.81%">
             <Input
@@ -166,7 +166,7 @@ export function SalaryEditor({ form, onChange }: { form: SalaryForm; onChange: (
           </Field>
         ))}
       </div>
-      <p className="mt-1.5 text-xs text-slate-400">
+      <p className="mt-1.5 text-xs text-ink-400">
         PF is 12% of basic (₹1,800 if restricted to the default ₹15,000 wage ceiling — set in Statutory settings). Gratuity (4.81% of basic) and, for
         gross up to ₹21,000, employer ESI (3.25%) are added to CTC automatically.
       </p>
@@ -175,7 +175,7 @@ export function SalaryEditor({ form, onChange }: { form: SalaryForm; onChange: (
           Labour Codes 2025: Basic should be at least 50% of CTC — currently {((basic / ctc) * 100).toFixed(0)}%.
         </p>
       )}
-      <div className="mt-3 grid grid-cols-2 gap-x-6 rounded-lg bg-slate-50 px-4 py-2 md:grid-cols-5">
+      <div className="mt-3 grid grid-cols-2 gap-x-6 rounded-lg bg-ink-50 px-4 py-2 md:grid-cols-5">
         {[
           { label: 'Gross Salary', value: gross },
           { label: 'Gratuity (CTC)', value: gratuity },
@@ -184,8 +184,8 @@ export function SalaryEditor({ form, onChange }: { form: SalaryForm; onChange: (
           { label: 'Net Pay', value: gross - deductions },
         ].map((t) => (
           <div key={t.label} className="py-1.5">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{t.label}</p>
-            <p className="text-sm font-semibold tabular-nums text-slate-800">{fmtMoney(t.value)}</p>
+            <p className="text-[11px] font-medium uppercase tracking-wide text-ink-400">{t.label}</p>
+            <p className="text-sm font-semibold tabular-nums text-ink-800">{fmtMoney(t.value)}</p>
           </div>
         ))}
       </div>
@@ -213,14 +213,14 @@ export function SalaryBreakup({
   return (
     <div>
       <div className="mb-4 flex justify-center">
-        <div className="inline-flex rounded-lg border border-slate-200 p-0.5">
+        <div className="inline-flex rounded-lg border border-ink-200 p-0.5">
           {(['Monthly', 'Annually'] as const).map((p) => (
             <button
               key={p}
               type="button"
               onClick={() => setPeriod(p)}
               className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
-                period === p ? 'border border-indigo-300 bg-indigo-50 text-indigo-700' : 'text-slate-500 hover:text-slate-700'
+                period === p ? 'border border-brand-300 bg-brand-50 text-brand-700' : 'text-ink-500 hover:text-ink-700'
               }`}
             >
               {p}
@@ -230,41 +230,41 @@ export function SalaryBreakup({
       </div>
 
       <div className="flex items-center justify-between pb-1">
-        <span className="text-sm font-bold text-slate-900">Earnings</span>
-        <span className="text-xs font-medium text-slate-400">Amount (INR)</span>
+        <span className="text-sm font-bold text-ink-900">Earnings</span>
+        <span className="text-xs font-medium text-ink-400">Amount (INR)</span>
       </div>
       <Row label="Basic" value={basic * x} />
       <Row label="HRA" value={hra * x} />
       {conveyance > 0 && <Row label="Conveyance" value={conveyance * x} />}
       {medical > 0 && <Row label="Medical Allowance" value={medical * x} />}
       <Row label="Special Allowance" value={allowance * x} />
-      <div className="border-t border-slate-100">
+      <div className="border-t border-ink-100">
         <Row label="Gross Salary" value={gross} bold />
       </div>
       <Row label="PF - Employer" value={pfEmployer * x} muted />
       {esiEmployer > 0 && <Row label="ESI - Employer" value={esiEmployer} muted />}
       <Row label="Gratuity (provision)" value={gratuity} muted />
-      <div className="border-t border-slate-100">
+      <div className="border-t border-ink-100">
         <Row label="Total (CTC)" value={gross + pfEmployer * x + esiEmployer + gratuity} bold />
       </div>
 
       <div className="mt-4 flex items-center justify-between pb-1">
-        <span className="text-sm font-bold text-slate-900">Deductions</span>
-        <span className="text-xs font-medium text-slate-400">Amount (INR)</span>
+        <span className="text-sm font-bold text-ink-900">Deductions</span>
+        <span className="text-xs font-medium text-ink-400">Amount (INR)</span>
       </div>
       <Row label="PF Employee" value={pfEmployee * x} negative />
       {esiEmployee > 0 && <Row label="ESI Employee" value={esiEmployee} negative />}
-      <div className="border-t border-slate-100">
+      <div className="border-t border-ink-100">
         <Row label="Total Deductions" value={totalDeductions} bold negative />
       </div>
 
       <div className="mt-3 rounded-lg bg-emerald-50 px-3">
         <div className="flex items-center justify-between py-2.5">
-          <span className="text-sm font-bold text-slate-900">Net Pay (take home)</span>
+          <span className="text-sm font-bold text-ink-900">Net Pay (take home)</span>
           <span className="text-base font-bold tabular-nums text-emerald-700">{fmtMoney(gross - totalDeductions)}</span>
         </div>
       </div>
-      <p className="mt-3 text-xs text-slate-400">
+      <p className="mt-3 text-xs text-ink-400">
         NOTE: Net Pay above does not include taxes or other deductions (if any) — TDS and professional tax are applied
         in the payroll run. Employer PF, employer ESI and gratuity are part of CTC, not of the employee&apos;s gross salary.
       </p>

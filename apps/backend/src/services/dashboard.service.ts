@@ -7,6 +7,7 @@
 import type { AttendanceStatus, Role } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { dateOnlyUTC } from '../utils/geo';
+import * as approvalService from './approval.service';
 import {
   activeAt, addDays, celebrations, deptName, isoDate, lastMonths, loadEmployees, monthEnd,
   monthStart, monthlyHeadcount, payrollTotalsByMonth, probationDueList,
@@ -23,7 +24,7 @@ export async function dashboard(companyId: string, viewer: DashboardViewer) {
   const { employeeId } = viewer;
   const today = dateOnlyUTC();
 
-  const [todayAttendance, pendingLeaves, upcomingHolidays, announcements, openTickets, pendingExpenses, tasksDue, approvalsToAct] =
+  const [todayAttendance, pendingLeaves, upcomingHolidays, announcements, openTickets, pendingExpenses, approvalsToAct] =
     await Promise.all([
       employeeId
         ? prisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId, date: today } } })
@@ -44,12 +45,11 @@ export async function dashboard(companyId: string, viewer: DashboardViewer) {
         ? prisma.ticket.count({ where: { companyId, employeeId, status: { in: ['OPEN', 'IN_PROGRESS'] } } })
         : 0,
       employeeId ? prisma.expenseClaim.count({ where: { companyId, employeeId, status: 'PENDING' } }) : 0,
-      employeeId ? prisma.task.count({ where: { companyId, employeeId, done: false } }) : 0,
       employeeId ? pendingApprovalsFor(companyId, employeeId) : 0,
     ]);
 
   const [company, team] = await Promise.all([
-    isCompanyAdmin(viewer.role) ? companyAnalytics(companyId) : null,
+    isCompanyAdmin(viewer.role) ? companyAnalytics(companyId, viewer) : null,
     viewer.role === 'MANAGER' && employeeId ? teamToday(companyId, employeeId) : null,
   ]);
 
@@ -61,13 +61,11 @@ export async function dashboard(companyId: string, viewer: DashboardViewer) {
     unreadAnnouncements: announcements.filter((a) => !(Array.isArray(a.reads) && a.reads.length > 0)).length,
     openTickets,
     pendingExpenses,
-    tasksDue,
     /** Everything waiting on the caller: own open requests + approvals they can act on. */
     myPending: {
       leaves: pendingLeaves,
       expenses: pendingExpenses,
       tickets: openTickets,
-      tasks: tasksDue,
       approvals: approvalsToAct,
     },
     company,
@@ -126,7 +124,7 @@ async function todayStatuses(companyId: string, employeeIds: string[]) {
   return { split, statusOf };
 }
 
-async function companyAnalytics(companyId: string) {
+async function companyAnalytics(companyId: string, viewer: DashboardViewer) {
   const today = dateOnlyUTC();
   const y = today.getUTCFullYear();
   const m = today.getUTCMonth() + 1;
@@ -197,6 +195,150 @@ async function companyAnalytics(companyId: string) {
       .map(([name, count]) => ({ name, count })),
     asOf: isoDate(today),
     monthEnd: isoDate(monthEnd(y, m)),
+    /** The admin home's headline widgets (same layout as the product preview on the website). */
+    overview: await overview(companyId, viewer, {
+      activeIds: active.map((e) => e.id),
+      trend: trend.map((r) => ({ month: r.month, headcount: r.headcount })),
+      celebrations: upcoming.map((c) => ({ type: c.type, date: isoDate(c.date) ?? '', years: c.years, ...person(c.employee) })),
+    }),
+  };
+}
+
+// ---- Admin home overview ----
+
+const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+const WORKED: AttendanceStatus[] = ['PRESENT', 'LATE', 'HALF_DAY'];
+
+/** Hiring funnel steps, in order; an application counts towards every step it reached. */
+const FUNNEL: { stage: string; stages: string[] }[] = [
+  { stage: 'Applied', stages: ['APPLIED'] },
+  { stage: 'Screening', stages: ['SHORTLISTED', 'ON_HOLD', 'HR_SCREENED'] },
+  { stage: 'Interview', stages: ['INTERVIEW_SCHEDULED', 'INTERVIEW_COMPLETED'] },
+  { stage: 'Offer', stages: ['SELECTED', 'OFFERED', 'OFFER_ACCEPTED', 'PRE_ONBOARDING', 'DOCUMENTS_VERIFIED', 'READY_TO_JOIN'] },
+  { stage: 'Joined', stages: ['JOINED'] },
+];
+const funnelStep = (stage: string) => FUNNEL.findIndex((f) => f.stages.includes(stage));
+
+/** Present share (office + remote) of the active headcount over the given days. */
+function attendanceRate(days: { worked: number }[], headcount: number) {
+  if (!days.length || !headcount) return null;
+  return Math.round((days.reduce((s, d) => s + d.worked, 0) / (days.length * headcount)) * 1000) / 10;
+}
+
+async function overview(
+  companyId: string,
+  viewer: DashboardViewer,
+  ctx: {
+    activeIds: string[];
+    trend: { month: string; headcount: number }[];
+    celebrations: { type: string; date: string; years: number | null; id: string; name: string; department: string }[];
+  }
+) {
+  const today = dateOnlyUTC();
+  // Working days up to today, newest first (weekends and company holidays skipped): 5 shown + 5 to compare.
+  const pastHolidays = new Set(
+    (await prisma.holiday.findMany({ where: { companyId, optional: false, date: { gte: addDays(today, -40), lte: today } }, select: { date: true } })).map((h) =>
+      isoDate(h.date)
+    )
+  );
+  const weekdays: Date[] = [];
+  for (let d = today; weekdays.length < 11 && d.getTime() > addDays(today, -40).getTime(); d = addDays(d, -1)) {
+    if (d.getUTCDay() !== 0 && d.getUTCDay() !== 6 && !pastHolidays.has(isoDate(d))) weekdays.push(d);
+  }
+  const from = weekdays[weekdays.length - 1] ?? today;
+  const quarterAgo = addDays(today, -90);
+
+  const [records, leaves, pendingLeaves, myLeaveSteps, run, apps, openJobs, holidays, office] = await Promise.all([
+    prisma.attendanceRecord.findMany({
+      where: { companyId, date: { gte: from, lte: today }, employeeId: { in: ctx.activeIds } },
+      select: { date: true, status: true, workMode: true, employeeId: true },
+    }),
+    prisma.leaveRequest.findMany({
+      where: { companyId, status: 'APPROVED', fromDate: { lte: today }, toDate: { gte: from }, employeeId: { in: ctx.activeIds } },
+      select: { employeeId: true, fromDate: true, toDate: true },
+    }),
+    prisma.leaveRequest.count({ where: { companyId, status: 'PENDING' } }),
+    approvalService.pendingFor(companyId, viewer, 'LEAVE'),
+    prisma.payrollRun.findFirst({ where: { companyId }, orderBy: { month: 'desc' }, select: { month: true, status: true, totals: true } }),
+    prisma.application.findMany({
+      where: { companyId, appliedOn: { gte: quarterAgo } },
+      select: { stage: true, stageHistory: { select: { toStage: true } } },
+    }),
+    prisma.jobOpening.findMany({ where: { companyId, status: 'OPEN' }, select: { openings: true } }),
+    prisma.holiday.findMany({
+      where: { companyId, date: { gte: today, lte: addDays(today, 30) } },
+      select: { id: true, name: true, date: true, optional: true },
+      orderBy: { date: 'asc' },
+    }),
+    viewer.employeeId
+      ? prisma.employee.findUnique({ where: { id: viewer.employeeId }, select: { officeId: true, location: true } })
+      : null,
+  ]);
+
+  const dayStats = (date: Date) => {
+    const iso = isoDate(date);
+    const dayRecords = records.filter((r) => isoDate(r.date) === iso);
+    const onLeave = new Set(dayRecords.filter((r) => r.status === 'LEAVE').map((r) => r.employeeId));
+    for (const l of leaves) if (l.fromDate.getTime() <= date.getTime() && l.toDate.getTime() >= date.getTime()) onLeave.add(l.employeeId);
+    const worked = dayRecords.filter((r) => WORKED.includes(r.status));
+    const remote = worked.filter((r) => r.workMode === 'REMOTE' || r.workMode === 'FIELD').length;
+    return { date: iso, label: WEEKDAY_SHORT[date.getUTCDay()]!, office: worked.length - remote, remote, leave: onLeave.size, worked: worked.length };
+  };
+  // Today joins the chart once the first check-in arrives; until then the window ends yesterday.
+  const started = records.some((r) => isoDate(r.date) === isoDate(today) && WORKED.includes(r.status));
+  const window = weekdays.slice(started ? 0 : 1, (started ? 0 : 1) + 10).map(dayStats);
+  const shown = window.slice(0, 5).reverse();
+  const before = window.slice(5, 10);
+
+  const reached = FUNNEL.map(() => 0);
+  for (const a of apps) {
+    const furthest = Math.max(funnelStep(a.stage), ...a.stageHistory.map((h) => funnelStep(h.toStage)), 0);
+    for (let k = 0; k <= furthest; k++) reached[k]! += 1;
+  }
+
+  const totals = (run?.totals ?? null) as { employees?: number; net?: number } | null;
+  const officeName = office?.officeId
+    ? (await prisma.office.findFirst({ where: { id: office.officeId, companyId }, select: { name: true } }))?.name
+    : null;
+
+  const growth = ctx.trend.slice(-12);
+  const first = growth[0]?.headcount ?? 0;
+  const last = growth[growth.length - 1]?.headcount ?? 0;
+
+  const upcoming = [
+    ...ctx.celebrations.map((c) => ({
+      date: c.date,
+      kind: c.type === 'Birthday' ? ('birthday' as const) : ('anniversary' as const),
+      title: c.type === 'Birthday' ? `${c.name} — birthday` : `${c.name} — work anniversary`,
+      meta: c.type === 'Birthday' ? c.department : `${c.years ?? ''} year${c.years === 1 ? '' : 's'}`,
+    })),
+    ...holidays.map((h) => ({ date: isoDate(h.date) ?? '', kind: 'holiday' as const, title: h.name, meta: h.optional ? 'Optional holiday' : 'Holiday' })),
+  ]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(0, 6);
+
+  return {
+    location: officeName || office?.location || null,
+    pendingLeave: { total: pendingLeaves, toApprove: myLeaveSteps.length },
+    payroll: run
+      ? { month: isoDate(run.month), status: run.status, net: totals?.net ?? 0, employees: totals?.employees ?? 0 }
+      : null,
+    /** Last 5 working days (oldest first), compared with the 5 before. */
+    attendanceWeek: {
+      days: shown.map(({ worked: _w, ...d }) => d),
+      rate: attendanceRate(shown, ctx.activeIds.length),
+      previousRate: attendanceRate(before, ctx.activeIds.length),
+    },
+    pipeline: {
+      stages: FUNNEL.map((f, i) => ({ stage: f.stage, count: reached[i]! })),
+      openRoles: openJobs.length,
+      openings: openJobs.reduce((s, j) => s + j.openings, 0),
+    },
+    growth: {
+      months: growth.map((g) => ({ month: g.month, headcount: g.headcount })),
+      changePct: first ? Math.round(((last - first) / first) * 1000) / 10 : null,
+    },
+    upcoming,
   };
 }
 

@@ -18,6 +18,12 @@ const schema = z.object({
   MINIO_ACCESS_KEY: z.string().min(1),
   MINIO_SECRET_KEY: z.string().min(1),
   MINIO_BUCKET: z.string().default('hrms-files'),
+  /**
+   * Address browsers and the mobile app use to open signed file links, e.g.
+   * http://192.168.1.20:9000 (phone on the same Wi-Fi) or https://files.example.com.
+   * Empty = the MINIO_ENDPOINT above (fine for a browser on this computer only).
+   */
+  MINIO_PUBLIC_URL: z.string().url().or(z.literal('')).default(''),
   SUPERADMIN_EMAIL: z.string().email().default('superadmin@hrms.local'),
   SUPERADMIN_PASSWORD: z.string().min(8).default('SuperAdmin@123'),
   CORS_ORIGINS: z.string().default('*'),
@@ -31,6 +37,17 @@ const schema = z.object({
     .string()
     .default('true')
     .transform((v) => v !== 'false'),
+  /** Outgoing email (payslips …) over SMTP. Leave SMTP_HOST empty to keep email off. */
+  SMTP_HOST: z.string().default(''),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_SECURE: z
+    .string()
+    .default('false')
+    .transform((v) => v === 'true'),
+  SMTP_USER: z.string().default(''),
+  SMTP_PASS: z.string().default(''),
+  /** Sender shown to employees, e.g. "Rentfoxxy HR <hr@rentfoxxy.com>"; defaults to SMTP_USER. */
+  MAIL_FROM: z.string().default(''),
 });
 
 const parsed = schema.safeParse(process.env);

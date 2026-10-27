@@ -110,12 +110,12 @@ export default function TransfersPage() {
         ) : (
           <Table headers={['Employee', 'Type', 'Change', 'Effective', 'Status', '']}>
             {data.map((t) => (
-              <tr key={t.id} className="hover:bg-slate-50">
+              <tr key={t.id} className="hover:bg-ink-50">
                 <Td>
-                  <Link href={`/employees/${t.employee.id}`} className="font-medium text-indigo-700 hover:underline">
+                  <Link href={`/employees/${t.employee.id}`} className="font-medium text-brand-700 hover:underline">
                     {t.employee.name}
                   </Link>
-                  <span className="block text-xs text-slate-400">
+                  <span className="block text-xs text-ink-400">
                     {t.employee.employeeCode}
                     {t.requestedByName ? ` · raised by ${t.requestedByName}` : ''}
                   </span>
@@ -124,7 +124,7 @@ export default function TransfersPage() {
                   {TRANSFER_TYPE_LABEL[t.type] ?? t.type}
                   {t.incrementPercent > 0 && <span className="block text-xs text-violet-600">+{t.incrementPercent}% increment</span>}
                 </Td>
-                <Td className="max-w-md text-xs text-slate-600">{changeSummary(t) || '—'}</Td>
+                <Td className="max-w-md text-xs text-ink-600">{changeSummary(t) || '—'}</Td>
                 <Td>{fmtDate(t.effectiveDate)}</Td>
                 <Td>
                   <Badge tone={t.status === 'APPLIED' ? 'green' : t.status === 'APPROVED' ? 'blue' : statusTone(t.status)}>{t.status}</Badge>
@@ -194,20 +194,20 @@ export default function TransfersPage() {
           <div className="space-y-4 text-sm">
             <div className="grid grid-cols-2 gap-3">
               <p>
-                <span className="block text-xs uppercase text-slate-400">Effective</span>
+                <span className="block text-xs uppercase text-ink-400">Effective</span>
                 {fmtDate(detail.effectiveDate)}
               </p>
               <p>
-                <span className="block text-xs uppercase text-slate-400">Status</span>
+                <span className="block text-xs uppercase text-ink-400">Status</span>
                 {detail.status}
                 {detail.appliedAt ? ` on ${fmtDate(detail.appliedAt)}` : ''}
               </p>
             </div>
-            <p className="text-slate-700">{changeSummary(detail)}</p>
-            <p className="rounded-lg bg-slate-50 px-3 py-2 text-slate-600">“{detail.reason}”</p>
+            <p className="text-ink-700">{changeSummary(detail)}</p>
+            <p className="rounded-lg bg-ink-50 px-3 py-2 text-ink-600">“{detail.reason}”</p>
             {detail.remarks && <p className="text-xs text-amber-700">{detail.remarks}</p>}
             <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Approval trail</p>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-500">Approval trail</p>
               <ApprovalTrail module="TRANSFER" requestId={detail.id} />
             </div>
           </div>

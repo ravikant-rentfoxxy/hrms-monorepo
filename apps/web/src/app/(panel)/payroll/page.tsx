@@ -11,6 +11,7 @@ import {
   MonthPicker,
 } from '@/components/ui';
 import { PayslipModal, RunBadge, TaxCard, days, monthName, type PayItem, type PayrollRun, type Payslip } from './payroll-common';
+import { openSecureFile } from '@/lib/secure-file';
 
 function GenerateModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
   const { data: directory } = useFetch<{ items: { id: string; name: string }[] }>('/employees?pageSize=100');
@@ -35,7 +36,7 @@ function GenerateModal({ onClose, onDone }: { onClose: () => void; onDone: () =>
             onChange={(e) => set(items.map((x, j) => (j === i ? { ...x, amount: Number(e.target.value) } : x)))}
             className="w-32"
           />
-          <button className="text-slate-400 hover:text-rose-600" onClick={() => set(items.filter((_, j) => j !== i))}>
+          <button className="text-ink-400 hover:text-rose-600" onClick={() => set(items.filter((_, j) => j !== i))}>
             ✕
           </button>
         </div>
@@ -75,7 +76,7 @@ function GenerateModal({ onClose, onDone }: { onClose: () => void; onDone: () =>
     <Modal title="Manual payslip" open onClose={onClose} wide>
       <div className="space-y-3">
         <ErrorNote error={error} />
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-ink-500">
           For a month without a payroll run only (e.g. historical payslips). It is published immediately and cannot be
           edited afterwards.
         </p>
@@ -148,8 +149,8 @@ function NewRunModal({ onClose }: { onClose: () => void }) {
     <Modal title="New payroll run" open onClose={onClose}>
       <div className="space-y-3">
         <ErrorNote error={error} />
-        <p className="text-sm text-slate-500">
-          Creates <span className="font-semibold text-slate-700">draft payslips</span> for every eligible employee:
+        <p className="text-sm text-ink-500">
+          Creates <span className="font-semibold text-ink-700">draft payslips</span> for every eligible employee:
           salary pro-rated by payable days (attendance + approved leave), the month&apos;s payroll inputs and loan EMIs,
           and PF, ESI, professional tax, LWF and TDS. Review, lock and publish it from the run page — employees only see
           payslips once the run is published. Re-running a draft month refreshes it.
@@ -189,15 +190,15 @@ function RunsTab() {
         <Table headers={['Month', 'Status', 'Employees', 'Gross', 'Deductions', 'Net pay', 'Employer cost', '']}>
           {runs.map((r) => (
             <tr key={r.id}>
-              <Td className="font-medium text-slate-900">{monthName(r.month)}</Td>
+              <Td className="font-medium text-ink-900">{monthName(r.month)}</Td>
               <Td><RunBadge status={r.status} paid={!!r.paidAt} /></Td>
               <Td>{r.totals?.employees ?? '—'}</Td>
               <Td>{r.totals ? fmtMoney(r.totals.gross) : '—'}</Td>
               <Td className="text-rose-600">{r.totals ? `−${fmtMoney(r.totals.deductions)}` : '—'}</Td>
-              <Td className="font-semibold text-indigo-700">{r.totals ? fmtMoney(r.totals.net) : '—'}</Td>
+              <Td className="font-semibold text-brand-700">{r.totals ? fmtMoney(r.totals.net) : '—'}</Td>
               <Td>{r.totals ? fmtMoney(r.totals.employerCost) : '—'}</Td>
               <Td>
-                <Link href={`/payroll/runs/${r.id}`} className="text-sm font-medium text-indigo-600 hover:underline">
+                <Link href={`/payroll/runs/${r.id}`} className="text-sm font-medium text-brand-600 hover:underline">
                   Open
                 </Link>
               </Td>
@@ -215,10 +216,11 @@ function PayslipsTab({ employeeId, admin }: { employeeId: string | null; admin: 
   const [selected, setSelected] = useState<string | null>(null);
   const [genOpen, setGenOpen] = useState(false);
 
-  const downloadPdf = async (id: string) => {
-    const { url } = await api<{ url: string }>(`/payroll/payslips/${id}/pdf`);
-    window.open(url, '_blank');
-  };
+  // Short-lived signed link (5 min) in a new tab; the shell shows the expiry notice.
+  const downloadPdf = (id: string) =>
+    openSecureFile(`/payroll/payslips/${id}/pdf?inline=true`).catch((err: unknown) =>
+      window.alert(err instanceof Error ? err.message : 'Could not open the payslip')
+    );
 
   return (
     <>
@@ -236,12 +238,12 @@ function PayslipsTab({ employeeId, admin }: { employeeId: string | null; admin: 
           <Table headers={['Month', 'Gross', 'Deductions', 'Net', 'Paid days', 'LOP', 'Paid on', '']}>
             {slips.map((slip) => (
               <tr key={slip.id}>
-                <Td className="font-medium text-slate-900">
+                <Td className="font-medium text-ink-900">
                   {monthName(slip.month)} {slip.status === 'DRAFT' && <Badge tone="amber">DRAFT</Badge>}
                 </Td>
                 <Td>{fmtMoney(slip.gross)}</Td>
                 <Td className="text-rose-600">−{fmtMoney(slip.totalDeductions)}</Td>
-                <Td className="font-semibold text-indigo-700">{fmtMoney(slip.net)}</Td>
+                <Td className="font-semibold text-brand-700">{fmtMoney(slip.net)}</Td>
                 <Td>{days(slip.paidDays)}/{slip.workingDays}</Td>
                 <Td>{days(slip.lopDays ?? Math.max(0, slip.workingDays - slip.paidDays))}</Td>
                 <Td>{fmtDate(slip.paidOn)}</Td>
@@ -268,16 +270,16 @@ function PayslipsTab({ employeeId, admin }: { employeeId: string | null; admin: 
 }
 
 export default function PayrollPage() {
-  const { session, isCompanyAdmin } = useAuth();
+  const { session, canManagePayroll } = useAuth();
   const [tab, setTab] = useState('Payroll runs');
   const [viewFor, setViewFor] = useState('');
   const [runOpen, setRunOpen] = useState(false);
   const { data: directory } = useFetch<{ items: { id: string; name: string }[] }>(
-    isCompanyAdmin && tab === 'Payslips' ? '/employees?pageSize=100' : null
+    canManagePayroll && tab === 'Payslips' ? '/employees?pageSize=100' : null
   );
   const ownId = session?.employee?.id ?? null;
 
-  if (!isCompanyAdmin) {
+  if (!canManagePayroll) {
     return (
       <div>
         <PageHeader title="Payroll" subtitle="Your payslips and income tax" />

@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { api, fmtDate, fmtMoney, fmtTime } from '@/lib/api';
 import { useFetch } from '@/lib/useFetch';
 import {
-  Badge, Button, Card, DatePicker, Empty, ErrorNote, Field, Icon, Input, Modal, PageHeader, Select, Spinner, Table, Tabs, Td,
+  Badge, Button, Card, DatePicker, Empty, ErrorNote, Field, Icon, Input, LongText, Modal, PageHeader, Select, Spinner, Table, Tabs, Td,
   Textarea, statusTone,
 } from '@/components/ui';
 
@@ -106,7 +106,7 @@ export default function OvertimePage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         {tabs.length > 1 ? <Tabs tabs={tabs} active={tab} onChange={setTab} /> : <div />}
         <div className="flex items-center gap-3">
-          <span className="text-sm text-slate-500">
+          <span className="text-sm text-ink-500">
             {pending} pending · {hm(totalApproved)} approved
           </span>
           <div className="w-40">
@@ -141,31 +141,33 @@ export default function OvertimePage() {
             {list.data.map((r) => (
               <tr key={r.id}>
                 {!mine && (
-                  <Td className="font-medium text-slate-900">
+                  <Td className="font-medium text-ink-900">
                     {r.employee.name}
-                    <p className="text-xs font-normal text-slate-400">{r.employee.department || r.employee.employeeCode}</p>
+                    <p className="text-xs font-normal text-ink-400">{r.employee.department || r.employee.employeeCode}</p>
                   </Td>
                 )}
                 <Td>{fmtDate(r.date)}</Td>
-                <Td className="font-medium text-slate-900">{hm(r.minutes)}</Td>
+                <Td className="font-medium text-ink-900">{hm(r.minutes)}</Td>
                 <Td>
                   {r.attendance?.checkIn ? (
                     <span className="text-xs">
                       {fmtTime(r.attendance.checkIn)} → {fmtTime(r.attendance.checkOut)}
                       <br />
-                      <span className="text-slate-400">
+                      <span className="text-ink-400">
                         worked {hm(r.attendance.workedMinutes)} · OT {hm(r.attendance.overtimeMinutes)}
                       </span>
                     </span>
                   ) : (
-                    <span className="text-xs text-slate-400">no punch</span>
+                    <span className="text-xs text-ink-400">no punch</span>
                   )}
                 </Td>
-                <Td className="max-w-60 truncate">{r.reason || '—'}</Td>
+                <Td>
+                  <LongText text={r.reason} />
+                </Td>
                 <Td>
                   <Badge tone={statusTone(r.status)}>{r.status}</Badge>
                   {r.status === 'PENDING' && r.currentLevel && r.currentLevel > 1 && (
-                    <span className="ml-1 text-xs text-slate-400">level {r.currentLevel}</span>
+                    <span className="ml-1 text-xs text-ink-400">level {r.currentLevel}</span>
                   )}
                 </Td>
                 <Td>
@@ -208,14 +210,14 @@ export default function OvertimePage() {
           <div className="space-y-4">
             <div className="flex items-start justify-between">
               <div>
-                <p className="font-semibold text-slate-900">{detail.employee.name}</p>
-                <p className="text-sm text-slate-500">
+                <p className="font-semibold text-ink-900">{detail.employee.name}</p>
+                <p className="text-sm text-ink-500">
                   {fmtDate(detail.date)} · {hm(detail.minutes)}
                 </p>
               </div>
               <Badge tone={statusTone(detail.status)}>{detail.status}</Badge>
             </div>
-            {detail.reason && <p className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-600">{detail.reason}</p>}
+            {detail.reason && <p className="rounded-xl bg-ink-50 px-3 py-2 text-sm text-ink-600">{detail.reason}</p>}
             {detail.payrollInput && (
               <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
                 {detail.payrollInput.label}: <b>{fmtMoney(detail.payrollInput.amount)}</b> in{' '}
@@ -223,27 +225,27 @@ export default function OvertimePage() {
               </p>
             )}
             <div>
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Approval trail</p>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-500">Approval trail</p>
               {detail.trail.length === 0 ? (
-                <p className="text-sm text-slate-400">No approval steps</p>
+                <p className="text-sm text-ink-400">No approval steps</p>
               ) : (
                 <ol className="space-y-2">
                   {detail.trail.map((s) => (
-                    <li key={s.id} className="flex items-start gap-3 rounded-xl border border-slate-100 px-3 py-2">
-                      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
+                    <li key={s.id} className="flex items-start gap-3 rounded-xl border border-ink-100 px-3 py-2">
+                      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink-100 text-xs font-semibold text-ink-600">
                         {s.level}
                       </span>
                       <div className="flex-1 text-sm">
-                        <p className="text-slate-800">
+                        <p className="text-ink-800">
                           {s.approverName ?? 'Approver'} <Badge tone={statusTone(s.status)}>{s.status}</Badge>
                         </p>
                         {s.actedAt && (
-                          <p className="text-xs text-slate-400">
+                          <p className="text-xs text-ink-400">
                             {s.actedByName ? `${s.actedByName} · ` : ''}
                             {fmtDate(s.actedAt)} {fmtTime(s.actedAt)}
                           </p>
                         )}
-                        {s.remarks && <p className="text-xs text-slate-500">“{s.remarks}”</p>}
+                        {s.remarks && <p className="text-xs text-ink-500">“{s.remarks}”</p>}
                       </div>
                     </li>
                   ))}

@@ -6,7 +6,7 @@
  *                 per stage. ADMIN/HR.
  *   timeline()  — one employee's chronological story: requisition → posting →
  *                 application stages → interviews → offer → pre-onboarding →
- *                 joined + career history → transfers → reviews → salary →
+ *                 joined + career history → transfers → salary →
  *                 resignation → handover → clearances → F&F → letters → archive.
  *                 Self, reporting manager or ADMIN/HR.
  *
@@ -55,7 +55,6 @@ const APPLICATION_GROUPS: Partial<Record<LifecycleStage, string[]>> = {
 
 const monthStartUTC = (d = new Date()) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
 const formerWhere: Prisma.EmployeeWhereInput = { OR: [{ employmentStatus: 'SEPARATED' }, { isActive: false }] };
-const OPEN_REVIEW_CYCLES = ['SELF_REVIEW', 'MANAGER_REVIEW', 'CALIBRATION'];
 
 // ---- Pipeline ----
 
@@ -69,7 +68,7 @@ export interface StageSummary {
 export async function pipeline(companyId: string): Promise<{ stages: StageSummary[] }> {
   const [
     reqPending, reqApprovedOpen, postingsByPlatform, appStages, joinedThisMonth, byStatus, confirmations, transfers,
-    revisions, reviews, resignationsPending, handoverOpen, clearancePending, settlements, former, archived,
+    revisions, resignationsPending, handoverOpen, clearancePending, settlements, former, archived,
   ] = await Promise.all([
     prisma.jobRequisition.count({ where: { companyId, status: 'PENDING_APPROVAL' } }),
     prisma.jobRequisition.count({ where: { companyId, status: 'APPROVED', job: { is: null } } }),
@@ -80,7 +79,6 @@ export async function pipeline(companyId: string): Promise<{ stages: StageSummar
     prisma.confirmationRequest.count({ where: { companyId, status: 'PENDING' } }),
     prisma.transferRequest.count({ where: { companyId, status: { in: ['PENDING', 'APPROVED'] } } }),
     prisma.salaryRevision.count({ where: { companyId, status: { in: ['PENDING', 'APPROVED'] } } }),
-    prisma.review.count({ where: { companyId, status: 'PENDING', cycle: { status: { in: OPEN_REVIEW_CYCLES } } } }),
     prisma.resignation.count({ where: { companyId, status: 'PENDING' } }),
     prisma.handoverTask.count({ where: { companyId, status: { not: 'VERIFIED' }, resignation: { status: 'APPROVED' } } }),
     prisma.resignation.count({ where: { companyId, status: 'APPROVED', clearances: { some: { status: { not: 'CLEARED' } } } } }),
@@ -104,7 +102,7 @@ export async function pipeline(companyId: string): Promise<{ stages: StageSummar
     PRE_ONBOARDING: stageCount(APPLICATION_GROUPS.PRE_ONBOARDING ?? []),
     JOINED: { THIS_MONTH: joinedThisMonth },
     ACTIVE: { PROBATION: statusCount('PROBATION'), ACTIVE: statusCount('ACTIVE') },
-    PERFORMANCE_PAYROLL: { CONFIRMATIONS: confirmations, TRANSFERS: transfers, SALARY_REVISIONS: revisions, REVIEWS: reviews },
+    PERFORMANCE_PAYROLL: { CONFIRMATIONS: confirmations, TRANSFERS: transfers, SALARY_REVISIONS: revisions },
     RESIGNATION: { PENDING: resignationsPending },
     NOTICE: { SERVING_NOTICE: statusCount('NOTICE_PERIOD'), HANDOVER_OPEN: handoverOpen },
     CLEARANCE: { PENDING: clearancePending },
@@ -308,15 +306,10 @@ function employeeItem(
 
 async function performanceItems(companyId: string): Promise<StageItem[]> {
   const emp = { select: { id: true, name: true, employeeCode: true } } as const;
-  const [confirmations, transfers, revisions, reviews] = await Promise.all([
+  const [confirmations, transfers, revisions] = await Promise.all([
     prisma.confirmationRequest.findMany({ where: { companyId, status: 'PENDING' }, include: { employee: emp }, take: LIST_LIMIT }),
     prisma.transferRequest.findMany({ where: { companyId, status: { in: ['PENDING', 'APPROVED'] } }, include: { employee: emp }, take: LIST_LIMIT }),
     prisma.salaryRevision.findMany({ where: { companyId, status: { in: ['PENDING', 'APPROVED'] } }, include: { employee: emp }, take: LIST_LIMIT }),
-    prisma.review.findMany({
-      where: { companyId, status: 'PENDING', cycle: { status: { in: OPEN_REVIEW_CYCLES } } },
-      include: { employee: emp, cycle: { select: { name: true, managerReviewDue: true, selfReviewDue: true } } },
-      take: LIST_LIMIT,
-    }),
   ]);
   const who = (e: { name: string; employeeCode: string }) => `${e.name} (${e.employeeCode})`;
   const items: StageItem[] = [
@@ -332,11 +325,6 @@ async function performanceItems(companyId: string): Promise<StageItem[]> {
     ...revisions.map((r) => ({
       id: r.id, title: who(r.employee), subtitle: `Salary revision effective ${longDate(r.effectiveFrom)}`,
       status: r.status, date: r.effectiveFrom, refType: 'SalaryRevision', refId: r.id, employeeId: r.employeeId, link: '/salary',
-    })),
-    ...reviews.map((r) => ({
-      id: r.id, title: who(r.employee), subtitle: `${r.cycle.name} — ${r.type.toLowerCase()} review pending`,
-      status: 'REVIEW_PENDING', date: (r.type === 'SELF' ? r.cycle.selfReviewDue : r.cycle.managerReviewDue) ?? null,
-      refType: 'Review', refId: r.id, employeeId: r.employeeId, link: '/reviews',
     })),
   ];
   return items.sort((a, b) => (a.date?.getTime() ?? Infinity) - (b.date?.getTime() ?? Infinity));
@@ -474,11 +462,10 @@ export async function timeline(companyId: string, viewer: Actor, employeeId: str
     push(employee.joiningDate, 'JOINED', `Joined${employee.designation ? ` as ${employee.designation}` : ''}`, employee.department, 'Employee', employee.id);
   }
 
-  const [onboarding, confirmations, transfers, outcomes, revisions, resignations, letters] = await Promise.all([
+  const [onboarding, confirmations, transfers, revisions, resignations, letters] = await Promise.all([
     prisma.onboardingCase.findMany({ where: { companyId, employeeId }, select: { id: true, status: true, startedOn: true, completedOn: true } }),
     prisma.confirmationRequest.findMany({ where: { companyId, employeeId } }),
     prisma.transferRequest.findMany({ where: { companyId, employeeId } }),
-    prisma.reviewOutcome.findMany({ where: { companyId, employeeId }, include: { cycle: { select: { name: true, periodEnd: true } } } }),
     prisma.salaryRevision.findMany({ where: { companyId, employeeId, status: 'APPLIED' } }),
     prisma.resignation.findMany({
       where: { companyId, employeeId },
@@ -502,14 +489,6 @@ export async function timeline(companyId: string, viewer: Actor, employeeId: str
     if (['REJECTED', 'CANCELLED'].includes(t.status)) {
       push(t.createdAt, 'PERFORMANCE_PAYROLL', `${titleCase(t.type)} ${t.status.toLowerCase()}`, t.remarks ?? '', 'TransferRequest', t.id);
     }
-  }
-  for (const o of outcomes) {
-    const bits = [
-      o.finalRating !== null ? `rating ${o.normalizedRating ?? o.finalRating}` : '',
-      seesPay && o.incrementPercent ? `${o.incrementPercent}% increment` : '',
-      o.promotion ? `promotion${o.newDesignation ? ` to ${o.newDesignation}` : ''}` : '',
-    ].filter(Boolean);
-    push(o.cycle.periodEnd, 'PERFORMANCE_PAYROLL', `Performance review: ${o.cycle.name}`, `${titleCase(o.status)}${bits.length ? ` — ${bits.join(', ')}` : ''}`, 'ReviewOutcome', o.id);
   }
   for (const r of revisions) {
     if (historyRefs.has(r.id)) continue; // already in the career history

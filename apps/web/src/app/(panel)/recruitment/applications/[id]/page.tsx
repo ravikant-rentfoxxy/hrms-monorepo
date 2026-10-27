@@ -125,7 +125,7 @@ function Section({ title, actions, children }: { title: string; actions?: ReactN
   return (
     <Card className="p-5">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
+        <h2 className="text-sm font-semibold text-ink-900">{title}</h2>
         <div className="flex flex-wrap gap-1">{actions}</div>
       </div>
       {children}
@@ -136,8 +136,8 @@ function Section({ title, actions, children }: { title: string; actions?: ReactN
 function Row({ k, v }: { k: string; v: ReactNode }) {
   return (
     <div>
-      <dt className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{k}</dt>
-      <dd className="text-sm text-slate-700">{v}</dd>
+      <dt className="text-[11px] font-semibold uppercase tracking-wider text-ink-400">{k}</dt>
+      <dd className="text-sm text-ink-700">{v}</dd>
     </div>
   );
 }
@@ -324,7 +324,7 @@ export default function ApplicationPage() {
 
   return (
     <div>
-      <Link href={`/recruitment/jobs/${a.job.id}`} className="mb-3 inline-block text-sm text-slate-500 hover:text-indigo-600">
+      <Link href={`/recruitment/jobs/${a.job.id}`} className="mb-3 inline-block text-sm text-ink-500 hover:text-brand-600">
         ← {a.job.code} {a.job.title}
       </Link>
       <PageHeader
@@ -353,7 +353,7 @@ export default function ApplicationPage() {
           </>
         }
       />
-      <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-slate-500">
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-ink-500">
         <StatusBadge status={a.stage} />
         {a.rejectionReason && <span className="text-rose-600">{a.rejectionReason}</span>}
         <span>· Applied {fmtDate(a.appliedOn)} via {a.posting?.label ?? stageLabel(a.source || a.candidate.source)}</span>
@@ -383,7 +383,7 @@ export default function ApplicationPage() {
           <Section title="Candidate vs job requirements" actions={<MatchBar score={a.match.score} />}>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Candidate</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">Candidate</p>
                 <Row k="Experience" v={`${a.candidate.experienceYears} yrs`} />
                 <Row k="Current" v={[a.candidate.currentDesignation, a.candidate.currentCompany].filter(Boolean).join(' at ') || '—'} />
                 <Row k="Location" v={a.candidate.currentLocation || '—'} />
@@ -393,7 +393,7 @@ export default function ApplicationPage() {
                 {hr && <Row k="Current / expected CTC" v={`${money(a.candidate.currentCtc)} / ${money(a.candidate.expectedCtc)}`} />}
               </div>
               <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Job</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">Job</p>
                 <Row k="Experience" v={<>{yrs(a.job.minExperience, a.job.maxExperience)} <Badge tone={a.match.experience.fit === 'IN_RANGE' || a.match.experience.fit === 'ANY' ? 'green' : 'amber'}>{label(a.match.experience.fit)}</Badge></>} />
                 <Row k="Role" v={a.job.designation || a.job.title} />
                 <Row k="Location" v={<>{a.job.location || '—'} {a.match.location.match !== null && <Badge tone={a.match.location.match ? 'green' : 'amber'}>{a.match.location.match ? 'Match' : 'Different'}</Badge>}</>} />
@@ -443,12 +443,12 @@ export default function ApplicationPage() {
           >
             <div className="space-y-2 text-sm">
               <p>
-                <span className="text-slate-400">Rating:</span> {a.rating ? `${a.rating}/5` : '—'}
+                <span className="text-ink-400">Rating:</span> {a.rating ? `${a.rating}/5` : '—'}
               </p>
-              {a.screeningNotes && <p className="whitespace-pre-line text-slate-600">{a.screeningNotes}</p>}
+              {a.screeningNotes && <p className="whitespace-pre-line text-ink-600">{a.screeningNotes}</p>}
               {a.hrScreening ? (
-                <div className="rounded-xl bg-slate-50 p-3 text-slate-600">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">HR call · {fmtDate(a.hrScreening.screenedAt)}</p>
+                <div className="rounded-xl bg-ink-50 p-3 text-ink-600">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">HR call · {fmtDate(a.hrScreening.screenedAt)}</p>
                   <p>
                     Experience {a.hrScreening.experienceYears} yrs ({a.hrScreening.experienceVerified ? 'verified' : 'not verified'}) · notice{' '}
                     {a.hrScreening.noticePeriodDays} days · available {a.hrScreening.availableFrom ? fmtDate(a.hrScreening.availableFrom) : '—'} ·{' '}
@@ -458,7 +458,7 @@ export default function ApplicationPage() {
                   {a.hrScreening.notes && <p className="mt-1 whitespace-pre-line">{a.hrScreening.notes}</p>}
                 </div>
               ) : (
-                <p className="text-xs text-slate-400">No HR screening call recorded yet.</p>
+                <p className="text-xs text-ink-400">No HR screening call recorded yet.</p>
               )}
             </div>
           </Section>
@@ -475,19 +475,19 @@ export default function ApplicationPage() {
             }
           >
             {!a.interviews.length ? (
-              <p className="text-sm text-slate-400">No interviews yet.</p>
+              <p className="text-sm text-ink-400">No interviews yet.</p>
             ) : (
               <div className="space-y-3">
                 {a.interviews.map((iv) => {
                   const started = hasStarted(iv.scheduledAt);
                   return (
-                    <div key={iv.id} className="rounded-xl border border-slate-100 p-3">
+                    <div key={iv.id} className="rounded-xl border border-ink-100 p-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div>
-                          <p className="text-sm font-medium text-slate-900">
-                            {iv.round} <span className="text-xs text-slate-400">· {label(iv.interviewType)}</span>
+                          <p className="text-sm font-medium text-ink-900">
+                            {iv.round} <span className="text-xs text-ink-400">· {label(iv.interviewType)}</span>
                           </p>
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-ink-500">
                             {fmtDate(iv.scheduledAt)} {fmtTime(iv.scheduledAt)} · {iv.durationMinutes} min · {label(iv.mode)}
                             {iv.location && ` · ${iv.location}`}
                           </p>
@@ -513,20 +513,20 @@ export default function ApplicationPage() {
                           )}
                         </div>
                       </div>
-                      <div className="mt-2 divide-y divide-slate-50">
+                      <div className="mt-2 divide-y divide-ink-50">
                         {iv.panel.map((p) => (
                           <div key={p.interviewerId} className="flex items-start justify-between gap-2 py-1.5 text-sm">
                             <div>
-                              <span className="font-medium text-slate-700">{p.interviewer?.name ?? '—'}</span>
+                              <span className="font-medium text-ink-700">{p.interviewer?.name ?? '—'}</span>
                               {p.submittedAt ? (
                                 <>
-                                  <span className="ml-2 text-xs text-slate-500">
+                                  <span className="ml-2 text-xs text-ink-500">
                                     {p.rating}/5 · {label(p.recommendation)}
                                   </span>
-                                  {p.feedback && <p className="whitespace-pre-line text-xs text-slate-500">{p.feedback}</p>}
+                                  {p.feedback && <p className="whitespace-pre-line text-xs text-ink-500">{p.feedback}</p>}
                                 </>
                               ) : (
-                                <span className="ml-2 text-xs text-slate-400">feedback pending</span>
+                                <span className="ml-2 text-xs text-ink-400">feedback pending</span>
                               )}
                             </div>
                             {fbCanEdit(p) && started && ['SCHEDULED', 'COMPLETED'].includes(iv.status) && (
@@ -556,18 +556,18 @@ export default function ApplicationPage() {
               <ol className="space-y-1.5 text-sm">
                 {a.history.map((h) => (
                   <li key={h.id} className="flex flex-wrap items-center gap-2">
-                    <span className="w-28 text-xs text-slate-400">
+                    <span className="w-28 text-xs text-ink-400">
                       {fmtDate(h.createdAt)} {fmtTime(h.createdAt)}
                     </span>
                     {h.fromStage && h.fromStage !== h.toStage && (
                       <>
-                        <span className="text-xs text-slate-500">{stageLabel(h.fromStage)}</span>
-                        <span className="text-xs text-slate-300">→</span>
+                        <span className="text-xs text-ink-500">{stageLabel(h.fromStage)}</span>
+                        <span className="text-xs text-ink-300">→</span>
                       </>
                     )}
                     <StatusBadge status={h.toStage} />
-                    {h.note && <span className="text-xs text-slate-500">{h.note}</span>}
-                    {h.actor && <span className="text-xs text-slate-400">· {h.actor.name}</span>}
+                    {h.note && <span className="text-xs text-ink-500">{h.note}</span>}
+                    {h.actor && <span className="text-xs text-ink-400">· {h.actor.name}</span>}
                   </li>
                 ))}
               </ol>
@@ -579,19 +579,19 @@ export default function ApplicationPage() {
           {a.feedbackSummary && a.feedbackSummary.rounds > 0 && (
             <Section title="Feedback summary">
               <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-xl bg-slate-50 p-2">
+                <div className="rounded-xl bg-ink-50 p-2">
                   <p className="text-lg font-semibold">{a.feedbackSummary.averageRating ?? '—'}</p>
-                  <p className="text-xs text-slate-400">Avg rating</p>
+                  <p className="text-xs text-ink-400">Avg rating</p>
                 </div>
-                <div className="rounded-xl bg-slate-50 p-2">
+                <div className="rounded-xl bg-ink-50 p-2">
                   <p className="text-lg font-semibold">
                     {a.feedbackSummary.completedRounds}/{a.feedbackSummary.rounds}
                   </p>
-                  <p className="text-xs text-slate-400">Rounds done</p>
+                  <p className="text-xs text-ink-400">Rounds done</p>
                 </div>
-                <div className="rounded-xl bg-slate-50 p-2">
+                <div className="rounded-xl bg-ink-50 p-2">
                   <p className="text-lg font-semibold">{a.feedbackSummary.feedbackPending}</p>
-                  <p className="text-xs text-slate-400">Pending</p>
+                  <p className="text-xs text-ink-400">Pending</p>
                 </div>
               </div>
               <div className="mt-3 flex flex-wrap gap-1">
@@ -605,7 +605,7 @@ export default function ApplicationPage() {
                 {a.feedbackSummary.perRound.map((r) => (
                   <li key={r.id} className="flex justify-between">
                     <span>{r.round}</span>
-                    <span className="text-slate-500">{r.averageRating ?? '—'}/5</span>
+                    <span className="text-ink-500">{r.averageRating ?? '—'}/5</span>
                   </li>
                 ))}
               </ul>
@@ -619,7 +619,7 @@ export default function ApplicationPage() {
                   <span className="font-semibold">Recommended by {a.recommendedBy?.name ?? '—'}:</span> {a.recommendationNote}
                 </p>
               ) : (
-                <p className="text-xs text-slate-400">The hiring manager ({a.hiringManager?.name ?? '—'}) has not recommended yet.</p>
+                <p className="text-xs text-ink-400">The hiring manager ({a.hiringManager?.name ?? '—'}) has not recommended yet.</p>
               )}
               {(a.proposedJoiningDate || a.proposedCtc) && (
                 <p>
@@ -655,7 +655,7 @@ export default function ApplicationPage() {
                 a.stage === 'SELECTED' ? (
                   <Button onClick={openOffer}>Create offer</Button>
                 ) : (
-                  <p className="text-xs text-slate-400">Select the candidate first (proposed CTC and joining date).</p>
+                  <p className="text-xs text-ink-400">Select the candidate first (proposed CTC and joining date).</p>
                 )
               ) : (
                 <div className="space-y-3 text-sm">
@@ -675,7 +675,7 @@ export default function ApplicationPage() {
                   {offer.declineReason && <p className="text-rose-600">Declined: {offer.declineReason}</p>}
                   {offer.acceptedVia && <p className="text-emerald-700">Accepted via {label(offer.acceptedVia)} on {fmtDate(offer.respondedAt)}</p>}
                   {offer.trail && offer.trail.length > 0 && (
-                    <ol className="space-y-1 text-xs text-slate-500">
+                    <ol className="space-y-1 text-xs text-ink-500">
                       {offer.trail.map((s) => (
                         <li key={s.id}>
                           Level {s.level}: {label(s.status)} {s.actedByName ? `by ${s.actedByName}` : `(${label(s.approverName ?? '')})`}
@@ -685,7 +685,7 @@ export default function ApplicationPage() {
                     </ol>
                   )}
                   {!!offer.revisions?.length && (
-                    <details className="text-xs text-slate-500">
+                    <details className="text-xs text-ink-500">
                       <summary className="cursor-pointer">Earlier versions ({offer.revisions.length})</summary>
                       <ul className="mt-1 space-y-1">
                         {offer.revisions.map((r, i) => (
@@ -710,7 +710,7 @@ export default function ApplicationPage() {
                       </>
                     )}
                     {offer.status === 'PENDING_APPROVAL' && !offer.canDecide && (
-                      <p className="text-sm text-slate-500">
+                      <p className="text-sm text-ink-500">
                         Waiting for {offer.pendingWith === 'ADMIN' ? 'management (Admin)' : offer.pendingWith === 'HR' ? 'HR' : 'the approver'} to
                         approve — they&apos;ll find it under Approvals. You can&apos;t approve an offer you submitted.
                       </p>
@@ -737,7 +737,7 @@ export default function ApplicationPage() {
                       </>
                     )}
                     {['SENT', 'NEGOTIATING', 'ACCEPTED'].includes(offer.status) && !offer.employeeId && (
-                      <label className="inline-flex cursor-pointer items-center rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                      <label className="inline-flex cursor-pointer items-center rounded-xl border border-ink-200 px-3 py-2 text-sm text-ink-700 hover:bg-ink-50">
                         Upload signed copy
                         <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic" className="hidden" onChange={(e) => void uploadSigned(e.target.files?.[0])} />
                       </label>
@@ -759,7 +759,7 @@ export default function ApplicationPage() {
 
           {hr && (
             <Section title="Candidate portal">
-              <p className="mb-2 text-sm text-slate-500">
+              <p className="mb-2 text-sm text-ink-500">
                 {a.portal?.active ? `Link active until ${fmtDate(a.portal.expiresAt)}.` : 'No active link.'} The candidate uses it to answer the offer and upload
                 documents — no login needed.
               </p>
@@ -777,7 +777,7 @@ export default function ApplicationPage() {
               {a.preOnboarding ? (
                 <Link href={`/recruitment/pre-onboarding/${a.preOnboarding.id}`} className="flex items-center justify-between text-sm">
                   <StatusBadge status={a.preOnboarding.status} />
-                  <span className="font-medium text-indigo-600">Open checklist →</span>
+                  <span className="font-medium text-brand-600">Open checklist →</span>
                 </Link>
               ) : (
                 <Button onClick={() => void run(() => api(`/recruitment/applications/${a.id}/pre-onboarding`, { method: 'POST' }))}>Start pre-joining</Button>
@@ -927,7 +927,7 @@ export default function ApplicationPage() {
                 <button
                   key={pid}
                   onClick={() => setIvForm({ ...ivForm, panelIds: ivForm.panelIds.filter((x) => x !== pid) })}
-                  className="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700"
+                  className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700"
                 >
                   {people.find((p) => p.id === pid)?.name ?? 'Interviewer'} ×
                 </button>
@@ -944,7 +944,7 @@ export default function ApplicationPage() {
               ))}
             </Select>
           </Field>
-          <p className="text-xs text-slate-400">The panel and the candidate are notified, with a reminder the day before.</p>
+          <p className="text-xs text-ink-400">The panel and the candidate are notified, with a reminder the day before.</p>
           {ivMissing.length > 0 && <p className="text-xs text-amber-600">Still needed: {ivMissing.join(', ')}</p>}
           <Button onClick={() => void saveInterview()} disabled={ivMissing.length > 0} className="w-full">
             {ivEdit ? 'Save' : 'Schedule'}
@@ -955,7 +955,7 @@ export default function ApplicationPage() {
       <Modal title="Interview feedback" open={modal === 'feedback'} onClose={() => setModal(null)}>
         <div className="space-y-3">
           <ErrorNote error={error} />
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-ink-500">
             {fbFor?.iv.round}
             {fbFor && fbFor.interviewerId !== me && ` · on behalf of ${fbFor.iv.panel.find((p) => p.interviewerId === fbFor.interviewerId)?.interviewer?.name ?? ''}`}
           </p>
@@ -1010,7 +1010,7 @@ export default function ApplicationPage() {
       <Modal title="Select candidate" open={modal === 'select'} onClose={() => setModal(null)}>
         <div className="space-y-3">
           <ErrorNote error={error} />
-          {a.job.maxCtc !== undefined && <p className="text-sm text-slate-500">Budget: {money(a.job.minCtc)} – {money(a.job.maxCtc)} · expects {money(a.candidate.expectedCtc)}</p>}
+          {a.job.maxCtc !== undefined && <p className="text-sm text-ink-500">Budget: {money(a.job.minCtc)} – {money(a.job.maxCtc)} · expects {money(a.candidate.expectedCtc)}</p>}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Proposed CTC (₹/yr)">
               <Input type="number" value={selForm.proposedCtc} onChange={(e) => setSelForm({ ...selForm, proposedCtc: e.target.value })} />
@@ -1101,7 +1101,7 @@ export default function ApplicationPage() {
               <Input value={text} onChange={(e) => setText(e.target.value)} />
             </Field>
           )}
-          <p className="text-xs text-slate-400">Every offer needs approval before it is sent. A revised offer with a higher CTC is approved again.</p>
+          <p className="text-xs text-ink-400">Every offer needs approval before it is sent. A revised offer with a higher CTC is approved again.</p>
           <Button
             className="w-full"
             disabled={!offerForm.designation || !Number(offerForm.ctcAnnual) || !offerForm.joiningDate || (modal === 'offer-revise' && text.trim().length < 3)}
@@ -1190,7 +1190,7 @@ export default function ApplicationPage() {
           <Field label="Reason">
             <Textarea value={stageForm.reason} onChange={(e) => setStageForm({ ...stageForm, reason: e.target.value })} />
           </Field>
-          <p className="text-xs text-slate-400">Scheduled interviews are cancelled and any open offer / pre-joining is withdrawn.</p>
+          <p className="text-xs text-ink-400">Scheduled interviews are cancelled and any open offer / pre-joining is withdrawn.</p>
           <Button
             variant="danger"
             className="w-full"
@@ -1205,7 +1205,7 @@ export default function ApplicationPage() {
       <Modal title="Candidate portal link" open={modal === 'portal'} onClose={() => setModal(null)}>
         <div className="space-y-3">
           <ErrorNote error={error} />
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-ink-500">
             Share this link with {a.candidate.name} (email / WhatsApp). It is shown only once — creating a new link disables the old one.
           </p>
           {portalUrl && (

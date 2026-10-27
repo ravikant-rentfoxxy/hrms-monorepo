@@ -13,6 +13,24 @@ export const minio = new Client({
 
 export const BUCKET = env.MINIO_BUCKET;
 
+/**
+ * Signs links for the address users actually reach (MINIO_PUBLIC_URL). The
+ * host is part of the signature, so it can't be swapped on the client. Signing
+ * is offline; the fixed region skips MinIO's region lookup request.
+ */
+const signer = (() => {
+  const pub = env.MINIO_PUBLIC_URL ? new URL(env.MINIO_PUBLIC_URL) : null;
+  const useSSL = pub ? pub.protocol === 'https:' : env.MINIO_USE_SSL;
+  return new Client({
+    endPoint: pub?.hostname ?? env.MINIO_ENDPOINT,
+    port: pub ? (pub.port ? Number(pub.port) : useSSL ? 443 : 80) : env.MINIO_PORT,
+    useSSL,
+    accessKey: env.MINIO_ACCESS_KEY,
+    secretKey: env.MINIO_SECRET_KEY,
+    region: 'us-east-1',
+  });
+})();
+
 /** Create the bucket on boot if it does not exist yet. */
 export async function ensureBucket(): Promise<void> {
   const exists = await minio.bucketExists(BUCKET);
@@ -32,7 +50,14 @@ export async function putObject(key: string, buffer: Buffer, mimeType: string): 
   await minio.putObject(BUCKET, key, buffer, buffer.length, { 'Content-Type': mimeType });
 }
 
-/** Short-lived download URL (10 minutes). */
+/** Short-lived download URL (FILE_LINK_TTL_SECONDS, 5 minutes). */
+/**
+ * Lifetime of every signed file link (payslips, documents, letters …). Lists only
+ * carry file ids; "View" asks the API, which checks access and returns a fresh
+ * signed link that stops working after this many seconds.
+ */
+export const FILE_LINK_TTL_SECONDS = 300;
+
 export async function presignedGetUrl(
   key: string,
   fileName?: string,
@@ -42,7 +67,7 @@ export async function presignedGetUrl(
   if (fileName) {
     headers['response-content-disposition'] = `${disposition}; filename="${fileName.replace(/"/g, '')}"`;
   }
-  return minio.presignedGetObject(BUCKET, key, 600, headers);
+  return signer.presignedGetObject(BUCKET, key, FILE_LINK_TTL_SECONDS, headers);
 }
 
 export async function getObjectBuffer(key: string): Promise<Buffer> {

@@ -78,7 +78,7 @@ function RecommendModal({ item, onClose, onDone }: { item: Confirmation; onClose
   return (
     <Modal title={`Probation review — ${item.employee.name}`} open onClose={onClose}>
       <div className="space-y-3">
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-ink-500">
           Joined {fmtDate(item.employee.joiningDate)} · probation ends {fmtDate(item.employee.probationEndDate)}
         </p>
         <ErrorNote error={error} />
@@ -87,7 +87,7 @@ function RecommendModal({ item, onClose, onDone }: { item: Confirmation; onClose
             <label
               key={o.value}
               className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3.5 py-2.5 ${
-                form.recommendation === o.value ? 'border-indigo-400 bg-indigo-50/50' : 'border-slate-200'
+                form.recommendation === o.value ? 'border-brand-400 bg-brand-50/50' : 'border-ink-200'
               }`}
             >
               <input
@@ -97,8 +97,8 @@ function RecommendModal({ item, onClose, onDone }: { item: Confirmation; onClose
                 onChange={() => setForm({ ...form, recommendation: o.value })}
               />
               <span>
-                <span className="block text-sm font-medium text-slate-900">{o.title}</span>
-                <span className="block text-xs text-slate-400">{o.hint}</span>
+                <span className="block text-sm font-medium text-ink-900">{o.title}</span>
+                <span className="block text-xs text-ink-400">{o.hint}</span>
               </span>
             </label>
           ))}
@@ -139,7 +139,7 @@ function RaiseModal({ onClose, onDone }: { onClose: () => void; onDone: () => vo
   return (
     <Modal title="Raise a confirmation review" open onClose={onClose}>
       <div className="space-y-3">
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-ink-500">
           Reviews are raised automatically 15 days before an employee&apos;s probation end date. Use this to start one
           early or for employees without a probation date.
         </p>
@@ -198,8 +198,8 @@ export default function ConfirmationsPage() {
             {data.map((c) => (
               <tr key={c.id}>
                 <Td>
-                  <p className="font-medium text-slate-900">{c.employee.name}</p>
-                  <p className="text-xs text-slate-400">
+                  <p className="font-medium text-ink-900">{c.employee.name}</p>
+                  <p className="text-xs text-ink-400">
                     {c.employee.employeeCode} · {c.employee.designation || '—'}
                   </p>
                 </Td>
@@ -213,15 +213,15 @@ export default function ConfirmationsPage() {
                         {humanize(c.recommendation)}
                         {c.recommendation === 'EXTEND' ? ` +${c.extendByDays}d` : ''}
                       </Badge>
-                      {c.comments && <p className="mt-1 max-w-56 truncate text-xs text-slate-400" title={c.comments}>{c.comments}</p>}
+                      {c.comments && <p className="mt-1 max-w-56 truncate text-xs text-ink-400" title={c.comments}>{c.comments}</p>}
                     </div>
                   ) : (
-                    <span className="text-xs text-slate-400">Awaiting manager</span>
+                    <span className="text-xs text-ink-400">Awaiting manager</span>
                   )}
                 </Td>
                 <Td>
                   <Badge tone={statusTone(c.status)}>{c.status}</Badge>
-                  {c.decidedAt && <span className="block text-xs text-slate-400">{fmtDate(c.decidedAt)}</span>}
+                  {c.decidedAt && <span className="block text-xs text-ink-400">{fmtDate(c.decidedAt)}</span>}
                 </Td>
                 <Td>
                   {c.status === 'PENDING' && c.awaiting === 'RECOMMENDATION' && (
@@ -238,7 +238,7 @@ export default function ConfirmationsPage() {
                     </div>
                   )}
                   {c.status === 'PENDING' && c.awaiting === 'APPROVAL' && !c.canDecide && (
-                    <span className="text-xs text-slate-400">With approver</span>
+                    <span className="text-xs text-ink-400">With approver</span>
                   )}
                 </Td>
               </tr>

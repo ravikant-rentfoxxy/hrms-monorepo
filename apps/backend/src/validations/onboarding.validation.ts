@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { issueAssetsSchema } from './asset.validation';
 
 export const ONBOARDING_ASSIGNEE_ROLES = ['EMPLOYEE', 'HR', 'MANAGER', 'IT', 'ADMIN'] as const;
 
@@ -30,3 +31,5 @@ export const listCasesQuerySchema = z.object({
   status: z.enum(['IN_PROGRESS', 'COMPLETED', 'CANCELLED']).optional(),
 });
 
+/** Assets issued from an onboarding task: name + count rows, all for the task's joiner. */
+export const issueTaskAssetsSchema = issueAssetsSchema.extend({ complete: z.boolean().default(true) });

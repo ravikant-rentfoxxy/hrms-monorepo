@@ -80,7 +80,7 @@ export default function LeaveCalendarPage() {
               <select
                 value={scope}
                 onChange={(e) => setScope(e.target.value as 'team' | 'company')}
-                className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                className="rounded-lg border border-ink-300 px-2 py-1.5 text-sm"
               >
                 <option value="company">Whole company</option>
                 <option value="team">My team</option>
@@ -89,7 +89,7 @@ export default function LeaveCalendarPage() {
             <Button variant="secondary" onClick={() => shift(-1)}>
               ‹
             </Button>
-            <span className="min-w-36 text-center text-sm font-semibold text-slate-800">{monthLabel}</span>
+            <span className="min-w-36 text-center text-sm font-semibold text-ink-800">{monthLabel}</span>
             <Button variant="secondary" onClick={() => shift(1)}>
               ›
             </Button>
@@ -106,25 +106,25 @@ export default function LeaveCalendarPage() {
           ) : (
             <div className="grid grid-cols-7">
               {WEEKDAYS.map((w) => (
-                <div key={w} className="border-b border-slate-100 bg-slate-50/60 px-2 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                <div key={w} className="border-b border-ink-100 bg-ink-50/60 px-2 py-2 text-[11px] font-semibold uppercase tracking-wider text-ink-500">
                   {w}
                 </div>
               ))}
               {cells.map((c, i) => {
-                if (!c) return <div key={`e${i}`} className="min-h-24 border-b border-r border-slate-100 bg-slate-50/30" />;
+                if (!c) return <div key={`e${i}`} className="min-h-24 border-b border-r border-ink-100 bg-ink-50/30" />;
                 const k = key(c.date);
                 const weekend = c.date.getUTCDay() === 0 || c.date.getUTCDay() === 6;
                 return (
                   <button
                     key={k}
                     onClick={() => setSelectedDay(k)}
-                    className={`min-h-24 border-b border-r border-slate-100 p-1.5 text-left align-top transition-colors hover:bg-indigo-50/40 ${
-                      weekend ? 'bg-slate-50/60' : ''
-                    } ${selectedDay === k ? 'ring-2 ring-inset ring-indigo-400' : ''}`}
+                    className={`min-h-24 border-b border-r border-ink-100 p-1.5 text-left align-top transition-colors hover:bg-brand-50/40 ${
+                      weekend ? 'bg-ink-50/60' : ''
+                    } ${selectedDay === k ? 'ring-2 ring-inset ring-brand-400' : ''}`}
                   >
                     <span
                       className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
-                        k === today ? 'bg-indigo-600 text-white' : 'text-slate-600'
+                        k === today ? 'bg-brand-600 text-white' : 'text-ink-600'
                       }`}
                     >
                       {c.date.getUTCDate()}
@@ -139,16 +139,16 @@ export default function LeaveCalendarPage() {
                         key={l.id}
                         className={`mt-0.5 block truncate rounded px-1 text-[10px] font-medium ${l.status === 'PENDING' ? 'border border-dashed' : ''}`}
                         style={{
-                          backgroundColor: `${l.leaveType?.color ?? '#6366F1'}1f`,
-                          color: l.leaveType?.color ?? '#4F46E5',
-                          borderColor: l.leaveType?.color ?? '#6366F1',
+                          backgroundColor: `${l.leaveType?.color ?? '#059571'}1f`,
+                          color: l.leaveType?.color ?? '#04775D',
+                          borderColor: l.leaveType?.color ?? '#059571',
                         }}
                       >
                         {l.employeeName.split(' ')[0]}
                         {l.halfDay ? ' ½' : ''}
                       </span>
                     ))}
-                    {c.leaves.length > 3 && <span className="mt-0.5 block text-[10px] text-slate-400">+{c.leaves.length - 3} more</span>}
+                    {c.leaves.length > 3 && <span className="mt-0.5 block text-[10px] text-ink-400">+{c.leaves.length - 3} more</span>}
                   </button>
                 );
               })}
@@ -158,14 +158,14 @@ export default function LeaveCalendarPage() {
 
         <Card className="p-4">
           {!day ? (
-            <div className="text-sm text-slate-500">
-              <p className="mb-2 font-medium text-slate-700">{data?.leaves.length ?? 0} leave(s) this month</p>
+            <div className="text-sm text-ink-500">
+              <p className="mb-2 font-medium text-ink-700">{data?.leaves.length ?? 0} leave(s) this month</p>
               <p>Select a day to see who is away. Dashed entries are pending approval.</p>
             </div>
           ) : (
             <div>
-              <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800">
-                <Icon name="calendar" className="h-4 w-4 text-indigo-500" />
+              <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink-800">
+                <Icon name="calendar" className="h-4 w-4 text-brand-500" />
                 {fmtDate(day.date)}
               </p>
               {day.holidays.map((h) => (
@@ -175,16 +175,16 @@ export default function LeaveCalendarPage() {
                 </p>
               ))}
               {day.leaves.length === 0 ? (
-                <p className="text-sm text-slate-400">Nobody is away.</p>
+                <p className="text-sm text-ink-400">Nobody is away.</p>
               ) : (
                 <ul className="space-y-2.5">
                   {day.leaves.map((l) => (
                     <li key={l.id} className="text-sm">
-                      <p className="font-medium text-slate-800">
+                      <p className="font-medium text-ink-800">
                         {l.employeeName}
                         {l.status === 'PENDING' && <span className="ml-1.5 text-xs font-normal text-amber-600">pending</span>}
                       </p>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-ink-500">
                         {l.leaveType ? `${l.leaveType.name} · ` : ''}
                         {fmtDate(l.fromDate)} → {fmtDate(l.toDate)}
                         {l.days !== undefined && ` · ${fmtDays(l.days)}d`}

@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
 import { useFetch } from '@/lib/useFetch';
 import { Badge, Button, Card, Empty, ErrorNote, Field, Input, Modal, PageHeader, Select, Spinner, Table, Td } from '@/components/ui';
+import { ActingCompanyBar } from '@/components/acting-company';
 import { LeaveNav, fmtDays, type LeaveType } from '../leave-common';
 
 type Form = Omit<LeaveType, 'id'>;
@@ -35,11 +36,11 @@ const EMPTY: Form = {
 
 function Toggle({ label, hint, checked, onChange }: { label: string; hint: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label className="flex items-start gap-2.5 rounded-xl border border-slate-200 p-3">
+    <label className="flex items-start gap-2.5 rounded-xl border border-ink-200 p-3">
       <input type="checkbox" className="mt-0.5" checked={checked} onChange={(e) => onChange(e.target.checked)} />
       <span>
-        <span className="block text-sm font-medium text-slate-800">{label}</span>
-        <span className="block text-xs text-slate-400">{hint}</span>
+        <span className="block text-sm font-medium text-ink-800">{label}</span>
+        <span className="block text-xs text-ink-400">{hint}</span>
       </span>
     </label>
   );
@@ -101,7 +102,7 @@ function PolicyEditor({ initial, onClose, onDone }: { initial: LeaveType | null;
         </section>
 
         <section>
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Entitlement</p>
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-500">Entitlement</p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Field label="Accrual" hint="Yearly: full quota on 1 Jan. Monthly: credited each month. None: credit-only (comp-off, unpaid).">
               <Select value={form.accrualType} onChange={(e) => set('accrualType', e.target.value as Form['accrualType'])} disabled={form.isCompOff}>
@@ -125,7 +126,7 @@ function PolicyEditor({ initial, onClose, onDone }: { initial: LeaveType | null;
         </section>
 
         <section>
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Eligibility & applying</p>
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-500">Eligibility & applying</p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Field label="Available to" hint="Restrict e.g. maternity / paternity leave.">
               <Select value={form.gender} onChange={(e) => set('gender', e.target.value as Form['gender'])}>
@@ -170,7 +171,7 @@ function PolicyEditor({ initial, onClose, onDone }: { initial: LeaveType | null;
         </section>
 
         <section>
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Encashment & comp-off</p>
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-500">Encashment & comp-off</p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Toggle
               label="Encashable"
@@ -207,7 +208,7 @@ function PolicyEditor({ initial, onClose, onDone }: { initial: LeaveType | null;
             onChange={(v) => set('isActive', v)}
           />
         )}
-        <p className="text-xs text-slate-400">Policy changes apply to future credits and applications; posted ledger entries are not rewritten.</p>
+        <p className="text-xs text-ink-400">Policy changes apply to future credits and applications; posted ledger entries are not rewritten.</p>
         <Button onClick={() => void save()} disabled={busy || !form.code || form.name.trim().length < 2} className="w-full">
           {initial ? 'Save policy' : 'Create leave type'}
         </Button>
@@ -253,6 +254,7 @@ export default function LeavePoliciesPage() {
     <div>
       <PageHeader title="Leave policies" subtitle="Leave types and the rules the engine enforces" actions={<Button onClick={() => setEditing('new')}>+ New type</Button>} />
       <LeaveNav />
+      <ActingCompanyBar label="Setting leave types (CL, EL, SL …) for" />
       <Card>
         {types.loading ? (
           <Spinner />
@@ -268,7 +270,7 @@ export default function LeavePoliciesPage() {
                     <Badge tone="violet">{t.code}</Badge>
                   </span>
                 </Td>
-                <Td className="font-medium text-slate-900">{t.name}</Td>
+                <Td className="font-medium text-ink-900">{t.name}</Td>
                 <Td>
                   <div className="flex max-w-xl flex-wrap gap-1">
                     {describe(t).map((d) => (

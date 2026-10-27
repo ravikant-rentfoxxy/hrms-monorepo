@@ -20,10 +20,10 @@ taxDeclarationsRouter.post('/me', validate(saveDeclarationSchema), controller.sa
 taxDeclarationsRouter.post('/me/submit', validate(submitDeclarationSchema), controller.submitMine);
 
 // HR verification queue.
-taxDeclarationsRouter.get('/', requireRole('ADMIN', 'HR'), validate(listDeclarationsQuerySchema, 'query'), controller.list);
+taxDeclarationsRouter.get('/', requireRole('ADMIN', 'HR', 'FINANCE'), validate(listDeclarationsQuerySchema, 'query'), controller.list);
 taxDeclarationsRouter.get('/:id', controller.getOne); // owner or ADMIN/HR (service)
-taxDeclarationsRouter.post('/:id/verify', requireRole('ADMIN', 'HR'), validate(verifySchema), controller.verify);
-taxDeclarationsRouter.post('/:id/reject', requireRole('ADMIN', 'HR'), validate(rejectSchema), controller.reject);
+taxDeclarationsRouter.post('/:id/verify', requireRole('ADMIN', 'HR', 'FINANCE'), validate(verifySchema), controller.verify);
+taxDeclarationsRouter.post('/:id/reject', requireRole('ADMIN', 'HR', 'FINANCE'), validate(rejectSchema), controller.reject);
 
 // Proofs (file in multipart field `file`); owner or ADMIN/HR.
 taxDeclarationsRouter.post('/:id/proofs', upload.single('file'), validate(proofUploadSchema), controller.addProof);

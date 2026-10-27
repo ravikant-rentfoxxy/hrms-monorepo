@@ -169,7 +169,7 @@ interface EmployeeRow {
   joiningDate: string;
   dateOfBirth?: string;
   managerEmail?: string;
-  role: 'HR' | 'MANAGER' | 'EMPLOYEE';
+  role: 'HR' | 'MANAGER' | 'EMPLOYEE' | 'FINANCE';
   gender?: string;
   ctcAnnual?: number;
   location: string;
@@ -309,7 +309,7 @@ async function validateEmployees(companyId: string, rows: Record<string, string>
     if (probRaw && !prob) errors.push('probationEndDate is not a valid date');
     if (prob && joining && prob < joining) errors.push('probationEndDate is before joiningDate');
     const roleRaw = (get('role') || 'EMPLOYEE').toUpperCase();
-    if (!['HR', 'MANAGER', 'EMPLOYEE'].includes(roleRaw)) errors.push('role must be EMPLOYEE, MANAGER or HR');
+    if (!['HR', 'MANAGER', 'EMPLOYEE', 'FINANCE'].includes(roleRaw)) errors.push('role must be EMPLOYEE, MANAGER, HR or FINANCE');
     const genderRaw = get('gender').toUpperCase();
     const gender = ({ M: 'MALE', F: 'FEMALE', MALE: 'MALE', FEMALE: 'FEMALE', OTHER: 'OTHER', O: 'OTHER' } as Record<string, string>)[genderRaw];
     if (genderRaw && !gender) errors.push('gender must be MALE, FEMALE or OTHER');

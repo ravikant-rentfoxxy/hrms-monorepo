@@ -67,14 +67,18 @@ export function buildOfferLetterPdf(head: Letterhead, o: OfferSheet): Promise<Bu
 
     const letterhead = () => {
       const { x, y } = doc;
+      // Small logo on the left of the company name; an unreadable image is dropped (name only).
+      const LOGO_BOX: [number, number] = [76, 36];
+      let nameLeft = left;
       if (head.logo) {
         try {
-          doc.image(head.logo, left - 8, 38, { fit: [190, 52] });
+          doc.image(head.logo, left, 44, { fit: LOGO_BOX, valign: 'center' });
+          nameLeft = left + LOGO_BOX[0] + 12;
         } catch {
-          head.logo = null; // unreadable image — fall back to the name
+          head.logo = null;
         }
       }
-      if (!head.logo) doc.font('Bold').fontSize(20).fillColor(NAVY).text(head.name, left, 50, { width, lineBreak: false });
+      doc.font('Bold').fontSize(17).fillColor(NAVY).text(head.name, nameLeft, 52, { width: width - (nameLeft - left), lineBreak: false });
       // Text that flows onto a new page (e.g. the documents list) continues in the body style.
       doc.font('Body').fontSize(10).fillColor(INK);
       doc.x = x;

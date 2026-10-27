@@ -110,7 +110,7 @@ export default function CandidatePage() {
     if (!confirm(`Delete ${c.name} and all their applications? This cannot be undone.`)) return;
     try {
       await api(`/recruitment/candidates/${id}`, { method: 'DELETE' });
-      router.replace('/recruitment');
+      router.replace('/recruitment?tab=Candidates');
     } catch (err) {
       setError(errMsg(err));
     }
@@ -129,7 +129,7 @@ export default function CandidatePage() {
 
   return (
     <div>
-      <Link href="/recruitment" className="mb-3 inline-block text-sm text-slate-500 hover:text-indigo-600">
+      <Link href="/recruitment?tab=Candidates" className="mb-3 inline-block text-sm text-ink-500 hover:text-brand-600">
         ← Recruitment
       </Link>
       <PageHeader
@@ -162,8 +162,8 @@ export default function CandidatePage() {
           <div className="mb-4 flex items-center gap-3">
             <Avatar name={c.name} />
             <div>
-              <p className="font-medium text-slate-900">{c.name}</p>
-              <p className="text-xs text-slate-400">
+              <p className="font-medium text-ink-900">{c.name}</p>
+              <p className="text-xs text-ink-400">
                 {[c.currentDesignation, c.currentCompany].filter(Boolean).join(' at ') || 'No current employer'}
               </p>
             </div>
@@ -180,8 +180,8 @@ export default function CandidatePage() {
               ['Added', fmtDate(c.createdAt)],
             ].map(([k, v]) => (
               <div key={k}>
-                <dt className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{k}</dt>
-                <dd className="text-slate-700">{v}</dd>
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-ink-400">{k}</dt>
+                <dd className="text-ink-700">{v}</dd>
               </div>
             ))}
           </dl>
@@ -190,10 +190,10 @@ export default function CandidatePage() {
               <Badge tone="violet">Referred by {c.referredBy.name}</Badge>
             </p>
           )}
-          {c.notes && <p className="mt-3 whitespace-pre-line rounded-xl bg-slate-50 p-3 text-sm text-slate-600">{c.notes}</p>}
+          {c.notes && <p className="mt-3 whitespace-pre-line rounded-xl bg-ink-50 p-3 text-sm text-ink-600">{c.notes}</p>}
         </Card>
         <Card>
-          <h2 className="px-5 pt-5 text-sm font-semibold text-slate-900">Applications</h2>
+          <h2 className="px-5 pt-5 text-sm font-semibold text-ink-900">Applications</h2>
           {!c.applications.length ? (
             <Empty message="In the talent pool — not applied to any job yet" />
           ) : (
@@ -201,21 +201,21 @@ export default function CandidatePage() {
               {c.applications.map((a) => (
                 <tr key={a.id}>
                   <Td>
-                    <Link href={`/recruitment/applications/${a.id}`} className="font-medium text-indigo-600">
+                    <Link href={`/recruitment/applications/${a.id}`} className="font-medium text-brand-600">
                       {a.code ?? 'Open'}
                     </Link>
-                    <p className="text-xs text-slate-400">{a.posting ? (a.posting.platformName || stageLabel(a.posting.platform)) : stageLabel(a.source)}</p>
+                    <p className="text-xs text-ink-400">{a.posting ? (a.posting.platformName || stageLabel(a.posting.platform)) : stageLabel(a.source)}</p>
                   </Td>
                   <Td>
-                    <Link href={`/recruitment/jobs/${a.job.id}`} className="hover:text-indigo-600">
+                    <Link href={`/recruitment/jobs/${a.job.id}`} className="hover:text-brand-600">
                       {a.job.title}
                     </Link>
-                    <p className="text-xs text-slate-400">{a.job.code}</p>
+                    <p className="text-xs text-ink-400">{a.job.code}</p>
                   </Td>
                   <Td>{fmtDate(a.appliedOn)}</Td>
                   <Td>
                     <StatusBadge status={a.stage} />
-                    {a.rejectionReason && <p className="mt-1 text-xs text-slate-400">{a.rejectionReason}</p>}
+                    {a.rejectionReason && <p className="mt-1 text-xs text-ink-400">{a.rejectionReason}</p>}
                   </Td>
                   <Td>{a.offer ? <StatusBadge status={a.offer.status} /> : '—'}</Td>
                 </tr>

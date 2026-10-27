@@ -7,7 +7,7 @@ export const flowStepSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('MANAGER') }),
   z.object({ type: z.literal('MANAGERS_MANAGER') }),
   z.object({ type: z.literal('DEPARTMENT_HEAD') }),
-  z.object({ type: z.literal('ROLE'), role: z.enum(['HR', 'ADMIN', 'MANAGER']) }),
+  z.object({ type: z.literal('ROLE'), role: z.enum(['HR', 'ADMIN', 'MANAGER', 'FINANCE']) }),
   z.object({ type: z.literal('EMPLOYEE'), employeeId: z.string().uuid() }),
 ]);
 

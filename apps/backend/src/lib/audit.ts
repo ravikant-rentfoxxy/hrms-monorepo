@@ -21,7 +21,7 @@ export interface AuditEntry {
 }
 
 /** Fields never written to the audit log. */
-const REDACT = new Set(['passwordHash', 'refreshTokenHash', 'totpSecret', 'resetOtpHash']);
+const REDACT = new Set(['passwordHash', 'refreshTokenHash', 'resetOtpHash']);
 
 function clean(value: unknown): Prisma.InputJsonValue | undefined {
   if (value === undefined || value === null) return undefined;

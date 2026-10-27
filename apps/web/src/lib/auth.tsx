@@ -16,6 +16,8 @@ interface AuthContextValue {
   isManagerial: boolean;
   /** Can administer company settings (offices, payroll, announcements...). */
   isCompanyAdmin: boolean;
+  /** Payroll side: runs, statutory settings, payroll inputs, loans, tax declarations (Admin, HR, Finance). */
+  canManagePayroll: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -35,17 +37,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (email: string, password: string, companyId?: string) => {
-      const data = await api<Session & { twoFactorRequired?: boolean }>('/auth/login', {
+      const data = await api<Session & { companySelectionRequired?: boolean }>('/auth/login', {
         method: 'POST',
         body: { email, password, ...(companyId ? { companyId } : {}) },
         skipAuth: true,
       });
-      // 2FA accounts get a challenge instead of tokens; the login page handles that step itself.
-      if (data.twoFactorRequired) throw new Error('Two-factor code required — sign in from the login page');
+      if (data.companySelectionRequired) throw new Error('Choose your company — sign in from the login page');
       saveSession(data);
       setActingCompanyId(null);
       setSession(data);
-      router.replace('/');
+      router.replace('/dashboard');
     },
     [router]
   );
@@ -86,6 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     hasRole,
     isManagerial: !!session && ['SUPER_ADMIN', 'ADMIN', 'HR', 'MANAGER'].includes(session.role),
     isCompanyAdmin: !!session && ['SUPER_ADMIN', 'ADMIN', 'HR'].includes(session.role),
+    canManagePayroll: !!session && ['SUPER_ADMIN', 'ADMIN', 'HR', 'FINANCE'].includes(session.role),
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

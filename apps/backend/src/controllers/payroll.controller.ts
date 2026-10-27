@@ -7,7 +7,7 @@ import * as payrollService from '../services/payroll.service';
 import * as exportsService from '../services/payroll-exports.service';
 import type { PayslipInput } from '../services/payroll.service';
 
-const isPayrollAdmin = (role: string): boolean => role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'HR';
+const isPayrollAdmin = (role: string): boolean => role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'HR' || role === 'FINANCE';
 
 /* -------------------------------- Payslips -------------------------------- */
 
@@ -51,6 +51,14 @@ export const pdf = h(async (req, res) => {
       inline: req.query.inline === 'true' || req.query.inline === '1',
     })
   );
+});
+
+/** Emails a published payslip PDF to the employee (Admin / HR / Finance). */
+export const email = h(async (req, res) => {
+  const { tenantId } = ctx(req);
+  const result = await payrollService.emailPayslip(tenantId, req.params.id as string);
+  await audit(req, { entity: 'Payslip', entityId: req.params.id as string, action: 'EMAIL', after: result });
+  ok(res, result);
 });
 
 export const create = h(async (req, res) => {
@@ -211,8 +219,8 @@ export const form16 = h(async (req, res) => {
   const { auth, tenantId } = ctx(req);
   const employeeId = req.params.employeeId as string;
   if (!isPayrollAdmin(auth.role) && employeeId !== auth.employeeId) throw ApiError.forbidden();
-  const { fy } = req.query as { fy?: string };
-  ok(res, await exportsService.form16(tenantId, employeeId, fy ?? exportsService.defaultFy()));
+  const { fy, inline } = req.query as { fy?: string; inline?: string };
+  ok(res, await exportsService.form16(tenantId, employeeId, fy ?? exportsService.defaultFy(), { inline: inline === 'true' || inline === '1' }));
 });
 
 /** Live annual tax projection (own, or any employee for ADMIN/HR). */

@@ -10,6 +10,7 @@
  * is left of the previous chain and starts a fresh one.
  */
 import type { Role } from '@prisma/client';
+import { openToEmployee } from './project.service';
 import { prisma } from '../lib/prisma';
 import { notify } from '../lib/notify';
 import { ApiError } from '../utils/http';
@@ -190,8 +191,14 @@ export async function saveWeek(companyId: string, employeeId: string, weekStart:
   const projectIds = [...new Set(rows.map((e) => e.projectId))];
   const projects = await prisma.project.findMany({ where: { companyId, id: { in: projectIds } } });
   const alreadyOnWeek = new Set(existing?.entries.map((e) => e.projectId) ?? []);
+  // Projects with members are bookable by those members only (hours already on the week stay editable).
+  const allowed = new Set(
+    (await prisma.project.findMany({ where: { companyId, id: { in: projectIds }, ...openToEmployee(employeeId) }, select: { id: true } })).map((p) => p.id)
+  );
+  const blocked = projects.find((p) => !allowed.has(p.id) && !alreadyOnWeek.has(p.id));
+  if (blocked) throw ApiError.forbidden(`You are not a member of project ${blocked.code} — ask HR or your manager for access`);
 
-  const seen = new Set<string>();
+  // Several entries per project and day are fine (one per task, each with its own description).
   const perDay = new Map<string, number>();
   const data = rows.map((e) => {
     const project = projects.find((p) => p.id === e.projectId);
@@ -203,9 +210,6 @@ export async function saveWeek(companyId: string, employeeId: string, weekStart:
     if (date < ws || date > we) {
       throw ApiError.badRequest(`${isoDay(date)} is outside the week ${isoDay(ws)} – ${isoDay(we)}`);
     }
-    const key = `${project.id}|${isoDay(date)}`;
-    if (seen.has(key)) throw ApiError.badRequest(`${project.code} is entered twice on ${isoDay(date)}`);
-    seen.add(key);
     const hours = round2(e.hours);
     const dayTotal = round2((perDay.get(isoDay(date)) ?? 0) + hours);
     if (dayTotal > MAX_HOURS_PER_DAY) {

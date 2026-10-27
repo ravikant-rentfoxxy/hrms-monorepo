@@ -4,7 +4,7 @@ import { validate } from '../middleware/validate';
 import { upload } from '../middleware/upload';
 import * as controller from '../controllers/onboarding.controller';
 import {
-  listCasesQuerySchema, onboardingTemplateSchema, onboardingTemplateUpdateSchema, startCaseSchema,
+  issueTaskAssetsSchema, listCasesQuerySchema, onboardingTemplateSchema, onboardingTemplateUpdateSchema, startCaseSchema,
 } from '../validations/onboarding.validation';
 
 export const onboardingRouter = Router();
@@ -24,4 +24,5 @@ onboardingRouter.post('/cases/:id/cancel', requireRole('ADMIN', 'HR'), controlle
 // My tasks: the joiner's own tasks, a manager's tasks for reports, HR/IT/Admin department tasks.
 onboardingRouter.get('/tasks', controller.myTasks);
 onboardingRouter.post('/tasks/:id/complete', upload.single('file'), controller.completeTask);
+onboardingRouter.post('/tasks/:id/assets', validate(issueTaskAssetsSchema), controller.issueTaskAssets);
 onboardingRouter.post('/tasks/:id/reopen', controller.reopenTask);

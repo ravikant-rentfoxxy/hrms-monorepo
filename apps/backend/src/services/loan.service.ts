@@ -42,7 +42,8 @@ export const MAX_ADVANCE_TENURE = 3;
 /** Principal cap as a multiple of monthly gross (ADMIN may exceed it). */
 export const MAX_GROSS_MULTIPLE = 3;
 
-const isHr = (role: Role) => role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'HR';
+/** Company-wide loan handling: HR and Finance (plus Admin). */
+const isHr = (role: Role) => role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'HR' || role === 'FINANCE';
 
 /** Monthly instalment, rounded up to the rupee for flat loans so the balance clears within the tenure. */
 export function computeEmi(principal: number, annualRatePct: number, tenureMonths: number): number {

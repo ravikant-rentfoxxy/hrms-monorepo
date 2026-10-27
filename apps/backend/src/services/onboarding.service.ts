@@ -11,6 +11,7 @@ import { prisma } from '../lib/prisma';
 import { notify } from '../lib/notify';
 import { objectKey, putObject } from '../lib/storage';
 import { ApiError } from '../utils/http';
+import { issueNewAssets, type NewAssetItem } from './asset.service';
 import { addDays, dateOnly, employeeIdsWithRoles, isCompanyAdmin, todayUTC } from '../utils/lifecycle';
 
 export type AssigneeRole = 'EMPLOYEE' | 'HR' | 'MANAGER' | 'IT' | 'ADMIN';
@@ -455,4 +456,22 @@ export async function notifyDueTasks(companyId: string): Promise<number> {
     });
   }
   return due.length;
+}
+
+/**
+ * Issues assets for a checklist task (e.g. "Laptop & official email setup"):
+ * creates the listed assets, assigns them to the joiner, and — by default —
+ * completes the task.
+ */
+export async function issueTaskAssets(companyId: string, taskId: string, viewer: Viewer, input: { items: NewAssetItem[]; complete: boolean; issuedOn?: Date | null }) {
+  const t = await loadTask(companyId, taskId);
+  assertCanAct(t, viewer);
+  if (t.case.status === 'CANCELLED') throw ApiError.badRequest('This onboarding case was cancelled');
+  const assets = await issueNewAssets(companyId, t.case.employeeId, input.items, {
+    issuedById: viewer.employeeId,
+    notes: `Onboarding: ${t.title}`,
+    issuedOn: input.issuedOn,
+  });
+  const task = input.complete && !t.done ? await completeTask(companyId, taskId, viewer) : t;
+  return { assets, task };
 }

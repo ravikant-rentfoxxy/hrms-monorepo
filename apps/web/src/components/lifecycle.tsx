@@ -54,10 +54,10 @@ export function ProgressBar({ value }: { value: number }) {
   const pct = Math.max(0, Math.min(100, value));
   return (
     <div className="flex items-center gap-2">
-      <div className="h-1.5 w-28 overflow-hidden rounded-full bg-slate-100">
-        <div className={`h-full rounded-full ${pct === 100 ? 'bg-emerald-500' : 'bg-indigo-500'}`} style={{ width: `${pct}%` }} />
+      <div className="h-1.5 w-28 overflow-hidden rounded-full bg-ink-100">
+        <div className={`h-full rounded-full ${pct === 100 ? 'bg-emerald-500' : 'bg-brand-500'}`} style={{ width: `${pct}%` }} />
       </div>
-      <span className="text-xs font-medium text-slate-500">{pct}%</span>
+      <span className="text-xs font-medium text-ink-500">{pct}%</span>
     </div>
   );
 }

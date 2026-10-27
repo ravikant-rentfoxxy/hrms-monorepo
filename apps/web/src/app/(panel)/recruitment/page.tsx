@@ -1,12 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { api, fmtDate, fmtTime } from '@/lib/api';
 import { useFetch } from '@/lib/useFetch';
 import {
-  Badge, Button, Card, Empty, ErrorNote, Field, Input, Modal, PageHeader, Select, Spinner, Stat, Table, Tabs, Td, Textarea,
+  Badge, Button, Card, Empty, ErrorNote, Field, Icon, Input, Modal, PageHeader, Select, Spinner, Stat, Table, Tabs, Td, Textarea, type IconName,
 } from '@/components/ui';
 import { HBarList, errMsg, label, pct } from '@/components/talent';
 import {
@@ -170,24 +171,74 @@ interface IntakeResult {
   alreadyApplied: boolean;
 }
 
-/** Who a request is waiting on: a role step ("HR", "ADMIN") or a named approver. */
+/** Who a request is waiting on: a role step ("HR", "ADMIN") or a named approver. Admins can clear HR steps. */
 const pendingWithLabel = (who: string): string =>
-  who === 'HR' ? 'HR' : who === 'ADMIN' ? 'management (Admin)' : who === 'MANAGER' ? 'a manager' : label(who);
+  who === 'HR' ? 'HR or Admin' : who === 'ADMIN' ? 'management (Admin)' : who === 'MANAGER' ? 'a manager' : label(who);
+
+/** The hiring process in order; each step opens its tab. */
+const HIRING_STEPS: { tab: string; title: string; hint: string; icon: IconName }[] = [
+  { tab: 'Requisitions', title: 'Request', hint: 'Raise & approve a hire', icon: 'tasks' },
+  { tab: 'Jobs', title: 'Post job', hint: 'Publish approved openings', icon: 'megaphone' },
+  { tab: 'Candidates', title: 'Candidates', hint: 'Add & screen applicants', icon: 'users' },
+  { tab: 'Interviews', title: 'Interview', hint: 'Schedule & give feedback', icon: 'calendar' },
+  { tab: 'Offers', title: 'Offer', hint: 'Send & track offers', icon: 'banknote' },
+  { tab: 'Pre-joining', title: 'Pre-joining', hint: 'Documents & joining date', icon: 'check' },
+];
+
+/** Requisition filters; MINE = pending requests the viewer can approve. */
+const REQ_FILTERS: [string, string][] = [
+  ['', 'All'],
+  ['MINE', 'Needs my approval'],
+  ['PENDING_APPROVAL', 'Waiting for approval'],
+  ['DRAFT', 'Drafts'],
+  ['APPROVED', 'Approved'],
+  ['REJECTED', 'Rejected'],
+  ['CANCELLED', 'Cancelled'],
+];
+
+/** One plain-language line under a requisition's status. */
+const reqNextStep = (r: Pick<Requisition, 'status' | 'canDecide' | 'pendingWith'>): string =>
+  ({
+    DRAFT: 'Not submitted yet',
+    PENDING_APPROVAL: r.canDecide ? 'Waiting for your approval' : `Waiting for ${pendingWithLabel(r.pendingWith ?? 'HR')}`,
+    APPROVED: 'Job opening created',
+    REJECTED: 'Not approved',
+    CANCELLED: 'Withdrawn',
+  })[r.status] ?? '';
 
 export default function RecruitmentPage() {
+  // useSearchParams needs a Suspense boundary.
+  return (
+    <Suspense fallback={<Spinner />}>
+      <Recruitment />
+    </Suspense>
+  );
+}
+
+function Recruitment() {
   const { session, isManagerial, isCompanyAdmin } = useAuth();
+  const router = useRouter();
   const tabs = [
     ...(isManagerial ? ['Requisitions', 'Jobs', 'Candidates'] : []),
     'Interviews',
-    ...(isCompanyAdmin ? ['Offers', 'Pre-joining', 'Funnel'] : []),
+    ...(isCompanyAdmin ? ['Offers', 'Pre-joining', 'Reports'] : []),
     'Careers & referrals',
   ];
-  const [tab, setTab] = useState(tabs[0] as string);
+  // The open step lives in ?tab= so Back from a job / candidate page returns to it.
+  const searchParams = useSearchParams();
+  const wanted = searchParams.get('tab');
+  const tab = wanted && tabs.includes(wanted) ? wanted : (tabs[0] as string);
+  const setTab = (t: string) => router.replace(`/recruitment?tab=${encodeURIComponent(t)}`, { scroll: false });
   const people = useDirectory();
   const departments = useFetch<{ id: string; name: string }[]>(isManagerial ? '/masters/departments' : null).data ?? [];
 
   const [reqStatus, setReqStatus] = useState('');
-  const requisitions = useFetch<Requisition[]>(tab === 'Requisitions' ? `/recruitment/requisitions${reqStatus ? `?status=${reqStatus}` : ''}` : null);
+  const reqQuery = reqStatus === 'MINE' ? 'PENDING_APPROVAL' : reqStatus;
+  const requisitions = useFetch<Requisition[]>(tab === 'Requisitions' ? `/recruitment/requisitions${reqQuery ? `?status=${reqQuery}` : ''}` : null);
+  const reqRows = (requisitions.data ?? []).filter((r) => reqStatus !== 'MINE' || r.canDecide);
+  // Drives the "N to approve" badge on the Request step.
+  const pendingReqs = useFetch<Requisition[]>(isManagerial ? '/recruitment/requisitions?status=PENDING_APPROVAL' : null);
+  const toApprove = pendingReqs.data?.filter((r) => r.canDecide).length ?? 0;
   const [jobStatus, setJobStatus] = useState('');
   const jobs = useFetch<Job[]>(tab === 'Jobs' ? `/recruitment/jobs${jobStatus ? `?status=${jobStatus}` : ''}` : null);
   const [q, setQ] = useState('');
@@ -203,8 +254,8 @@ export default function RecruitmentPage() {
   const [offerStatus, setOfferStatus] = useState('');
   const offers = useFetch<Offer[]>(tab === 'Offers' ? `/recruitment/offers${offerStatus ? `?status=${offerStatus}` : ''}` : null);
   const preJoining = useFetch<PreJoining[]>(tab === 'Pre-joining' ? '/recruitment/pre-onboarding' : null);
-  const stats = useFetch<Stats>(tab === 'Funnel' ? '/recruitment/stats' : null);
-  const platforms = useFetch<PlatformStat[]>(tab === 'Funnel' ? '/recruitment/postings/stats' : null);
+  const stats = useFetch<Stats>(tab === 'Reports' ? '/recruitment/stats' : null);
+  const platforms = useFetch<PlatformStat[]>(tab === 'Reports' ? '/recruitment/postings/stats' : null);
   const openJobs = useFetch<OpenJob[]>(tab === 'Careers & referrals' ? '/recruitment/jobs/open' : null);
   const referrals = useFetch<Referral[]>(tab === 'Careers & referrals' && session?.employee ? '/recruitment/referrals/mine' : null);
 
@@ -286,8 +337,9 @@ export default function RecruitmentPage() {
       },
       () => {
         setReqOpen(null);
-        setNotice(submit ? 'Requisition submitted to HR for review.' : 'Requisition saved as draft.');
+        setNotice(submit ? 'Requisition submitted. HR or an Admin will approve it.' : 'Requisition saved as draft.');
         requisitions.reload();
+        pendingReqs.reload();
       }
     );
 
@@ -299,6 +351,7 @@ export default function RecruitmentPage() {
         setReqView(null);
         if (msg) setNotice(msg);
         requisitions.reload();
+        pendingReqs.reload();
       }
     );
 
@@ -378,7 +431,7 @@ export default function RecruitmentPage() {
     <div>
       <PageHeader
         title="Recruitment"
-        subtitle="Requisitions, job postings, candidates, interviews, offers and pre-joining"
+        subtitle={isManagerial ? 'Follow the hiring steps below — pick one to see what needs doing.' : 'Your interviews, open positions and referrals'}
         actions={
           <>
             {isCompanyAdmin && (
@@ -393,11 +446,62 @@ export default function RecruitmentPage() {
                 + Candidate
               </Button>
             )}
-            {isManagerial && session?.employee && <Button onClick={openNewReq}>+ Hiring requisition</Button>}
+            {isManagerial && session?.employee && <Button onClick={openNewReq}>+ Request a hire</Button>}
           </>
         }
       />
-      <Tabs tabs={tabs} active={tab} onChange={setTab} />
+      {isManagerial ? (
+        <div className="mb-5 space-y-3">
+          <ol className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+            {HIRING_STEPS.filter((s) => tabs.includes(s.tab)).map((s, i) => {
+              const on = tab === s.tab;
+              return (
+                <li key={s.tab}>
+                  <button
+                    onClick={() => setTab(s.tab)}
+                    className={`relative flex h-full w-full items-start gap-2.5 rounded-xl border p-3 text-left transition-all ${
+                      on ? 'border-brand-500 bg-brand-50 ring-2 ring-brand-100' : 'border-ink-200 bg-white hover:border-ink-300 hover:shadow-sm'
+                    }`}
+                  >
+                    <span
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${on ? 'bg-brand-600 text-white' : 'bg-ink-100 text-ink-500'}`}
+                    >
+                      <Icon name={s.icon} className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-[10px] font-semibold uppercase tracking-wider text-ink-400">Step {i + 1}</span>
+                      <span className={`block text-sm font-semibold ${on ? 'text-brand-700' : 'text-ink-800'}`}>{s.title}</span>
+                      <span className="block text-xs leading-snug text-ink-500">{s.hint}</span>
+                    </span>
+                    {s.tab === 'Requisitions' && toApprove > 0 && (
+                      <span className="absolute -right-1.5 -top-1.5 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
+                        {toApprove} to approve
+                      </span>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+          <div className="flex flex-wrap gap-2">
+            {tabs
+              .filter((t) => !HIRING_STEPS.some((s) => s.tab === t))
+              .map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                    tab === t ? 'bg-ink-800 text-white' : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+          </div>
+        </div>
+      ) : (
+        <Tabs tabs={tabs} active={tab} onChange={setTab} />
+      )}
       {notice && (
         <p className="mb-4 rounded-xl border border-emerald-100 bg-emerald-50 px-3.5 py-2.5 text-sm text-emerald-700">{notice}</p>
       )}
@@ -405,56 +509,74 @@ export default function RecruitmentPage() {
 
       {tab === 'Requisitions' && (
         <Card>
-          <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 p-4">
-            <Select value={reqStatus} onChange={(e) => setReqStatus(e.target.value)} className="max-w-[200px]">
-              <option value="">All statuses</option>
-              {['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'CANCELLED'].map((s) => (
-                <option key={s} value={s}>
-                  {label(s)}
-                </option>
-              ))}
-            </Select>
-            <p className="text-xs text-slate-400">
-              Managers raise hiring requests → HR reviews → management approves the budget → the job opening is created.
-            </p>
+          <div className="grid gap-3 border-b border-ink-100 bg-ink-50/60 p-4 text-sm sm:grid-cols-3">
+            {[
+              ['1', 'Raise the request', 'Fill in the role, openings and budget. Save as draft or submit.'],
+              ['2', 'One approval', 'Any HR or Admin approves it — including the HR or Admin who raised it.'],
+              ['3', 'Job is created', 'The approved request becomes a job opening, ready to post.'],
+            ].map(([n, t, d]) => (
+              <div key={n} className="flex gap-2.5">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">{n}</span>
+                <div>
+                  <p className="font-semibold text-ink-800">{t}</p>
+                  <p className="text-xs text-ink-500">{d}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-1.5 border-b border-ink-100 p-4">
+            {REQ_FILTERS.map(([value, text]) => (
+              <button
+                key={value}
+                onClick={() => setReqStatus(value)}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                  reqStatus === value ? 'bg-brand-600 text-white' : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
+                }`}
+              >
+                {text}
+                {value === 'MINE' && toApprove > 0 && ` (${toApprove})`}
+              </button>
+            ))}
           </div>
           {requisitions.loading ? (
             <Spinner />
-          ) : !requisitions.data?.length ? (
-            <Empty message="No requisitions yet" />
+          ) : !reqRows.length ? (
+            <Empty message={reqStatus === 'MINE' ? 'Nothing waiting for your approval' : 'No requisitions here'} />
           ) : (
-            <Table headers={['Requisition', 'Requested by', 'Vacancies', 'Budget', 'Priority', 'Status', 'Job']}>
-              {requisitions.data.map((r) => (
-                <tr key={r.id} className="cursor-pointer hover:bg-slate-50" onClick={() => void openReq(r.id)}>
+            <Table headers={['Role', 'Requested by', 'Openings', 'Budget (CTC)', 'Status', '']}>
+              {reqRows.map((r) => (
+                <tr key={r.id} className="cursor-pointer hover:bg-ink-50" onClick={() => void openReq(r.id)}>
                   <Td>
-                    <p className="font-medium text-slate-900">{r.title}</p>
-                    <p className="text-xs text-slate-400">
+                    <p className="flex items-center gap-2 font-medium text-ink-900">
+                      {r.title}
+                      {['HIGH', 'CRITICAL'].includes(r.priority) && <StatusBadge status={r.priority} />}
+                    </p>
+                    <p className="text-xs text-ink-400">
                       {r.code} · {[r.department, r.location, label(r.reason)].filter(Boolean).join(' · ')}
                     </p>
                   </Td>
                   <Td>
                     {r.requestedBy?.name ?? '—'}
-                    <p className="text-xs text-slate-400">{fmtDate(r.createdAt)}</p>
+                    <p className="text-xs text-ink-400">{fmtDate(r.createdAt)}</p>
                   </Td>
                   <Td>{r.vacancies}</Td>
-                  <Td>
+                  <Td className="whitespace-nowrap">
                     {money(r.budgetMinCtc)} – {money(r.budgetMaxCtc)}
                   </Td>
                   <Td>
-                    <StatusBadge status={r.priority} />
-                  </Td>
-                  <Td>
                     <StatusBadge status={r.status} />
-                    {r.pendingWith && <p className="mt-1 text-xs text-slate-400">with {pendingWithLabel(r.pendingWith)}</p>}
-                    {r.canDecide && <p className="mt-1 text-xs font-medium text-amber-600">Awaiting your decision</p>}
+                    <p className={`mt-1 text-xs ${r.canDecide ? 'font-medium text-amber-600' : 'text-ink-400'}`}>{reqNextStep(r)}</p>
                   </Td>
-                  <Td>
-                    {r.job ? (
-                      <Link href={`/recruitment/jobs/${r.job.id}`} onClick={(e) => e.stopPropagation()} className="text-sm font-medium text-indigo-600">
+                  <Td className="text-right">
+                    {r.canDecide ? (
+                      // The row click opens the review; this is the visible cue.
+                      <Button>Review</Button>
+                    ) : r.job ? (
+                      <Link href={`/recruitment/jobs/${r.job.id}`} onClick={(e) => e.stopPropagation()} className="text-sm font-medium text-brand-600">
                         {r.job.code} →
                       </Link>
                     ) : (
-                      '—'
+                      <span className="text-sm text-ink-400">View</span>
                     )}
                   </Td>
                 </tr>
@@ -466,7 +588,7 @@ export default function RecruitmentPage() {
 
       {tab === 'Jobs' && (
         <Card>
-          <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 p-4">
+          <div className="flex flex-wrap items-center gap-2 border-b border-ink-100 p-4">
             <Select value={jobStatus} onChange={(e) => setJobStatus(e.target.value)} className="max-w-[200px]">
               <option value="">All statuses</option>
               {['APPROVED', 'OPEN', 'ON_HOLD', 'FILLED', 'CLOSED', 'CANCELLED'].map((s) => (
@@ -475,7 +597,7 @@ export default function RecruitmentPage() {
                 </option>
               ))}
             </Select>
-            <p className="text-xs text-slate-400">Jobs are created from approved requisitions. Add a posting to open a job.</p>
+            <p className="text-xs text-ink-400">Jobs are created from approved requisitions. Add a posting to open a job.</p>
           </div>
           {jobs.loading ? (
             <Spinner />
@@ -484,12 +606,16 @@ export default function RecruitmentPage() {
           ) : (
             <Table headers={['Job', 'Hiring manager', 'Status', 'Filled', 'Posted on', 'Pipeline']}>
               {jobs.data.map((j) => (
-                <tr key={j.id}>
+                <tr key={j.id} className="group cursor-pointer hover:bg-ink-50" onClick={() => router.push(`/recruitment/jobs/${j.id}`)}>
                   <Td>
-                    <Link href={`/recruitment/jobs/${j.id}`} className="font-medium text-slate-900 hover:text-indigo-600">
+                    <Link
+                      href={`/recruitment/jobs/${j.id}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="font-medium text-ink-900 group-hover:text-brand-600"
+                    >
                       {j.title}
                     </Link>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-ink-400">
                       {[j.code, j.department, j.location, j.employmentType].filter(Boolean).join(' · ')}
                     </p>
                   </Td>
@@ -502,9 +628,9 @@ export default function RecruitmentPage() {
                   </Td>
                   <Td>
                     {j.livePostings?.length ? (
-                      <span className="text-xs text-slate-600">{j.livePostings.join(', ')}</span>
+                      <span className="text-xs text-ink-600">{j.livePostings.join(', ')}</span>
                     ) : (
-                      <span className="text-xs text-slate-400">Not posted</span>
+                      <span className="text-xs text-ink-400">Not posted</span>
                     )}
                   </Td>
                   <Td>
@@ -516,7 +642,7 @@ export default function RecruitmentPage() {
                           </Badge>
                         ) : null
                       )}
-                      {!j.active && !j.hired && <span className="text-xs text-slate-400">No candidates</span>}
+                      {!j.active && !j.hired && <span className="text-xs text-ink-400">No candidates</span>}
                     </div>
                   </Td>
                 </tr>
@@ -528,7 +654,7 @@ export default function RecruitmentPage() {
 
       {tab === 'Candidates' && (
         <Card>
-          <div className="flex flex-wrap gap-2 border-b border-slate-100 p-4">
+          <div className="flex flex-wrap gap-2 border-b border-ink-100 p-4">
             <Input placeholder="Search name, email, ID, skills, mobile…" value={q} onChange={(e) => setQ(e.target.value)} className="max-w-xs" />
             <Select value={source} onChange={(e) => setSource(e.target.value)} className="max-w-[180px]">
               <option value="">All sources</option>
@@ -556,31 +682,31 @@ export default function RecruitmentPage() {
               {candidates.data.map((c) => (
                 <tr key={c.id}>
                   <Td>
-                    <Link href={`/recruitment/candidates/${c.id}`} className="font-medium text-slate-900 hover:text-indigo-600">
+                    <Link href={`/recruitment/candidates/${c.id}`} className="font-medium text-ink-900 hover:text-brand-600">
                       {c.name}
                     </Link>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-ink-400">
                       {c.code} · {c.email}
                       {c.phone && ` · ${c.phone}`}
                     </p>
                   </Td>
                   <Td>
                     <Badge tone={c.source === 'REFERRAL' ? 'violet' : 'slate'}>{stageLabel(c.source)}</Badge>
-                    {c.referredBy && <p className="mt-1 text-xs text-slate-400">by {c.referredBy.name}</p>}
+                    {c.referredBy && <p className="mt-1 text-xs text-ink-400">by {c.referredBy.name}</p>}
                   </Td>
                   <Td>
                     {c.experienceYears} yrs
-                    <p className="text-xs text-slate-400">{[c.currentCompany, c.currentLocation].filter(Boolean).join(' · ')}</p>
+                    <p className="text-xs text-ink-400">{[c.currentCompany, c.currentLocation].filter(Boolean).join(' · ')}</p>
                   </Td>
                   <Td>
                     <div className="flex flex-wrap gap-1">
                       {c.applications.map((a) => (
                         <Link key={a.id} href={`/recruitment/applications/${a.id}`}>
                           <StatusBadge status={a.stage} />
-                          <span className="ml-1 text-xs text-slate-500">{a.job.title}</span>
+                          <span className="ml-1 text-xs text-ink-500">{a.job.title}</span>
                         </Link>
                       ))}
-                      {!c.applications.length && <span className="text-xs text-slate-400">Talent pool</span>}
+                      {!c.applications.length && <span className="text-xs text-ink-400">Talent pool</span>}
                     </div>
                   </Td>
                   <Td>{fmtDate(c.createdAt)}</Td>
@@ -594,7 +720,7 @@ export default function RecruitmentPage() {
       {tab === 'Interviews' && (
         <Card>
           {isManagerial && (
-            <div className="border-b border-slate-100 p-4">
+            <div className="border-b border-ink-100 p-4">
               <Select value={interviewScope} onChange={(e) => setInterviewScope(e.target.value as 'mine' | 'all')} className="max-w-[260px]">
                 <option value="mine">Interviews I am on the panel for</option>
                 <option value="all">{isCompanyAdmin ? 'All interviews' : 'Interviews for my jobs'}</option>
@@ -613,27 +739,27 @@ export default function RecruitmentPage() {
                   <tr key={iv.id}>
                     <Td>
                       {fmtDate(iv.scheduledAt)}
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-ink-400">
                         {fmtTime(iv.scheduledAt)} · {iv.durationMinutes} min · {label(iv.mode)}
                       </p>
                     </Td>
                     <Td>
                       {isManagerial ? (
-                        <Link href={`/recruitment/applications/${iv.application.id}`} className="font-medium hover:text-indigo-600">
+                        <Link href={`/recruitment/applications/${iv.application.id}`} className="font-medium hover:text-brand-600">
                           {iv.application.candidate.name}
                         </Link>
                       ) : (
                         <span className="font-medium">{iv.application.candidate.name}</span>
                       )}
-                      <p className="text-xs text-slate-400">{iv.application.job.title}</p>
+                      <p className="text-xs text-ink-400">{iv.application.job.title}</p>
                     </Td>
                     <Td>
                       {iv.round}
-                      <p className="text-xs text-slate-400">{label(iv.interviewType)}</p>
+                      <p className="text-xs text-ink-400">{label(iv.interviewType)}</p>
                       {iv.location && (
-                        <p className="max-w-[200px] truncate text-xs text-slate-400">
+                        <p className="max-w-[200px] truncate text-xs text-ink-400">
                           {/^https?:\/\//.test(iv.location) ? (
-                            <a href={iv.location} target="_blank" rel="noreferrer" className="text-indigo-600">
+                            <a href={iv.location} target="_blank" rel="noreferrer" className="text-brand-600">
                               Join link
                             </a>
                           ) : (
@@ -648,7 +774,7 @@ export default function RecruitmentPage() {
                     <Td>
                       <StatusBadge status={iv.status} />
                       {iv.myFeedback?.submittedAt && (
-                        <p className="mt-1 text-xs text-slate-500">
+                        <p className="mt-1 text-xs text-ink-500">
                           You: {iv.myFeedback.rating}/5 · {label(iv.myFeedback.recommendation)}
                         </p>
                       )}
@@ -688,7 +814,7 @@ export default function RecruitmentPage() {
 
       {tab === 'Offers' && (
         <Card>
-          <div className="border-b border-slate-100 p-4">
+          <div className="border-b border-ink-100 p-4">
             <Select value={offerStatus} onChange={(e) => setOfferStatus(e.target.value)} className="max-w-[220px]">
               <option value="">All statuses</option>
               {['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'SENT', 'NEGOTIATING', 'ACCEPTED', 'DECLINED', 'EXPIRED', 'WITHDRAWN'].map((s) => (
@@ -707,13 +833,13 @@ export default function RecruitmentPage() {
               {offers.data.map((o) => (
                 <tr key={o.id}>
                   <Td>
-                    <Link href={`/recruitment/applications/${o.application.id}`} className="font-medium text-indigo-600">
+                    <Link href={`/recruitment/applications/${o.application.id}`} className="font-medium text-brand-600">
                       {o.code ?? 'Offer'}
                     </Link>
                   </Td>
                   <Td>
                     {o.application.candidate.name}
-                    <p className="text-xs text-slate-400">{o.application.job.title}</p>
+                    <p className="text-xs text-ink-400">{o.application.job.title}</p>
                   </Td>
                   <Td>{o.designation}</Td>
                   <Td>{money(o.ctcAnnual)}</Td>
@@ -721,8 +847,8 @@ export default function RecruitmentPage() {
                   <Td>{fmtDate(o.validUntil)}</Td>
                   <Td>
                     <StatusBadge status={o.employeeId ? 'JOINED' : o.status} />
-                    {o.pendingWith && <p className="mt-1 text-xs text-slate-400">with {pendingWithLabel(o.pendingWith)}</p>}
-                    {o.hasSignedCopy && <p className="mt-1 text-xs text-slate-400">Signed copy on file</p>}
+                    {o.pendingWith && <p className="mt-1 text-xs text-ink-400">with {pendingWithLabel(o.pendingWith)}</p>}
+                    {o.hasSignedCopy && <p className="mt-1 text-xs text-ink-400">Signed copy on file</p>}
                   </Td>
                 </tr>
               ))}
@@ -742,22 +868,22 @@ export default function RecruitmentPage() {
               {preJoining.data.map((p) => (
                 <tr key={p.id}>
                   <Td>
-                    <Link href={`/recruitment/pre-onboarding/${p.id}`} className="font-medium text-slate-900 hover:text-indigo-600">
+                    <Link href={`/recruitment/pre-onboarding/${p.id}`} className="font-medium text-ink-900 hover:text-brand-600">
                       {p.application.candidate.name}
                     </Link>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-ink-400">
                       {p.application.offer?.designation ?? p.application.job.title} · {p.application.code}
                     </p>
                   </Td>
                   <Td>
                     {fmtDate(p.confirmedJoiningDate ?? p.expectedJoiningDate)}
-                    <p className="text-xs text-slate-400">{p.confirmedJoiningDate ? 'Confirmed' : 'Expected'}</p>
+                    <p className="text-xs text-ink-400">{p.confirmedJoiningDate ? 'Confirmed' : 'Expected'}</p>
                   </Td>
                   <Td>
                     {p.documentsVerified}/{p.documentsRequired} verified
-                    <p className="text-xs text-slate-400">{p.documentsSubmitted} submitted</p>
+                    <p className="text-xs text-ink-400">{p.documentsSubmitted} submitted</p>
                   </Td>
-                  <Td>{p.bgvRequired ? <StatusBadge status={p.bgvStatus} /> : <span className="text-xs text-slate-400">Not required</span>}</Td>
+                  <Td>{p.bgvRequired ? <StatusBadge status={p.bgvStatus} /> : <span className="text-xs text-ink-400">Not required</span>}</Td>
                   <Td>
                     <StatusBadge status={p.status} />
                   </Td>
@@ -768,7 +894,7 @@ export default function RecruitmentPage() {
         </Card>
       )}
 
-      {tab === 'Funnel' &&
+      {tab === 'Reports' &&
         (stats.loading || !stats.data ? (
           <Spinner />
         ) : (
@@ -781,14 +907,14 @@ export default function RecruitmentPage() {
             </div>
             <div className="grid gap-4 lg:grid-cols-2">
               <Card className="p-5">
-                <h2 className="mb-4 text-sm font-semibold text-slate-900">Funnel (applications reaching each stage)</h2>
+                <h2 className="mb-4 text-sm font-semibold text-ink-900">Funnel (applications reaching each stage)</h2>
                 <HBarList data={stats.data.funnel.map((f) => ({ label: label(f.stage), value: f.reached }))} total={stats.data.totalApplications} />
-                <p className="mt-3 text-xs text-slate-400">
+                <p className="mt-3 text-xs text-ink-400">
                   Avg time to fill (job opened → joining): {stats.data.avgTimeToFillDays !== null ? `${stats.data.avgTimeToFillDays} days` : '—'}
                 </p>
               </Card>
               <Card>
-                <h2 className="px-5 pt-5 text-sm font-semibold text-slate-900">Source effectiveness</h2>
+                <h2 className="px-5 pt-5 text-sm font-semibold text-ink-900">Source effectiveness</h2>
                 {!stats.data.sources.length ? (
                   <Empty message="No applications yet" />
                 ) : (
@@ -808,7 +934,7 @@ export default function RecruitmentPage() {
               </Card>
             </div>
             <Card>
-              <h2 className="px-5 pt-5 text-sm font-semibold text-slate-900">Job-board performance</h2>
+              <h2 className="px-5 pt-5 text-sm font-semibold text-ink-900">Job-board performance</h2>
               {!platforms.data?.length ? (
                 <Empty message="No postings recorded yet" />
               ) : (
@@ -844,12 +970,12 @@ export default function RecruitmentPage() {
                 <Card key={j.id} className="p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <h2 className="text-sm font-semibold text-slate-900">{j.title}</h2>
-                      <p className="text-xs text-slate-500">
+                      <h2 className="text-sm font-semibold text-ink-900">{j.title}</h2>
+                      <p className="text-xs text-ink-500">
                         {[j.code, j.department, j.location, j.employmentType, yrs(j.minExperience, j.maxExperience)].filter(Boolean).join(' · ')}
                       </p>
-                      {j.skills && <p className="mt-1 text-xs text-slate-400">Skills: {j.skills}</p>}
-                      {j.description && <p className="mt-2 line-clamp-3 whitespace-pre-line text-sm text-slate-600">{j.description}</p>}
+                      {j.skills && <p className="mt-1 text-xs text-ink-400">Skills: {j.skills}</p>}
+                      {j.description && <p className="mt-2 line-clamp-3 whitespace-pre-line text-sm text-ink-600">{j.description}</p>}
                     </div>
                     {session?.employee && (
                       <Button
@@ -869,21 +995,21 @@ export default function RecruitmentPage() {
             )}
           </div>
           <Card className="p-4">
-            <h2 className="mb-3 text-sm font-semibold text-slate-900">My referrals</h2>
+            <h2 className="mb-3 text-sm font-semibold text-ink-900">My referrals</h2>
             {!referrals.data?.length ? (
-              <p className="text-sm text-slate-400">You haven&apos;t referred anyone yet.</p>
+              <p className="text-sm text-ink-400">You haven&apos;t referred anyone yet.</p>
             ) : (
               <div className="space-y-3">
                 {referrals.data.map((r) => (
-                  <div key={r.id} className="border-b border-slate-100 pb-2 last:border-0">
-                    <p className="text-sm font-medium text-slate-800">{r.name}</p>
+                  <div key={r.id} className="border-b border-ink-100 pb-2 last:border-0">
+                    <p className="text-sm font-medium text-ink-800">{r.name}</p>
                     {r.applications.map((a) => (
-                      <div key={a.id} className="mt-1 flex items-center justify-between text-xs text-slate-500">
+                      <div key={a.id} className="mt-1 flex items-center justify-between text-xs text-ink-500">
                         <span>{a.job.title}</span>
                         <StatusBadge status={a.status} />
                       </div>
                     ))}
-                    <p className="mt-1 text-xs text-slate-400">Referred {fmtDate(r.createdAt)}</p>
+                    <p className="mt-1 text-xs text-ink-400">Referred {fmtDate(r.createdAt)}</p>
                   </div>
                 ))}
               </div>
@@ -903,25 +1029,40 @@ export default function RecruitmentPage() {
           </Button>
           <Button
             onClick={() => void saveReq(true)}
-            disabled={reqForm.title.length < 2 || reqForm.justification.trim().length < 10 || !Number(reqForm.budgetMaxCtc)}
+            disabled={
+              reqForm.title.length < 2 ||
+              reqForm.justification.trim().length < 10 ||
+              !Number(reqForm.budgetMaxCtc) ||
+              (reqForm.reason === 'REPLACEMENT' && !reqForm.replacementForId)
+            }
             className="flex-1"
           >
-            Submit to HR
+            Submit for approval
           </Button>
         </div>
-        <p className="mt-2 text-xs text-slate-400">Submitting needs a justification (10+ characters) and a max CTC budget.</p>
+        <p className="mt-2 text-xs text-ink-400">
+          <span className="text-rose-500">*</span> Required to submit. Submitting sends it to HR and Admins; one approval creates the job opening. A draft only needs a job title.
+        </p>
       </Modal>
 
       <Modal title={reqView ? `${reqView.code} · ${reqView.title}` : ''} open={!!reqView} onClose={() => setReqView(null)} wide>
         {reqView && (
           <div className="space-y-4">
             <ErrorNote error={error} />
+            <RequisitionProgress status={reqView.status} />
+            {reqView.status === 'PENDING_APPROVAL' && !reqView.canDecide && (
+              <p className="rounded-xl bg-sky-50 px-3 py-2.5 text-sm text-sky-800">
+                {reqView.requestedById === session?.employee?.id
+                  ? 'Waiting for approval from HR or an Admin. You can’t approve your own request.'
+                  : 'Waiting for approval from HR or an Admin.'}
+              </p>
+            )}
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge status={reqView.status} />
               <StatusBadge status={reqView.priority} />
               {reqView.job && (
-                <Link href={`/recruitment/jobs/${reqView.job.id}`} className="text-sm font-medium text-indigo-600">
-                  Job {reqView.job.code} →
+                <Link href={`/recruitment/jobs/${reqView.job.id}`} className="text-sm font-medium text-brand-600">
+                  Open job {reqView.job.code} →
                 </Link>
               )}
             </div>
@@ -941,12 +1082,17 @@ export default function RecruitmentPage() {
                 ['Skills', reqView.skills || '—'],
               ].map(([k, v]) => (
                 <div key={k as string}>
-                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{k}</dt>
-                  <dd className="text-slate-700">{v}</dd>
+                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-ink-400">{k}</dt>
+                  <dd className="text-ink-700">{v}</dd>
                 </div>
               ))}
             </dl>
-            {reqView.justification && <p className="whitespace-pre-line rounded-xl bg-slate-50 p-3 text-sm text-slate-600">{reqView.justification}</p>}
+            {reqView.justification && (
+              <div className="rounded-xl bg-ink-50 p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-400">Why this hire is needed</p>
+                <p className="mt-1 whitespace-pre-line text-sm text-ink-600">{reqView.justification}</p>
+              </div>
+            )}
             {reqView.hrReviewNote && (
               <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
                 <span className="font-semibold">HR note:</span> {reqView.hrReviewNote}
@@ -954,68 +1100,86 @@ export default function RecruitmentPage() {
             )}
             {reqView.trail.length > 0 && (
               <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Approval trail</h3>
-                <ol className="space-y-1 text-sm">
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-400">Approval history</h3>
+                <ol className="space-y-1.5 text-sm">
                   {reqView.trail.map((s) => (
-                    <li key={s.id} className="flex items-center gap-2">
-                      <span className="w-14 text-xs text-slate-400">Level {s.level}</span>
+                    <li key={s.id} className="flex flex-wrap items-center gap-2">
                       <StatusBadge status={s.status} />
-                      <span>{s.actedByName ?? label(s.approverName ?? '')}</span>
-                      {s.remarks && <span className="text-xs text-slate-400">— {s.remarks}</span>}
+                      <span className="text-ink-700">
+                        {s.actedByName ?? (s.approverName === 'HR' ? 'HR or Admin' : label(s.approverName ?? ''))}
+                      </span>
+                      {s.actedAt && <span className="text-xs text-ink-400">{fmtDate(s.actedAt)}</span>}
+                      {s.remarks && <span className="text-xs text-ink-500">“{s.remarks}”</span>}
                     </li>
                   ))}
                 </ol>
               </div>
             )}
-            <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-4">
-              {reqView.status === 'DRAFT' && (reqView.requestedById === session?.employee?.id || isCompanyAdmin) && (
-                <>
-                  <Button variant="secondary" onClick={() => editReq(reqView)}>
-                    Edit
-                  </Button>
-                  <Button onClick={() => void reqAction('submit', undefined, 'Requisition submitted.')}>Submit to HR</Button>
-                </>
-              )}
-              {['DRAFT', 'PENDING_APPROVAL'].includes(reqView.status) && (reqView.requestedById === session?.employee?.id || isCompanyAdmin) && (
-                <Button variant="secondary" onClick={() => void reqAction('cancel', {}, 'Requisition cancelled.')}>
-                  Cancel requisition
-                </Button>
-              )}
-            </div>
-            {isCompanyAdmin && ['DRAFT', 'PENDING_APPROVAL', 'APPROVED'].includes(reqView.status) && (
-              <div className="space-y-2 rounded-xl border border-slate-100 p-3">
-                <Field label="HR review note">
-                  <Textarea rows={2} value={reviewNote} onChange={(e) => setReviewNote(e.target.value)} />
+
+            {reqView.canDecide && reqView.status === 'PENDING_APPROVAL' && (
+              <div className="space-y-3 rounded-xl border border-brand-100 bg-brand-50/40 p-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-ink-900">Your decision</h3>
+                  <p className="text-xs text-ink-500">One approval is enough — approving creates the job opening straight away.</p>
+                </div>
+                <Field label="Comment for the requester" hint="Optional to approve or reject; needed to send it back.">
+                  <Textarea rows={2} value={remarks} onChange={(e) => setRemarks(e.target.value)} />
                 </Field>
-                <div className="flex gap-2">
-                  <Button variant="secondary" disabled={reviewNote.trim().length < 3} onClick={() => void reqAction('review', { note: reviewNote }, 'Note added.')}>
-                    Add note
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    onClick={() =>
+                      void reqAction('decide', { decision: 'APPROVED', remarks: remarks.trim() || undefined }, 'Approved — the job opening has been created.')
+                    }
+                  >
+                    Approve &amp; create job
                   </Button>
-                  {reqView.status === 'PENDING_APPROVAL' && (
+                  {isCompanyAdmin && (
                     <Button
                       variant="secondary"
-                      disabled={reviewNote.trim().length < 3}
-                      onClick={() => void reqAction('review', { note: reviewNote, sendBack: true }, 'Sent back to the requester for changes.')}
+                      disabled={remarks.trim().length < 3}
+                      onClick={() => void reqAction('review', { note: remarks.trim(), sendBack: true }, 'Sent back to the requester for changes.')}
                     >
                       Send back for changes
                     </Button>
                   )}
-                </div>
-              </div>
-            )}
-            {reqView.canDecide && reqView.status === 'PENDING_APPROVAL' && (
-              <div className="space-y-2 rounded-xl border border-amber-100 bg-amber-50/40 p-3">
-                <Field label="Remarks (optional)">
-                  <Input value={remarks} onChange={(e) => setRemarks(e.target.value)} />
-                </Field>
-                <div className="flex gap-2">
-                  <Button onClick={() => void reqAction('decide', { decision: 'APPROVED', remarks: remarks || undefined }, 'Approved.')}>Approve</Button>
-                  <Button variant="danger" onClick={() => void reqAction('decide', { decision: 'REJECTED', remarks: remarks || undefined }, 'Rejected.')}>
+                  <Button
+                    variant="danger"
+                    onClick={() => void reqAction('decide', { decision: 'REJECTED', remarks: remarks.trim() || undefined }, 'Requisition rejected.')}
+                  >
                     Reject
                   </Button>
                 </div>
               </div>
             )}
+
+            {isCompanyAdmin && !reqView.canDecide && ['DRAFT', 'PENDING_APPROVAL', 'APPROVED'].includes(reqView.status) && (
+              <div className="space-y-2 rounded-xl border border-ink-100 p-3">
+                <Field label="Add a note for the requester">
+                  <Textarea rows={2} value={reviewNote} onChange={(e) => setReviewNote(e.target.value)} />
+                </Field>
+                <Button variant="secondary" disabled={reviewNote.trim().length < 3} onClick={() => void reqAction('review', { note: reviewNote }, 'Note added.')}>
+                  Add note
+                </Button>
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2 border-t border-ink-100 pt-4">
+              {reqView.status === 'DRAFT' && (reqView.requestedById === session?.employee?.id || isCompanyAdmin) && (
+                <>
+                  <Button variant="secondary" onClick={() => editReq(reqView)}>
+                    Edit
+                  </Button>
+                  <Button onClick={() => void reqAction('submit', undefined, 'Requisition submitted. HR or an Admin will approve it.')}>
+                    Submit for approval
+                  </Button>
+                </>
+              )}
+              {['DRAFT', 'PENDING_APPROVAL'].includes(reqView.status) && (reqView.requestedById === session?.employee?.id || isCompanyAdmin) && (
+                <Button variant="ghost" onClick={() => void reqAction('cancel', {}, 'Requisition cancelled.')}>
+                  Cancel request
+                </Button>
+              )}
+            </div>
           </div>
         )}
       </Modal>
@@ -1091,7 +1255,7 @@ export default function RecruitmentPage() {
       <Modal title="Interview feedback" open={!!fbFor} onClose={() => setFbFor(null)}>
         <div className="space-y-3">
           <ErrorNote error={error} />
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-ink-500">
             {fbFor?.round} · {fbFor?.application.candidate.name} ({fbFor?.application.job.title})
           </p>
           <div className="grid grid-cols-2 gap-3">
@@ -1123,5 +1287,39 @@ export default function RecruitmentPage() {
         </div>
       </Modal>
     </div>
+  );
+}
+
+/** Submitted → Approved → Job created, for the requisition dialog. */
+function RequisitionProgress({ status }: { status: string }) {
+  if (status === 'REJECTED' || status === 'CANCELLED') {
+    return (
+      <p className={`rounded-xl px-3 py-2.5 text-sm ${status === 'REJECTED' ? 'bg-rose-50 text-rose-700' : 'bg-ink-100 text-ink-600'}`}>
+        {status === 'REJECTED' ? 'This request was not approved.' : 'This request was cancelled.'}
+      </p>
+    );
+  }
+  const done = { DRAFT: 0, PENDING_APPROVAL: 1, APPROVED: 3 }[status] ?? 0;
+  const steps = ['Submitted', 'Approved by HR or Admin', 'Job created'];
+  return (
+    <ol className="flex items-center gap-2">
+      {steps.map((s, i) => {
+        const complete = i < done;
+        const current = i === done;
+        return (
+          <li key={s} className="flex flex-1 items-center gap-2">
+            <span
+              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                complete ? 'bg-emerald-500 text-white' : current ? 'bg-brand-600 text-white' : 'bg-ink-100 text-ink-400'
+              }`}
+            >
+              {complete ? <Icon name="check" className="h-3.5 w-3.5" /> : i + 1}
+            </span>
+            <span className={`text-xs font-medium ${complete || current ? 'text-ink-800' : 'text-ink-400'}`}>{s}</span>
+            {i < steps.length - 1 && <span className={`h-px flex-1 ${complete ? 'bg-emerald-300' : 'bg-ink-200'}`} />}
+          </li>
+        );
+      })}
+    </ol>
   );
 }

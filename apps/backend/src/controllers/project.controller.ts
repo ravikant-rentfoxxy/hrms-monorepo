@@ -5,9 +5,18 @@ import * as projectService from '../services/project.service';
 import type { ProjectInput } from '../services/project.service';
 
 export const list = h(async (req, res) => {
+  const { tenantId, auth } = ctx(req);
+  const { includeInactive, mine } = req.query as unknown as { includeInactive: boolean; mine: boolean };
+  // `mine` (the timesheet) = only projects the caller may log hours on.
+  ok(res, await projectService.listProjects(tenantId, { includeInactive, forEmployeeId: mine ? (auth.employeeId ?? '') : null }));
+});
+
+export const setMembers = h(async (req, res) => {
   const { tenantId } = ctx(req);
-  const { includeInactive } = req.query as unknown as { includeInactive: boolean };
-  ok(res, await projectService.listProjects(tenantId, includeInactive));
+  const { employeeIds } = req.body as { employeeIds: string[] };
+  const { before, after } = await projectService.setMembers(tenantId, req.params.id as string, employeeIds);
+  await audit(req, { entity: 'Project', entityId: req.params.id as string, action: 'MEMBERS', before: { members: before }, after: { members: after } });
+  ok(res, { members: after.length });
 });
 
 export const create = h(async (req, res) => {

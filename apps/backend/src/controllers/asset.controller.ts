@@ -5,7 +5,7 @@ import { prisma } from '../lib/prisma';
 import { sendCsv, toCsv } from '../utils/csv';
 import { isCompanyAdmin } from '../utils/lifecycle';
 import * as assetService from '../services/asset.service';
-import type { AssetInput, AssignInput, ReturnInput } from '../services/asset.service';
+import type { AssetInput, AssignInput, AssignmentDatesInput, ReturnInput } from '../services/asset.service';
 
 export const meta = h(async (req, res) => {
   const { tenantId } = ctx(req);
@@ -37,10 +37,26 @@ export const update = h(async (req, res) => {
   ok(res, after);
 });
 
+/** Creates new assets and issues them to one employee (employee profile → Assets → Add). */
+export const issueToEmployee = h(async (req, res) => {
+  const { auth, tenantId } = ctx(req);
+  const employeeId = req.params.employeeId as string;
+  const { items, issuedOn } = req.body as { items: assetService.NewAssetItem[]; issuedOn?: Date | null };
+  const assets = await assetService.issueNewAssets(tenantId, employeeId, items, {
+    issuedById: auth.employeeId,
+    issuedOn,
+    notes: 'Issued from the employee profile',
+  });
+  await audit(req, { entity: 'Employee', entityId: employeeId, action: 'ISSUE_ASSETS', after: { assets: assets.map((a) => `${a.tag} ${a.name}`) } });
+  ok(res, assets, 201);
+});
+
 export const remove = h(async (req, res) => {
   const { tenantId } = ctx(req);
-  const asset = await assetService.deleteAsset(tenantId, req.params.id as string);
-  await audit(req, { entity: 'Asset', entityId: asset.id, action: 'DELETE', before: asset });
+  const withHistory = req.query.withHistory === 'true';
+  const { asset, history } = await assetService.deleteAsset(tenantId, req.params.id as string, { withHistory });
+  // The issue history is gone from the database; the audit row keeps it.
+  await audit(req, { entity: 'Asset', entityId: asset.id, action: 'DELETE', before: { ...asset, issueHistory: history } });
   ok(res, { deleted: true });
 });
 
@@ -56,6 +72,21 @@ export const giveBack = h(async (req, res) => {
   const assignment = await assetService.returnAsset(tenantId, req.params.id as string, req.body as ReturnInput);
   await audit(req, { entity: 'Asset', entityId: assignment.assetId, action: 'RETURN', after: assignment });
   ok(res, assignment);
+});
+
+export const updateAssignmentDates = h(async (req, res) => {
+  const { tenantId } = ctx(req);
+  const { before, after } = await assetService.updateAssignmentDates(tenantId, req.params.assignmentId as string, req.body as AssignmentDatesInput);
+  await audit(req, {
+    entity: 'Asset',
+    entityId: after.assetId,
+    action: 'ASSIGNMENT_DATES',
+    ...diff(
+      { issuedOn: before.issuedOn, expectedReturn: before.expectedReturn, returnedOn: before.returnedOn },
+      { issuedOn: after.issuedOn, expectedReturn: after.expectedReturn, returnedOn: after.returnedOn }
+    ),
+  });
+  ok(res, after);
 });
 
 export const history = h(async (req, res) => {

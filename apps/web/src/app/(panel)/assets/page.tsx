@@ -5,9 +5,10 @@ import { useAuth } from '@/lib/auth';
 import { API_URL, api, fmtDate, fmtMoney, getActingCompanyId, getSession } from '@/lib/api';
 import { useFetch } from '@/lib/useFetch';
 import {
-  Badge, Button, Card, DatePicker, Empty, ErrorNote, Field, Input, Modal, PageHeader, Select, Spinner, Stat, Table, Td, Textarea,
+  Badge, Button, Card, DatePicker, Empty, ErrorNote, Field, Input, LongText, Modal, PageHeader, Select, Spinner, Stat, Table, Td, Textarea,
 } from '@/components/ui';
 import { EmployeeSelect, errText, humanize, useEmployees } from '@/components/lifecycle';
+import { DeleteAssetDialog, EditAssignmentDatesDialog, localDay, type DatedAssignment } from '@/components/assets';
 
 interface Asset {
   id: string;
@@ -126,8 +127,8 @@ function AssetForm({ asset, meta, onClose, onDone }: { asset: Asset | null; meta
             <DatePicker value={form.purchaseDate} onChange={(v) => set('purchaseDate', v)} clearable />
           </Field>
         </div>
-        <Field label="Notes">
-          <Textarea value={form.notes} onChange={(e) => set('notes', e.target.value)} />
+        <Field label="Description">
+          <Textarea rows={3} maxLength={1000} value={form.notes} onChange={(e) => set('notes', e.target.value)} placeholder="Configuration, accessories, condition…" />
         </Field>
         <Button onClick={() => void save()} disabled={busy || !form.tag.trim() || form.name.trim().length < 2} className="w-full">
           {busy ? 'Saving…' : 'Save asset'}
@@ -139,7 +140,7 @@ function AssetForm({ asset, meta, onClose, onDone }: { asset: Asset | null; meta
 
 function AssignModal({ asset, onClose, onDone }: { asset: Asset; onClose: () => void; onDone: () => void }) {
   const employees = useEmployees();
-  const [form, setForm] = useState({ employeeId: '', expectedReturn: '', conditionOut: 'Good', notes: '' });
+  const [form, setForm] = useState({ employeeId: '', issuedOn: localDay(new Date().toISOString()), expectedReturn: '', conditionOut: 'Good', notes: '' });
   const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
@@ -147,7 +148,8 @@ function AssignModal({ asset, onClose, onDone }: { asset: Asset; onClose: () => 
     try {
       await api(`/assets/${asset.id}/assign`, {
         method: 'POST',
-        body: { ...form, expectedReturn: form.expectedReturn || null },
+        // Today keeps the exact time of issue; an earlier day back-dates it.
+        body: { ...form, issuedOn: form.issuedOn === localDay(new Date().toISOString()) ? null : form.issuedOn, expectedReturn: form.expectedReturn || null },
       });
       onDone();
       onClose();
@@ -164,6 +166,9 @@ function AssignModal({ asset, onClose, onDone }: { asset: Asset; onClose: () => 
           <EmployeeSelect employees={employees} value={form.employeeId} onChange={(id) => setForm({ ...form, employeeId: id })} />
         </Field>
         <div className="grid grid-cols-2 gap-3">
+          <Field label="Issued on" hint="change it to record an earlier hand-over">
+            <DatePicker value={form.issuedOn} onChange={(v) => setForm({ ...form, issuedOn: v })} />
+          </Field>
           <Field label="Condition">
             <Input value={form.conditionOut} onChange={(e) => setForm({ ...form, conditionOut: e.target.value })} />
           </Field>
@@ -174,7 +179,7 @@ function AssignModal({ asset, onClose, onDone }: { asset: Asset; onClose: () => 
         <Field label="Notes">
           <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Accessories issued, charger, bag…" />
         </Field>
-        <Button onClick={() => void submit()} disabled={!form.employeeId} className="w-full">
+        <Button onClick={() => void submit()} disabled={!form.employeeId || !form.issuedOn} className="w-full">
           Assign
         </Button>
       </div>
@@ -183,13 +188,16 @@ function AssignModal({ asset, onClose, onDone }: { asset: Asset; onClose: () => 
 }
 
 function ReturnModal({ asset, onClose, onDone }: { asset: Asset; onClose: () => void; onDone: () => void }) {
-  const [form, setForm] = useState({ conditionIn: 'Good', status: 'AVAILABLE', notes: '' });
+  const [form, setForm] = useState({ returnedOn: localDay(new Date().toISOString()), conditionIn: 'Good', status: 'AVAILABLE', notes: '' });
   const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
     setError(null);
     try {
-      await api(`/assets/${asset.id}/return`, { method: 'POST', body: form });
+      await api(`/assets/${asset.id}/return`, {
+        method: 'POST',
+        body: { ...form, returnedOn: form.returnedOn === localDay(new Date().toISOString()) ? null : form.returnedOn },
+      });
       onDone();
       onClose();
     } catch (err) {
@@ -200,13 +208,18 @@ function ReturnModal({ asset, onClose, onDone }: { asset: Asset; onClose: () => 
   return (
     <Modal title={`Return ${asset.name} (${asset.tag})`} open onClose={onClose}>
       <div className="space-y-3">
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-ink-500">
           From {asset.holder?.name}, issued {fmtDate(asset.holder?.issuedOn)}.
         </p>
         <ErrorNote error={error} />
-        <Field label="Condition on return">
-          <Input value={form.conditionIn} onChange={(e) => setForm({ ...form, conditionIn: e.target.value })} />
-        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Returned on">
+            <DatePicker value={form.returnedOn} onChange={(v) => setForm({ ...form, returnedOn: v })} />
+          </Field>
+          <Field label="Condition on return">
+            <Input value={form.conditionIn} onChange={(e) => setForm({ ...form, conditionIn: e.target.value })} />
+          </Field>
+        </div>
         <Field label="Move to">
           <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
             <option value="AVAILABLE">Available — ready to issue</option>
@@ -216,7 +229,7 @@ function ReturnModal({ asset, onClose, onDone }: { asset: Asset; onClose: () => 
         <Field label="Notes">
           <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
         </Field>
-        <Button onClick={() => void submit()} disabled={form.conditionIn.trim().length < 2} className="w-full">
+        <Button onClick={() => void submit()} disabled={form.conditionIn.trim().length < 2 || !form.returnedOn} className="w-full">
           Record return
         </Button>
       </div>
@@ -224,8 +237,21 @@ function ReturnModal({ asset, onClose, onDone }: { asset: Asset; onClose: () => 
   );
 }
 
-function HistoryModal({ asset, onClose }: { asset: Asset; onClose: () => void }) {
-  const { data, loading } = useFetch<Assignment[]>(`/assets/${asset.id}/history`);
+function HistoryModal({ asset, onClose, onChanged }: { asset: Asset; onClose: () => void; onChanged: () => void }) {
+  const { data, loading, reload } = useFetch<Assignment[]>(`/assets/${asset.id}/history`);
+  const [editing, setEditing] = useState<DatedAssignment | null>(null);
+  if (editing) {
+    return (
+      <EditAssignmentDatesDialog
+        assignment={editing}
+        onClose={() => setEditing(null)}
+        onSaved={() => {
+          reload();
+          onChanged();
+        }}
+      />
+    );
+  }
   return (
     <Modal title={`History — ${asset.name} (${asset.tag})`} open onClose={onClose} wide>
       {loading ? (
@@ -234,11 +260,11 @@ function HistoryModal({ asset, onClose }: { asset: Asset; onClose: () => void })
         <Empty message="Never issued" />
       ) : (
         <div className="-mx-6">
-          <Table headers={['Employee', 'Issued', 'Returned', 'Condition', 'Notes']}>
+          <Table headers={['Employee', 'Issued', 'Returned', 'Condition', 'Notes', '']}>
             {data.map((a) => (
               <tr key={a.id}>
-                <Td className="font-medium text-slate-900">
-                  {a.employee.name} <span className="text-xs text-slate-400">{a.employee.employeeCode}</span>
+                <Td className="font-medium text-ink-900">
+                  {a.employee.name} <span className="text-xs text-ink-400">{a.employee.employeeCode}</span>
                 </Td>
                 <Td>{fmtDate(a.issuedOn)}</Td>
                 <Td>{a.returnedOn ? fmtDate(a.returnedOn) : <Badge tone="blue">With employee</Badge>}</Td>
@@ -246,7 +272,14 @@ function HistoryModal({ asset, onClose }: { asset: Asset; onClose: () => void })
                   {a.conditionOut}
                   {a.conditionIn && ` → ${a.conditionIn}`}
                 </Td>
-                <Td className="max-w-48 truncate">{a.notes || '—'}</Td>
+                <Td>
+                  <LongText text={a.notes} />
+                </Td>
+                <Td>
+                  <Button variant="ghost" onClick={() => setEditing(a)}>
+                    Edit dates
+                  </Button>
+                </Td>
               </tr>
             ))}
           </Table>
@@ -269,8 +302,8 @@ function MyAssets() {
         <Table headers={['Asset', 'Category', 'Serial', 'Issued', 'Status']}>
           {data.map((a) => (
             <tr key={a.id}>
-              <Td className="font-medium text-slate-900">
-                {a.asset.name} <span className="text-xs text-slate-400">{a.asset.tag}</span>
+              <Td className="font-medium text-ink-900">
+                {a.asset.name} <span className="text-xs text-ink-400">{a.asset.tag}</span>
               </Td>
               <Td>{a.asset.category}</Td>
               <Td>{a.asset.serialNumber || '—'}</Td>
@@ -290,7 +323,7 @@ export default function AssetsPage() {
   const qs = new URLSearchParams(Object.entries(filters).filter(([, v]) => v)).toString();
   const meta = useFetch<Meta>(isCompanyAdmin ? '/assets/meta' : null);
   const assets = useFetch<Asset[]>(isCompanyAdmin ? `/assets${qs ? `?${qs}` : ''}` : null);
-  const [modal, setModal] = useState<{ kind: 'form' | 'assign' | 'return' | 'history'; asset: Asset | null } | null>(null);
+  const [modal, setModal] = useState<{ kind: 'form' | 'assign' | 'return' | 'history' | 'delete'; asset: Asset | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   if (!isCompanyAdmin) {
@@ -305,17 +338,6 @@ export default function AssetsPage() {
   const reload = () => {
     assets.reload();
     meta.reload();
-  };
-
-  const remove = async (a: Asset) => {
-    if (!window.confirm(`Delete ${a.tag}?`)) return;
-    setError(null);
-    try {
-      await api(`/assets/${a.id}`, { method: 'DELETE' });
-      reload();
-    } catch (err) {
-      setError(errText(err));
-    }
   };
 
   /** Authenticated CSV download (the API needs the Bearer token). */
@@ -364,9 +386,9 @@ export default function AssetsPage() {
 
       <ErrorNote error={error} />
       <Card className={error ? 'mt-3' : ''}>
-        <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-5 py-3">
+        <div className="flex flex-wrap items-center gap-2 border-b border-ink-100 px-5 py-3">
           <Input
-            placeholder="Search tag, name, serial…"
+            placeholder="Search tag, name, serial or employee…"
             value={filters.q}
             onChange={(e) => setFilters({ ...filters, q: e.target.value })}
             className="w-64!"
@@ -395,13 +417,13 @@ export default function AssetsPage() {
             {assets.data.map((a) => (
               <tr key={a.id}>
                 <Td>
-                  <p className="font-medium text-slate-900">{a.name}</p>
-                  <p className="font-mono text-xs text-slate-400">{a.tag}</p>
+                  <p className="font-medium text-ink-900">{a.name}</p>
+                  <p className="font-mono text-xs text-ink-400">{a.tag}</p>
                 </Td>
                 <Td>{a.category}</Td>
                 <Td>
                   <p>{a.serialNumber || '—'}</p>
-                  <p className="text-xs text-slate-400">{[a.brand, a.model].filter(Boolean).join(' ')}</p>
+                  <p className="text-xs text-ink-400">{[a.brand, a.model].filter(Boolean).join(' ')}</p>
                 </Td>
                 <Td>{fmtMoney(a.cost)}</Td>
                 <Td>
@@ -411,7 +433,7 @@ export default function AssetsPage() {
                   {a.holder ? (
                     <>
                       <p>{a.holder.name}</p>
-                      <p className="text-xs text-slate-400">since {fmtDate(a.holder.issuedOn)}</p>
+                      <p className="text-xs text-ink-400">since {fmtDate(a.holder.issuedOn)}</p>
                     </>
                   ) : (
                     '—'
@@ -431,7 +453,7 @@ export default function AssetsPage() {
                     <Button variant="ghost" onClick={() => setModal({ kind: 'form', asset: a })}>
                       Edit
                     </Button>
-                    <Button variant="ghost" onClick={() => void remove(a)}>
+                    <Button variant="ghost" onClick={() => setModal({ kind: 'delete', asset: a })}>
                       Delete
                     </Button>
                   </div>
@@ -447,7 +469,8 @@ export default function AssetsPage() {
       )}
       {modal?.kind === 'assign' && modal.asset && <AssignModal asset={modal.asset} onClose={() => setModal(null)} onDone={reload} />}
       {modal?.kind === 'return' && modal.asset && <ReturnModal asset={modal.asset} onClose={() => setModal(null)} onDone={reload} />}
-      {modal?.kind === 'history' && modal.asset && <HistoryModal asset={modal.asset} onClose={() => setModal(null)} />}
+      {modal?.kind === 'delete' && modal.asset && <DeleteAssetDialog asset={modal.asset} onClose={() => setModal(null)} onDone={reload} />}
+      {modal?.kind === 'history' && modal.asset && <HistoryModal asset={modal.asset} onClose={() => setModal(null)} onChanged={reload} />}
     </div>
   );
 }

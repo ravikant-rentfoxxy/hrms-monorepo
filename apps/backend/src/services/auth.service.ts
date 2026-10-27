@@ -8,7 +8,7 @@ import jwt from 'jsonwebtoken';
 import type { Role, User } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
-import { notify } from '../lib/notify';
+import { sendMail, isMailConfigured } from '../lib/mailer';
 import { env, isProd } from '../config/env';
 import { ApiError } from '../utils/http';
 import {
@@ -19,14 +19,14 @@ import {
   verifyPassword,
   verifyToken,
 } from '../utils/crypto';
-import { decryptField, encryptField, revealEmployeeSecrets } from '../utils/fieldCrypto';
-import { generateTotpSecret, otpauthUri, verifyTotp } from '../utils/totp';
+import { revealEmployeeSecrets } from '../utils/fieldCrypto';
 
-/** Failed logins (password or 2FA code) before the account is locked. */
+/** Failed logins (password or reset code) before the account is locked. */
 const MAX_FAILED_LOGINS = 5;
 const LOCK_MINUTES = 15;
 const RESET_OTP_MINUTES = 15;
-const CHALLENGE_TTL = '5m';
+/** How long the company picker stays valid after the password step. */
+const SELECTION_TTL = '5m';
 
 export interface ActiveContext {
   role: Role;
@@ -128,23 +128,24 @@ async function clearFailures(user: Pick<User, 'id' | 'failedLogins' | 'lockedUnt
   await prisma.user.update({ where: { id: user.id }, data: { failedLogins: 0, lockedUntil: null } });
 }
 
-/** Short-lived token proving the password step passed; only `/auth/login/2fa` accepts it. */
-function signChallenge(userId: string, companyId?: string): string {
-  return jwt.sign({ sub: userId, companyId: companyId ?? null, type: '2fa' }, env.JWT_ACCESS_SECRET, {
-    expiresIn: CHALLENGE_TTL,
-    audience: 'hrms-2fa',
+/**
+ * Short-lived token proving the password step passed for a user who belongs
+ * to several companies; only `/auth/login/company` accepts it.
+ */
+function signCompanySelection(userId: string): string {
+  return jwt.sign({ sub: userId, type: 'company-select' }, env.JWT_ACCESS_SECRET, {
+    expiresIn: SELECTION_TTL,
+    audience: 'hrms-company-select',
   } as jwt.SignOptions);
 }
 
-function verifyChallenge(token: string): { sub: string; companyId: string | null } {
+function verifyCompanySelection(token: string): string {
   try {
-    const payload = jwt.verify(token, env.JWT_ACCESS_SECRET, { audience: 'hrms-2fa' }) as {
-      sub: string; companyId: string | null; type: string;
-    };
-    if (payload.type !== '2fa') throw new Error('wrong type');
-    return payload;
+    const payload = jwt.verify(token, env.JWT_ACCESS_SECRET, { audience: 'hrms-company-select' }) as { sub: string; type: string };
+    if (payload.type !== 'company-select') throw new Error('wrong type');
+    return payload.sub;
   } catch {
-    throw ApiError.unauthorized('Sign-in challenge expired. Please sign in again.');
+    throw ApiError.unauthorized('Sign-in expired. Please sign in again.');
   }
 }
 
@@ -166,11 +167,20 @@ async function completeLogin(user: User, companyId?: string | null) {
 
 export type LoginResult =
   | Awaited<ReturnType<typeof completeLogin>>
-  | { twoFactorRequired: true; challengeToken: string };
+  | {
+      companySelectionRequired: true;
+      selectionToken: string;
+      companies: { id: string; name: string; code: string; role: Role }[];
+    };
+
 
 /**
- * Password step. With 2FA enabled the response is `{ twoFactorRequired,
- * challengeToken }` and the session comes from `loginWithTwoFactor`.
+ * Password step — the company is found from the email, not typed in:
+ *   one company       → signed straight into it
+ *   several companies → `{ companySelectionRequired, selectionToken, companies }`;
+ *                       the client calls `selectCompany` with the choice
+ *   super admin       → no company
+ * `companyId` is still accepted for clients that pick the company up front.
  */
 export async function login(email: string, password: string, companyId?: string): Promise<LoginResult> {
   const user = await prisma.user.findUnique({ where: { email } });
@@ -186,28 +196,22 @@ export async function login(email: string, password: string, companyId?: string)
   if (!user || !valid || !user.isActive) throw ApiError.unauthorized('Invalid email or password');
   await clearFailures(user);
 
-  // Validate the company choice before asking for the code (clear errors early).
-  await resolveContext(user, companyId);
-  if (user.totpEnabled && user.totpSecret) {
-    return { twoFactorRequired: true, challengeToken: signChallenge(user.id, companyId) };
-  }
-  return completeLogin(user, companyId);
+  if (user.role === 'SUPER_ADMIN' || companyId) return completeLogin(user, companyId ?? null);
+  const memberships = await listMemberships(user.id);
+  if (memberships.length === 0) throw ApiError.forbidden('No company access. Ask your administrator.');
+  if (memberships.length === 1) return completeLogin(user, memberships[0]!.companyId);
+  return {
+    companySelectionRequired: true,
+    selectionToken: signCompanySelection(user.id),
+    companies: memberships.map((m) => ({ ...m.company, role: m.role })),
+  };
 }
 
-/** Second step: authenticator code for the challenge issued by `login`. */
-export async function loginWithTwoFactor(challengeToken: string, code: string) {
-  const { sub, companyId } = verifyChallenge(challengeToken);
-  const user = await prisma.user.findUnique({ where: { id: sub } });
+/** Company chosen after the password step (users in several companies). */
+export async function selectCompany(selectionToken: string, companyId: string): Promise<LoginResult> {
+  const user = await prisma.user.findUnique({ where: { id: verifyCompanySelection(selectionToken) } });
   if (!user || !user.isActive) throw ApiError.unauthorized('Invalid email or password');
   assertNotLocked(user);
-  if (!user.totpEnabled || !user.totpSecret) return completeLogin(user, companyId);
-  if (!verifyTotp(decryptField(user.totpSecret), code)) {
-    if (await registerFailure(user)) {
-      throw new ApiError(423, `Too many failed attempts. Account locked for ${LOCK_MINUTES} minutes.`);
-    }
-    throw ApiError.unauthorized('Invalid authentication code');
-  }
-  await clearFailures(user);
   return completeLogin(user, companyId);
 }
 
@@ -245,7 +249,7 @@ export async function logout(userId: string): Promise<void> {
 export async function getMe(auth: { userId: string; role: Role; companyId: string | null; employeeId: string | null }) {
   const user = await prisma.user.findUnique({
     where: { id: auth.userId },
-    select: { id: true, email: true, role: true, lastLoginAt: true, totpEnabled: true },
+    select: { id: true, email: true, role: true, lastLoginAt: true },
   });
   if (!user) throw ApiError.notFound('User not found');
   const [activeCompany, employee, memberships] = await Promise.all([
@@ -278,42 +282,6 @@ export async function changePassword(userId: string, currentPassword: string, ne
   });
 }
 
-// ---- Two-factor authentication (TOTP) ----
-
-export async function twoFactorStatus(userId: string) {
-  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { totpEnabled: true } });
-  return { enabled: user.totpEnabled };
-}
-
-/**
- * Starts enrolment: a fresh secret is stored (encrypted, not yet active) and
- * returned once with the otpauth URI for the authenticator app.
- */
-export async function setupTwoFactor(userId: string) {
-  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
-  if (user.totpEnabled) throw ApiError.badRequest('Two-factor authentication is already enabled. Disable it first to re-enrol.');
-  const secret = generateTotpSecret();
-  await prisma.user.update({ where: { id: user.id }, data: { totpSecret: encryptField(secret) } });
-  return { secret, otpauthUri: otpauthUri(secret, user.email, 'HRMS') };
-}
-
-/** Confirms enrolment with a code from the app; from now on login asks for a code. */
-export async function enableTwoFactor(userId: string, code: string): Promise<void> {
-  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
-  if (user.totpEnabled) throw ApiError.badRequest('Two-factor authentication is already enabled');
-  if (!user.totpSecret) throw ApiError.badRequest('Start the setup first');
-  if (!verifyTotp(decryptField(user.totpSecret), code)) throw ApiError.badRequest('Invalid code — check the time on your phone and try again');
-  await prisma.user.update({ where: { id: user.id }, data: { totpEnabled: true } });
-}
-
-/** Turns 2FA off; requires the account password. */
-export async function disableTwoFactor(userId: string, password: string): Promise<void> {
-  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
-  if (!(await verifyPassword(password, user.passwordHash))) throw ApiError.unauthorized('Password is incorrect');
-  if (!user.totpEnabled && !user.totpSecret) throw ApiError.badRequest('Two-factor authentication is not enabled');
-  await prisma.user.update({ where: { id: user.id }, data: { totpEnabled: false, totpSecret: null } });
-}
-
 // ---- Forgot / reset password (OTP) ----
 
 const otpDigest = (userId: string, otp: string): string => sha256(`${userId}:${otp}`);
@@ -330,16 +298,21 @@ export async function forgotPassword(email: string): Promise<void> {
     where: { id: user.id },
     data: { resetOtpHash: otpDigest(user.id, otp), resetOtpExpires: new Date(Date.now() + RESET_OTP_MINUTES * 60000) },
   });
-  const profiles = await prisma.employee.findMany({ where: { userId: user.id, isActive: true }, select: { id: true, companyId: true } });
-  for (const p of profiles.slice(0, 1)) {
-    await notify(p.companyId, [p.id], {
-      event: 'auth.password_reset_otp',
-      title: 'Your password reset code',
-      body: `Use ${otp} to reset your password. It expires in ${RESET_OTP_MINUTES} minutes.`,
-      email: true,
-    });
-  }
   if (!isProd) logger.info({ email: user.email, otp }, 'password reset OTP (dev only — not logged in production)');
+  if (!isMailConfigured()) {
+    logger.warn({ email: user.email }, 'password reset code not emailed — SMTP is not set up');
+    return;
+  }
+  // Failures are logged, not returned: the response must not reveal whether the email exists.
+  await sendMail({
+    to: user.email,
+    subject: 'Your HRMS password reset code',
+    text: [
+      `Your password reset code is ${otp}.`,
+      '',
+      `It expires in ${RESET_OTP_MINUTES} minutes. If you did not ask to reset your password, ignore this email — your password stays the same.`,
+    ].join('\n'),
+  }).catch((err: unknown) => logger.error({ err, email: user.email }, 'password reset email failed'));
 }
 
 export async function resetPassword(email: string, otp: string, newPassword: string): Promise<{ userId: string }> {

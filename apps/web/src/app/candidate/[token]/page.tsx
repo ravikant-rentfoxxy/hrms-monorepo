@@ -121,8 +121,8 @@ export default function CandidatePortalPage() {
     return (
       <Shell>
         <Card className="p-6 text-center">
-          <h1 className="text-lg font-semibold text-slate-900">Thank you for letting us know</h1>
-          <p className="mt-2 text-sm text-slate-500">We have recorded that you declined the offer. We wish you all the best.</p>
+          <h1 className="text-lg font-semibold text-ink-900">Thank you for letting us know</h1>
+          <p className="mt-2 text-sm text-ink-500">We have recorded that you declined the offer. We wish you all the best.</p>
         </Card>
       </Shell>
     );
@@ -132,8 +132,8 @@ export default function CandidatePortalPage() {
     return (
       <Shell>
         <Card className="p-6 text-center">
-          <h1 className="text-lg font-semibold text-slate-900">Link unavailable</h1>
-          <p className="mt-2 text-sm text-slate-500">{fatal ?? 'This link is invalid or has expired. Please contact HR for a new link.'}</p>
+          <h1 className="text-lg font-semibold text-ink-900">Link unavailable</h1>
+          <p className="mt-2 text-sm text-ink-500">{fatal ?? 'This link is invalid or has expired. Please contact HR for a new link.'}</p>
         </Card>
       </Shell>
     );
@@ -145,9 +145,9 @@ export default function CandidatePortalPage() {
     <Shell company={data.company.name}>
       <div className="space-y-4">
         <Card className="p-5">
-          <p className="text-sm text-slate-500">Hello,</p>
-          <h1 className="text-xl font-semibold text-slate-900">{data.candidate.name}</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="text-sm text-ink-500">Hello,</p>
+          <h1 className="text-xl font-semibold text-ink-900">{data.candidate.name}</h1>
+          <p className="mt-1 text-sm text-ink-500">
             {data.job.title}
             {data.job.department && ` · ${data.job.department}`}
             {data.job.location && ` · ${data.job.location}`}
@@ -161,7 +161,7 @@ export default function CandidatePortalPage() {
         {offer ? (
           <Card className="p-5">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-semibold text-slate-900">Your offer{offer.code ? ` · ${offer.code}` : ''}</h2>
+              <h2 className="text-base font-semibold text-ink-900">Your offer{offer.code ? ` · ${offer.code}` : ''}</h2>
               <Badge tone={offer.status === 'ACCEPTED' ? 'green' : offer.status === 'NEGOTIATING' ? 'amber' : 'blue'}>
                 {offer.status === 'ACCEPTED' ? 'Accepted' : offer.status === 'NEGOTIATING' ? 'Under discussion' : offer.expired ? 'Expired' : 'Awaiting your response'}
               </Badge>
@@ -179,12 +179,12 @@ export default function CandidatePortalPage() {
                 ['Respond by', fmtDate(offer.validUntil)],
               ].map(([k, v]) => (
                 <div key={k}>
-                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{k}</dt>
-                  <dd className="text-slate-800">{v}</dd>
+                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-ink-400">{k}</dt>
+                  <dd className="text-ink-800">{v}</dd>
                 </div>
               ))}
             </dl>
-            {offer.terms && <p className="mt-3 whitespace-pre-line rounded-xl bg-slate-50 p-3 text-sm text-slate-600">{offer.terms}</p>}
+            {offer.terms && <p className="mt-3 whitespace-pre-line rounded-xl bg-ink-50 p-3 text-sm text-ink-600">{offer.terms}</p>}
             {offer.status === 'NEGOTIATING' && (
               <p className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
                 You asked{offer.counterCtc ? ` for ${inr(offer.counterCtc)}` : ''}: {offer.negotiationNote || '—'}. HR will get back to you with a revised offer;
@@ -217,22 +217,22 @@ export default function CandidatePortalPage() {
                 </>
               )}
               {['SENT', 'NEGOTIATING', 'ACCEPTED'].includes(offer.status) && (
-                <label className="inline-flex cursor-pointer items-center rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
+                <label className="inline-flex cursor-pointer items-center rounded-xl border border-ink-200 bg-white px-3.5 py-2 text-sm font-medium text-ink-700 shadow-sm hover:bg-ink-50">
                   {offer.hasSignedCopy ? 'Replace signed copy' : 'Upload signed offer letter'}
                   <input type="file" accept={ACCEPT} className="hidden" onChange={(e) => upload('/offer/signed', e.target.files?.[0], 'Signed copy uploaded. Thank you!')} />
                 </label>
               )}
             </div>
-            {offer.hasSignedCopy && <p className="mt-2 text-xs text-slate-400">Signed copy on file: {offer.signedFileName}</p>}
+            {offer.hasSignedCopy && <p className="mt-2 text-xs text-ink-400">Signed copy on file: {offer.signedFileName}</p>}
             {offer.status === 'ACCEPTED' && offer.respondedAt && (
-              <p className="mt-2 text-xs text-slate-400">
+              <p className="mt-2 text-xs text-ink-400">
                 Accepted on {fmtDate(offer.respondedAt)}
                 {offer.acceptedVia === 'PORTAL' ? ' (digitally, on this page)' : ''}.
               </p>
             )}
 
             {mode === 'decline' && (
-              <div className="mt-4 space-y-2 rounded-xl border border-slate-100 p-3">
+              <div className="mt-4 space-y-2 rounded-xl border border-ink-100 p-3">
                 <Field label="Reason for declining">
                   <Textarea value={reason} onChange={(e) => setReason(e.target.value)} />
                 </Field>
@@ -257,7 +257,7 @@ export default function CandidatePortalPage() {
               </div>
             )}
             {mode === 'negotiate' && (
-              <div className="mt-4 space-y-2 rounded-xl border border-slate-100 p-3">
+              <div className="mt-4 space-y-2 rounded-xl border border-ink-100 p-3">
                 <Field label="Expected annual CTC (₹, optional)">
                   <Input type="number" min={0} value={counter} onChange={(e) => setCounter(e.target.value)} />
                 </Field>
@@ -285,32 +285,32 @@ export default function CandidatePortalPage() {
           </Card>
         ) : (
           <Card className="p-5">
-            <p className="text-sm text-slate-500">There is nothing for you to act on right now. HR will share updates on this page.</p>
+            <p className="text-sm text-ink-500">There is nothing for you to act on right now. HR will share updates on this page.</p>
           </Card>
         )}
 
         {preJoining && (
           <Card className="p-5">
-            <h2 className="text-base font-semibold text-slate-900">Before you join</h2>
-            <p className="mt-1 text-sm text-slate-500">
+            <h2 className="text-base font-semibold text-ink-900">Before you join</h2>
+            <p className="mt-1 text-sm text-ink-500">
               Joining date: {fmtDate(preJoining.confirmedJoiningDate ?? preJoining.expectedJoiningDate)}
               {preJoining.confirmedJoiningDate ? ' (confirmed)' : ''}
             </p>
-            {preJoining.instructions && <p className="mt-3 whitespace-pre-line rounded-xl bg-slate-50 p-3 text-sm text-slate-600">{preJoining.instructions}</p>}
-            <ul className="mt-4 divide-y divide-slate-100">
+            {preJoining.instructions && <p className="mt-3 whitespace-pre-line rounded-xl bg-ink-50 p-3 text-sm text-ink-600">{preJoining.instructions}</p>}
+            <ul className="mt-4 divide-y divide-ink-100">
               {preJoining.documents.map((d) => (
                 <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
                   <div>
-                    <p className="text-sm font-medium text-slate-800">
-                      {d.name} {!d.required && <span className="text-xs font-normal text-slate-400">(optional)</span>}
+                    <p className="text-sm font-medium text-ink-800">
+                      {d.name} {!d.required && <span className="text-xs font-normal text-ink-400">(optional)</span>}
                     </p>
-                    {d.fileName && <p className="text-xs text-slate-400">{d.fileName}</p>}
+                    {d.fileName && <p className="text-xs text-ink-400">{d.fileName}</p>}
                     {d.status === 'REJECTED' && d.remarks && <p className="text-xs text-rose-600">{d.remarks}</p>}
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge tone={DOC_TONE[d.status] ?? 'slate'}>{DOC_TEXT[d.status] ?? d.status}</Badge>
                     {preJoining.canUpload && d.status !== 'VERIFIED' && (
-                      <label className="cursor-pointer rounded-lg px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50">
+                      <label className="cursor-pointer rounded-lg px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50">
                         {d.fileName ? 'Replace' : 'Upload'}
                         <input type="file" accept={ACCEPT} className="hidden" onChange={(e) => upload(`/documents/${d.id}`, e.target.files?.[0], `${d.name} uploaded.`)} />
                       </label>
@@ -319,11 +319,11 @@ export default function CandidatePortalPage() {
                 </li>
               ))}
             </ul>
-            <p className="mt-2 text-xs text-slate-400">PDF, JPG, PNG, WEBP or HEIC files. After you join, sign in with {data.candidate.email} using “Forgot password” to set your password.</p>
+            <p className="mt-2 text-xs text-ink-400">PDF, JPG, PNG, WEBP or HEIC files. After you join, sign in with {data.candidate.email} using “Forgot password” to set your password.</p>
           </Card>
         )}
 
-        {data.linkExpiresAt && <p className="text-center text-xs text-slate-400">This private link is valid until {fmtDate(data.linkExpiresAt)}. Please do not share it.</p>}
+        {data.linkExpiresAt && <p className="text-center text-xs text-ink-400">This private link is valid until {fmtDate(data.linkExpiresAt)}. Please do not share it.</p>}
       </div>
     </Shell>
   );
@@ -331,11 +331,11 @@ export default function CandidatePortalPage() {
 
 function Shell({ children, company }: { children: React.ReactNode; company?: string }) {
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
+    <div className="min-h-screen bg-ink-50">
+      <header className="border-b border-ink-200 bg-white">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
-          <span className="text-sm font-semibold text-slate-900">{company || 'Candidate portal'}</span>
-          <span className="text-xs text-slate-400">Candidate portal</span>
+          <span className="text-sm font-semibold text-ink-900">{company || 'Candidate portal'}</span>
+          <span className="text-xs text-ink-400">Candidate portal</span>
         </div>
       </header>
       <main className="mx-auto max-w-3xl px-4 py-6">{children}</main>

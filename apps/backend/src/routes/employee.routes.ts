@@ -3,7 +3,7 @@ import { authenticate, requireRole, tenant } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import * as controller from '../controllers/employee.controller';
 import {
-  createEmployeeSchema, directoryQuerySchema, orgChartQuerySchema, setPasswordSchema, updateEmployeeSchema,
+  createEmployeeSchema, directoryQuerySchema, orgChartQuerySchema, setPasswordSchema, setRoleSchema, updateEmployeeSchema,
 } from '../validations/employee.validation';
 
 export const employeesRouter = Router();
@@ -21,4 +21,5 @@ employeesRouter.get('/:id/reporting-chain', controller.reportingChain);
 employeesRouter.post('/', requireRole('ADMIN', 'HR'), validate(createEmployeeSchema), controller.create);
 employeesRouter.patch('/:id', validate(updateEmployeeSchema), controller.update);
 employeesRouter.post('/:id/password', requireRole('ADMIN', 'HR'), validate(setPasswordSchema), controller.setPassword);
+employeesRouter.post('/:id/role', requireRole('ADMIN'), validate(setRoleSchema), controller.setRole);
 employeesRouter.delete('/:id', requireRole('ADMIN'), controller.deactivate);

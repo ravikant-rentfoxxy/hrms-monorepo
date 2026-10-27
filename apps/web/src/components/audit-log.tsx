@@ -48,12 +48,12 @@ export function AuditDiff({ before, after }: { before: unknown; after: unknown }
   const b = asRecord(before);
   const a = asRecord(after);
   const keys = [...new Set([...Object.keys(b), ...Object.keys(a)])];
-  if (keys.length === 0) return <p className="text-xs text-slate-400">No field details recorded.</p>;
+  if (keys.length === 0) return <p className="text-xs text-ink-400">No field details recorded.</p>;
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-xs">
         <thead>
-          <tr className="text-left text-[10px] uppercase tracking-wider text-slate-400">
+          <tr className="text-left text-[10px] uppercase tracking-wider text-ink-400">
             <th className="py-1 pr-4 font-semibold">Field</th>
             <th className="py-1 pr-4 font-semibold">Before</th>
             <th className="py-1 font-semibold">After</th>
@@ -61,8 +61,8 @@ export function AuditDiff({ before, after }: { before: unknown; after: unknown }
         </thead>
         <tbody>
           {keys.map((k) => (
-            <tr key={k} className="border-t border-slate-100 align-top">
-              <td className="py-1.5 pr-4 font-medium text-slate-600">{k.replace(/([A-Z])/g, ' $1')}</td>
+            <tr key={k} className="border-t border-ink-100 align-top">
+              <td className="py-1.5 pr-4 font-medium text-ink-600">{k.replace(/([A-Z])/g, ' $1')}</td>
               <td className="max-w-xs break-all py-1.5 pr-4 text-rose-600">{show(b[k])}</td>
               <td className="max-w-xs break-all py-1.5 text-emerald-700">{show(a[k])}</td>
             </tr>
@@ -82,25 +82,25 @@ export function AuditTable({ items, showEntity = true }: { items: AuditEntry[]; 
       {items.map((e) => (
         <Fragment key={e.id}>
           <tr className="cursor-pointer" onClick={() => setOpen(open === e.id ? null : e.id)}>
-            <Td className="whitespace-nowrap text-xs text-slate-500">{new Date(e.createdAt).toLocaleString('en-IN')}</Td>
+            <Td className="whitespace-nowrap text-xs text-ink-500">{new Date(e.createdAt).toLocaleString('en-IN')}</Td>
             <Td>
-              <span className="font-medium text-slate-800">{e.actorName || 'System'}</span>
-              {e.ip && <span className="block text-[11px] text-slate-400">{e.ip}</span>}
+              <span className="font-medium text-ink-800">{e.actorName || 'System'}</span>
+              {e.ip && <span className="block text-[11px] text-ink-400">{e.ip}</span>}
             </Td>
             {showEntity && (
               <Td>
-                <span className="text-slate-700">{e.entity}</span>
-                <span className="block text-[11px] text-slate-400">{e.entityLabel ?? e.entityId}</span>
+                <span className="text-ink-700">{e.entity}</span>
+                <span className="block text-[11px] text-ink-400">{e.entityLabel ?? e.entityId}</span>
               </Td>
             )}
             <Td>
               <Badge tone={actionTone(e.action)}>{e.action}</Badge>
             </Td>
-            <Td className="text-right text-xs text-indigo-600">{open === e.id ? 'Hide' : 'Details'}</Td>
+            <Td className="text-right text-xs text-brand-600">{open === e.id ? 'Hide' : 'Details'}</Td>
           </tr>
           {open === e.id && (
             <tr>
-              <td colSpan={showEntity ? 5 : 4} className="bg-slate-50/70 px-4 py-3">
+              <td colSpan={showEntity ? 5 : 4} className="bg-ink-50/70 px-4 py-3">
                 <AuditDiff before={e.before} after={e.after} />
               </td>
             </tr>

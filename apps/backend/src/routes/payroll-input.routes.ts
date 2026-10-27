@@ -8,7 +8,7 @@ import {
 } from '../validations/payroll-input.validation';
 
 export const payrollInputsRouter = Router();
-payrollInputsRouter.use(authenticate, tenant, requireRole('ADMIN', 'HR'));
+payrollInputsRouter.use(authenticate, tenant, requireRole('ADMIN', 'HR', 'FINANCE'));
 
 payrollInputsRouter.get('/', validate(listInputsQuerySchema, 'query'), controller.list);
 payrollInputsRouter.get('/template.csv', controller.csvTemplate);

@@ -113,6 +113,18 @@ const ICON_PATHS: Record<string, ReactNode> = {
       <path d="m20 20-4-4" />
     </>
   ),
+  pencil: (
+    <>
+      <path d="M15.5 5.5 18.5 8.5" />
+      <path d="M4 20l1-4.2L16.3 4.5a2.1 2.1 0 0 1 3 0l.2.2a2.1 2.1 0 0 1 0 3L8.2 19 4 20Z" />
+    </>
+  ),
+  trash: (
+    <>
+      <path d="M4 7h16M10 11v6M14 11v6" />
+      <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4.5h6V7" />
+    </>
+  ),
   plus: <path d="M12 5v14M5 12h14" />,
   x: <path d="M6 6l12 12M18 6 6 18" />,
   download: <path d="M12 3v11m0 0 4-4m-4 4-4-4M4 20h16" />,
@@ -231,7 +243,7 @@ export function Icon({ name, className = 'h-5 w-5' }: { name: IconName; classNam
 
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`rounded-2xl border border-slate-200/70 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.05)] ${className}`}>
+    <div className={`rounded-[20px] border border-ink-200/70 bg-white shadow-soft ${className}`}>
       {children}
     </div>
   );
@@ -239,10 +251,10 @@ export function Card({ children, className = '' }: { children: ReactNode; classN
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: ReactNode }) {
   return (
-    <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="text-[22px] font-semibold tracking-tight text-slate-900">{title}</h1>
-        {subtitle && <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>}
+        <h1 className="text-[26px] font-bold leading-tight tracking-tight text-ink-950">{title}</h1>
+        {subtitle && <p className="mt-1 text-[15px] text-ink-500">{subtitle}</p>}
       </div>
       {actions && <div className="flex items-center gap-2">{actions}</div>}
     </div>
@@ -268,19 +280,19 @@ export function Button({
 }) {
   const styles = {
     primary:
-      'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 active:bg-indigo-700 disabled:bg-indigo-300 disabled:shadow-none',
+      'bg-brand-600 text-white shadow-[0_1px_0_rgb(255_255_255/0.2)_inset,0_6px_16px_-6px_rgb(5_149_113/0.65)] hover:bg-brand-700 active:translate-y-px disabled:bg-brand-300 disabled:shadow-none',
     secondary:
-      'border border-slate-200 bg-white text-slate-700 shadow-sm hover:border-slate-300 hover:bg-slate-50 disabled:text-slate-400',
+      'border border-ink-200 bg-white text-ink-800 shadow-[0_1px_2px_rgb(11_26_54/0.04)] hover:border-ink-300 hover:bg-ink-50 disabled:text-ink-400',
     danger:
-      'bg-rose-600 text-white shadow-sm shadow-rose-600/25 hover:bg-rose-500 disabled:bg-rose-300 disabled:shadow-none',
-    ghost: 'text-indigo-600 hover:bg-indigo-50 disabled:text-slate-400',
+      'bg-rose-600 text-white shadow-[0_6px_16px_-6px_rgb(225_29_72/0.55)] hover:bg-rose-700 active:translate-y-px disabled:bg-rose-300 disabled:shadow-none',
+    ghost: 'text-brand-700 hover:bg-brand-50 disabled:text-ink-400',
   }[variant];
   return (
     <button
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-medium transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:cursor-not-allowed ${styles} ${className}`}
+      className={`inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed ${styles} ${className}`}
     >
       {children}
     </button>
@@ -289,18 +301,25 @@ export function Button({
 
 /* ---------------------------------- Forms --------------------------------- */
 
-export function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
+export function Field({ label, children, hint, required }: { label: string; children: ReactNode; hint?: string; required?: boolean }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">{label}</span>
+      <span className="mb-1.5 block text-[13px] font-medium text-ink-800">
+        {label}
+        {required && (
+          <span className="ml-0.5 text-rose-500" aria-hidden>
+            *
+          </span>
+        )}
+      </span>
       {children}
-      {hint && <span className="mt-1 block text-xs text-slate-400">{hint}</span>}
+      {hint && <span className="mt-1 block text-xs text-ink-500">{hint}</span>}
     </label>
   );
 }
 
 const inputCls =
-  'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 transition-colors focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-500/10';
+  'w-full rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 text-sm text-ink-900 shadow-[0_1px_2px_rgb(11_26_54/0.04)] placeholder:text-ink-400 transition-colors focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/15';
 
 export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   if (props.type === 'password') return <PasswordInput {...props} />;
@@ -319,7 +338,7 @@ function PasswordInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
         onClick={() => setVisible((v) => !v)}
         aria-label={visible ? 'Hide password' : 'Show password'}
         title={visible ? 'Hide password' : 'Show password'}
-        className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-xl text-slate-400 transition-colors hover:text-slate-700"
+        className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-xl text-ink-400 transition-colors hover:text-ink-700"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]" aria-hidden>
           {visible ? (
@@ -356,7 +375,7 @@ const badgeTones: Record<string, string> = {
   red: 'bg-rose-50 text-rose-700 ring-rose-600/15',
   blue: 'bg-sky-50 text-sky-700 ring-sky-600/15',
   violet: 'bg-violet-50 text-violet-700 ring-violet-600/15',
-  slate: 'bg-slate-100 text-slate-600 ring-slate-500/15',
+  slate: 'bg-ink-100 text-ink-600 ring-ink-500/15',
 };
 
 export function Badge({ children, tone = 'slate' }: { children: ReactNode; tone?: keyof typeof badgeTones }) {
@@ -392,22 +411,46 @@ export function Table({ headers, children }: { headers: string[]; children: Reac
     <div className="overflow-x-auto">
       <table className="w-full text-left text-sm">
         <thead>
-          <tr className="border-b border-slate-200/80 bg-slate-50/60 text-[11px] uppercase tracking-wider text-slate-500">
+          <tr className="border-b border-ink-200/70 bg-ink-50/70 text-[11px] uppercase tracking-[0.08em] text-ink-500">
             {headers.map((head, i) => (
-              <th key={`${head}-${i}`} className="px-4 py-3 font-semibold first:rounded-tl-2xl last:rounded-tr-2xl">
+              <th key={`${head}-${i}`} className="px-4 py-3 font-semibold first:rounded-tl-[20px] last:rounded-tr-[20px]">
                 {head}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 [&>tr:hover]:bg-slate-50/50">{children}</tbody>
+        <tbody className="divide-y divide-ink-100 [&>tr]:transition-colors [&>tr:hover]:bg-brand-50/30">{children}</tbody>
       </table>
     </div>
   );
 }
 
 export function Td({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <td className={`px-4 py-3.5 align-middle text-slate-700 ${className}`}>{children}</td>;
+  return <td className={`px-4 py-3.5 align-middle text-ink-700 ${className}`}>{children}</td>;
+}
+
+/**
+ * Long free text in a table cell (descriptions, notes): wraps and shows two
+ * lines, with "Show more" to read the whole text in place.
+ */
+export function LongText({ text, lines = 2 }: { text: string | null | undefined; lines?: 2 | 3 }) {
+  const [open, setOpen] = useState(false);
+  if (!text) return <>—</>;
+  const long = text.length > 70 || text.includes('\n');
+  return (
+    <div className="max-w-sm min-w-48">
+      <p className={`whitespace-pre-line break-words ${open || !long ? '' : lines === 3 ? 'line-clamp-3' : 'line-clamp-2'}`}>{text}</p>
+      {long && (
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="mt-0.5 text-xs font-semibold text-brand-700 hover:underline"
+        >
+          {open ? 'Show less' : 'Show more'}
+        </button>
+      )}
+    </div>
+  );
 }
 
 /* ---------------------------------- Modal --------------------------------- */
@@ -433,18 +476,18 @@ export function Modal({
   if (!open) return null;
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4 pt-16 backdrop-blur-[2px]"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink-950/40 p-4 pt-16 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className={`animate-modal-in w-full ${wide ? 'max-w-2xl' : 'max-w-md'} rounded-2xl bg-white p-6 shadow-2xl shadow-slate-900/20`}
+        className={`animate-modal-in w-full ${wide ? 'max-w-2xl' : 'max-w-md'} rounded-3xl bg-white p-6 shadow-lift sm:p-7`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-base font-semibold tracking-tight text-slate-900">{title}</h2>
+          <h2 className="text-lg font-bold tracking-tight text-ink-950">{title}</h2>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+            className="grid h-8 w-8 place-items-center rounded-full text-ink-400 transition-colors hover:bg-ink-100 hover:text-ink-700"
             aria-label="Close"
           >
             <Icon name="x" className="h-4 w-4" />
@@ -461,18 +504,18 @@ export function Modal({
 export function Spinner() {
   return (
     <div className="flex justify-center py-14">
-      <div className="h-7 w-7 animate-spin rounded-full border-[2.5px] border-indigo-100 border-t-indigo-600" />
+      <div className="h-7 w-7 animate-spin rounded-full border-[2.5px] border-brand-100 border-t-brand-600" role="status" aria-label="Loading" />
     </div>
   );
 }
 
 export function Empty({ message }: { message: string }) {
   return (
-    <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
-      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-        <Icon name="search" className="h-4.5 w-4.5" />
+    <div className="flex flex-col items-center gap-3 px-4 py-14 text-center">
+      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-ink-50 text-ink-400 ring-1 ring-ink-200/70">
+        <Icon name="search" className="h-5 w-5" />
       </span>
-      <p className="text-sm text-slate-400">{message}</p>
+      <p className="text-sm font-medium text-ink-500">{message}</p>
     </div>
   );
 }
@@ -501,11 +544,11 @@ export function Stat({
     <Card className="p-4">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{label}</p>
-          <div className={`mt-1.5 text-2xl font-semibold tracking-tight ${accent ?? 'text-slate-900'}`}>{value}</div>
+          <p className="text-[12px] font-medium text-ink-500">{label}</p>
+          <div className={`mt-1.5 text-[26px] font-bold leading-tight tracking-tight tabular-nums ${accent ?? 'text-ink-950'}`}>{value}</div>
         </div>
         {icon && (
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-50 to-brand-100 text-brand-700 ring-1 ring-brand-600/10">
             <Icon name={icon} className="h-4.5 w-4.5" />
           </span>
         )}
@@ -518,13 +561,13 @@ export function Stat({
 
 export function Tabs({ tabs, active, onChange }: { tabs: string[]; active: string; onChange: (t: string) => void }) {
   return (
-    <div className="mb-5 inline-flex gap-1 rounded-xl border border-slate-200/70 bg-white p-1 shadow-sm">
+    <div className="mb-5 inline-flex max-w-full gap-1 overflow-x-auto rounded-full border border-ink-200/80 bg-white p-1 shadow-soft">
       {tabs.map((tab) => (
         <button
           key={tab}
           onClick={() => onChange(tab)}
-          className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-all ${
-            active === tab ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30' : 'text-slate-500 hover:text-slate-800'
+          className={`shrink-0 whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-semibold transition-all ${
+            active === tab ? 'bg-ink-900 text-white shadow-sm' : 'text-ink-500 hover:text-ink-900'
           }`}
         >
           {tab}
@@ -548,7 +591,7 @@ export function Avatar({ name, color }: { name: string; color?: string }) {
   return (
     <span
       className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ring-2 ring-white/80"
-      style={{ background: `linear-gradient(135deg, ${color ?? '#6366F1'}, ${color ?? '#6366F1'}cc)` }}
+      style={{ background: `linear-gradient(135deg, ${color ?? '#059571'}, ${color ?? '#059571'}cc)` }}
     >
       {init}
     </span>

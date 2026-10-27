@@ -175,7 +175,7 @@ export default function MastersPage() {
             <Table headers={['Department', 'Code', 'Head', 'Parent', 'Employees', 'Status', '']}>
               {departments.data.map((d) => (
                 <tr key={d.id}>
-                  <Td className="font-medium text-slate-900">{d.name}</Td>
+                  <Td className="font-medium text-ink-900">{d.name}</Td>
                   <Td>{d.code || '—'}</Td>
                   <Td>{d.head?.name ?? '—'}</Td>
                   <Td>{d.parent?.name ?? '—'}</Td>
@@ -193,7 +193,7 @@ export default function MastersPage() {
             <Table headers={['Designation', 'Level', 'Employees', 'Status', '']}>
               {designations.data.map((d) => (
                 <tr key={d.id}>
-                  <Td className="font-medium text-slate-900">{d.name}</Td>
+                  <Td className="font-medium text-ink-900">{d.name}</Td>
                   <Td>{d.level}</Td>
                   <Td>{d.employeeCount}</Td>
                   <Td>{status(d.isActive)}</Td>
@@ -208,7 +208,7 @@ export default function MastersPage() {
           <Table headers={['Grade', 'Name', 'Annual CTC band', 'Employees', 'Status', '']}>
             {grades.data.map((g) => (
               <tr key={g.id}>
-                <Td className="font-mono font-medium text-slate-900">{g.code}</Td>
+                <Td className="font-mono font-medium text-ink-900">{g.code}</Td>
                 <Td>{g.name}</Td>
                 <Td>{g.minCtc || g.maxCtc ? `${fmtMoney(g.minCtc)} – ${g.maxCtc ? fmtMoney(g.maxCtc) : 'no cap'}` : '—'}</Td>
                 <Td>{g.employeeCount}</Td>
@@ -280,7 +280,7 @@ export default function MastersPage() {
                 </Field>
               </div>
             )}
-            <label className="flex items-center gap-2 text-sm text-slate-600">
+            <label className="flex items-center gap-2 text-sm text-ink-600">
               <input type="checkbox" checked={editing.isActive} onChange={(e) => setEditing({ ...editing, isActive: e.target.checked })} />
               Active (inactive masters are hidden from pickers)
             </label>

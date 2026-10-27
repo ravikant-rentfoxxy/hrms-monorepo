@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { api, fmtDate } from '@/lib/api';
 import { useFetch } from '@/lib/useFetch';
+import { openAsCompany } from '@/components/acting-company';
 import {
   Badge, Button, Card, Empty, ErrorNote, Field, Input, Modal, PageHeader, Select, Spinner, Table, Td,
 } from '@/components/ui';
@@ -60,8 +61,8 @@ function MembersModal({ company, onClose }: { company: Company; onClose: () => v
 
   return (
     <Modal title={`Members — ${company.name}`} open onClose={onClose} wide>
-      <div className="mb-4 rounded-lg bg-slate-50 p-3">
-        <p className="mb-2 text-xs font-medium text-slate-500">
+      <div className="mb-4 rounded-lg bg-ink-50 p-3">
+        <p className="mb-2 text-xs font-medium text-ink-500">
           Grant access — existing users just need an email; new users need a name and password too.
         </p>
         <ErrorNote error={error} />
@@ -167,9 +168,9 @@ export default function CompaniesPage() {
           <Table headers={['Company', 'Code', 'Employees', 'Members', 'Status', 'Created', '']}>
             {companies.map((c) => (
               <tr key={c.id}>
-                <Td className="font-medium text-slate-900">{c.name}</Td>
+                <Td className="font-medium text-ink-900">{c.name}</Td>
                 <Td>
-                  <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">{c.code}</code>
+                  <code className="rounded bg-ink-100 px-1.5 py-0.5 text-xs">{c.code}</code>
                 </Td>
                 <Td>{c._count.employees}</Td>
                 <Td>{c._count.memberships}</Td>
@@ -179,6 +180,9 @@ export default function CompaniesPage() {
                   <div className="flex gap-2">
                     <Button variant="secondary" onClick={() => setMembersFor(c)}>
                       Members
+                    </Button>
+                    <Button variant="secondary" onClick={() => openAsCompany(c.id, '/leaves/policies')}>
+                      Leave policies
                     </Button>
                     <Button variant={c.isActive ? 'danger' : 'primary'} onClick={() => void toggleActive(c)}>
                       {c.isActive ? 'Disable' : 'Enable'}
@@ -200,7 +204,7 @@ export default function CompaniesPage() {
           <Field label="Email (optional)">
             <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="hq@acme.com" />
           </Field>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-ink-400">
             The company code is generated automatically (Code-01, Code-02, …).
           </p>
           <Button onClick={() => void create()} disabled={busy || !form.name} className="w-full">

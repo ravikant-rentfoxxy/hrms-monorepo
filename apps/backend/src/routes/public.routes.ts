@@ -8,6 +8,7 @@ import rateLimit from 'express-rate-limit';
 import { validate } from '../middleware/validate';
 import { upload } from '../middleware/upload';
 import * as portal from '../controllers/candidate-portal.controller';
+import * as idCard from '../controllers/id-card.controller';
 import { portalDeclineSchema, portalNegotiateSchema } from '../validations/recruitment.validation';
 
 /** Strict per-IP limit for the token-link portal (guessing tokens / hammering uploads). */
@@ -31,3 +32,13 @@ candidate.post('/offer/signed', upload.single('file'), portal.uploadSigned);
 candidate.post('/documents/:docId', upload.single('file'), portal.uploadDocument);
 
 publicRouter.use('/candidate/:token', candidate);
+
+// ID card QR → verify page. Tokens are 144-bit random; the limiter stops scanning for them.
+const idCardVerifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many requests, please try again in a few minutes.' },
+});
+publicRouter.get('/id-cards/:token', idCardVerifyLimiter, idCard.verify);

@@ -5,8 +5,6 @@ import * as controller from '../controllers/shift.controller';
 import {
   assignSchema,
   assignmentsQuerySchema,
-  myRosterQuerySchema,
-  rosterQuerySchema,
   shiftListQuerySchema,
   shiftSchema,
   shiftUpdateSchema,
@@ -18,8 +16,6 @@ shiftsRouter.use(authenticate, tenant);
 shiftsRouter.get('/', validate(shiftListQuerySchema, 'query'), controller.list);
 shiftsRouter.post('/', requireRole('ADMIN', 'HR'), validate(shiftSchema), controller.create);
 
-shiftsRouter.get('/roster', requireRole('ADMIN', 'HR', 'MANAGER'), validate(rosterQuerySchema, 'query'), controller.roster);
-shiftsRouter.get('/my-roster', validate(myRosterQuerySchema, 'query'), controller.myRoster);
 
 shiftsRouter.get('/assignments', validate(assignmentsQuerySchema, 'query'), controller.assignments);
 shiftsRouter.post('/assignments', requireRole('ADMIN', 'HR'), validate(assignSchema), controller.assign);

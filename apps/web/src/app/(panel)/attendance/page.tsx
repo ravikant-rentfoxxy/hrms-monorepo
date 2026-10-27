@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { API_URL, api, fmtDate, fmtTime, getActingCompanyId, getSession } from '@/lib/api';
 import { useFetch } from '@/lib/useFetch';
-import { Badge, Button, Card, Empty, ErrorNote, Icon, PageHeader, Spinner, Table, Tabs, Td, statusTone, DatePicker, MonthPicker } from '@/components/ui';
+import { Badge, Button, Card, Empty, ErrorNote, Icon, Input, LongText, PageHeader, Spinner, Table, Tabs, Td, statusTone, DatePicker, MonthPicker } from '@/components/ui';
 
 interface Regularization {
   id: string;
@@ -19,6 +19,42 @@ interface Regularization {
   currentLevel?: number | null;
 }
 
+type WorkMode = 'OFFICE' | 'REMOTE' | 'FIELD';
+
+const WORK_MODES: { value: WorkMode; label: string; short: string; tone: 'blue' | 'violet' | 'amber'; hint: string }[] = [
+  { value: 'OFFICE', label: 'Work from office', short: 'Office', tone: 'blue', hint: 'Check-in only inside the office location (geofence)' },
+  { value: 'REMOTE', label: 'Work from home', short: 'WFH', tone: 'violet', hint: 'Check-in from anywhere — location is recorded' },
+  { value: 'FIELD', label: 'Field work', short: 'Field', tone: 'amber', hint: 'Check-in from anywhere — location is recorded' },
+];
+const modeOf = (m: WorkMode | null | undefined) => WORK_MODES.find((x) => x.value === m) ?? WORK_MODES[0];
+
+function ModeBadge({ mode }: { mode: WorkMode | null | undefined }) {
+  const m = modeOf(mode);
+  return <Badge tone={m.tone}>{m.short}</Badge>;
+}
+
+/** Office punches show the distance from the office; WFH / field punches link to the captured spot on a map. */
+function PunchLocation({ r }: { r: Record_ }) {
+  if (r.checkInDistance != null) return <>{Math.round(r.checkInDistance)} m from office</>;
+  if (r.checkInLat == null || r.checkInLng == null) return <>—</>;
+  const pin = (lat: number, lng: number, label: string) => (
+    <a
+      href={`https://www.google.com/maps?q=${lat},${lng}`}
+      target="_blank"
+      rel="noreferrer"
+      className="text-brand-600 hover:underline"
+    >
+      {label}
+    </a>
+  );
+  return (
+    <span className="inline-flex gap-2">
+      {pin(r.checkInLat, r.checkInLng, 'In ↗')}
+      {r.checkOutLat != null && r.checkOutLng != null && pin(r.checkOutLat, r.checkOutLng, 'Out ↗')}
+    </span>
+  );
+}
+
 interface Record_ {
   id: string;
   date: string;
@@ -26,11 +62,16 @@ interface Record_ {
   checkIn: string | null;
   checkOut: string | null;
   checkInDistance: number | null;
+  checkInLat?: number | null;
+  checkInLng?: number | null;
+  checkOutLat?: number | null;
+  checkOutLng?: number | null;
+  workMode?: WorkMode | null;
   note: string | null;
   lateMinutes?: number;
   workedMinutes?: number | null;
   overtimeMinutes?: number;
-  employee?: { id: string; name: string; department: string };
+  employee?: { id: string; name: string; department: string; workMode?: WorkMode };
   shift?: { id: string; code: string; name: string; color: string } | null;
 }
 
@@ -40,6 +81,8 @@ interface TodaySummary {
   isWeeklyOff: boolean;
   holiday: string | null;
   leave: { halfDay: boolean; leaveType: { name: string } } | null;
+  workMode: WorkMode;
+  geofenced: boolean;
   record: Record_ | null;
 }
 
@@ -81,7 +124,7 @@ function TodayCard() {
     } catch (err) {
       setError(
         err instanceof GeolocationPositionError
-          ? 'Location permission is required for geofenced attendance'
+          ? 'Allow location access in your browser — your location is recorded with every check-in'
           : err instanceof Error
             ? err.message
             : 'Failed'
@@ -95,10 +138,10 @@ function TodayCard() {
     <Card className="mb-6 p-5">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold text-slate-900">
+          <p className="text-sm font-semibold text-ink-900">
             Today
             {summary && (
-              <span className="ml-2 inline-flex items-center gap-1.5 text-xs font-medium text-slate-500">
+              <span className="ml-2 inline-flex items-center gap-1.5 text-xs font-medium text-ink-500">
                 <span className="h-2 w-2 rounded-full" style={{ background: summary.shift.color }} />
                 {summary.shift.name} {summary.shift.startTime}–{summary.shift.endTime}
                 {summary.shift.isNight ? ' (+1)' : ''} · grace {summary.shift.graceMinutes}m
@@ -108,7 +151,7 @@ function TodayCard() {
               </span>
             )}
           </p>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-ink-500">
             {today?.checkIn ? (
               <>
                 In <b>{fmtTime(today.checkIn)}</b>
@@ -131,6 +174,12 @@ function TodayCard() {
               'Not checked in yet'
             )}
           </p>
+          {summary && (
+            <p className="mt-2 flex items-center gap-2 text-xs text-ink-500">
+              <ModeBadge mode={summary.workMode} />
+              {modeOf(summary.workMode).hint}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {today?.status && <Badge tone={statusTone(today.status)}>{today.status}</Badge>}
@@ -205,7 +254,7 @@ export default function AttendancePage() {
     <div>
       <PageHeader
         title="Attendance"
-        subtitle="Geofenced check-in / check-out against each employee's shift"
+        subtitle="Check-in / check-out against each employee's shift — office staff inside the geofence, work from home and field staff from anywhere"
         actions={
           isCompanyAdmin ? (
             <>
@@ -226,13 +275,19 @@ export default function AttendancePage() {
         </div>
       )}
       {isManagerial && (
-        <Tabs tabs={['My attendance', 'Company', 'Regularizations']} active={tab} onChange={setTab} />
+        <Tabs
+          tabs={['My attendance', 'Company', 'Regularizations', ...(isCompanyAdmin ? ['Work mode'] : [])]}
+          active={tab}
+          onChange={setTab}
+        />
       )}
 
-      {tab === 'My attendance' ? (
+      {tab === 'Work mode' && isCompanyAdmin ? (
+        <WorkModePanel />
+      ) : tab === 'My attendance' ? (
         <Card>
-          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-            <h2 className="text-sm font-semibold text-slate-900">Monthly record</h2>
+          <div className="flex items-center justify-between border-b border-ink-100 px-4 py-3">
+            <h2 className="text-sm font-semibold text-ink-900">Monthly record</h2>
             <div className="w-48">
               <MonthPicker value={month} onChange={setMonth} />
             </div>
@@ -244,19 +299,22 @@ export default function AttendancePage() {
           ) : !mine.data || mine.data.length === 0 ? (
             <Empty message="No records for this month" />
           ) : (
-            <Table headers={['Date', 'Status', 'Check in', 'Check out', 'Late', 'Worked', 'OT', 'Distance']}>
+            <Table headers={['Date', 'Status', 'Mode', 'Check in', 'Check out', 'Late', 'Worked', 'OT', 'Location']}>
               {mine.data.map((r) => (
                 <tr key={r.id}>
                   <Td>{fmtDate(r.date)}</Td>
                   <Td>
                     <Badge tone={statusTone(r.status)}>{r.status}</Badge>
                   </Td>
+                  <Td>{r.checkIn ? <ModeBadge mode={r.workMode} /> : '—'}</Td>
                   <Td>{fmtTime(r.checkIn)}</Td>
                   <Td>{fmtTime(r.checkOut)}</Td>
                   <Td>{r.lateMinutes ? `${r.lateMinutes}m` : '—'}</Td>
                   <Td>{worked(r)}</Td>
                   <Td>{mins(r.overtimeMinutes)}</Td>
-                  <Td>{r.checkInDistance != null ? `${Math.round(r.checkInDistance)} m` : '—'}</Td>
+                  <Td>
+                    <PunchLocation r={r} />
+                  </Td>
                 </tr>
               ))}
             </Table>
@@ -264,8 +322,8 @@ export default function AttendancePage() {
         </Card>
       ) : tab === 'Regularizations' ? (
         <Card>
-          <div className="border-b border-slate-100 px-4 py-3">
-            <h2 className="text-sm font-semibold text-slate-900">Attendance regularization requests</h2>
+          <div className="border-b border-ink-100 px-4 py-3">
+            <h2 className="text-sm font-semibold text-ink-900">Attendance regularization requests</h2>
           </div>
           {regularizations.loading ? (
             <Spinner />
@@ -275,14 +333,16 @@ export default function AttendancePage() {
             <Table headers={['Employee', 'Date', 'Reason', 'Note', 'Status', '']}>
               {regularizations.data.map((r) => (
                 <tr key={r.id}>
-                  <Td className="font-medium text-slate-900">{r.employee?.name}</Td>
+                  <Td className="font-medium text-ink-900">{r.employee?.name}</Td>
                   <Td>{fmtDate(r.date)}</Td>
                   <Td>{r.reason}</Td>
-                  <Td className="max-w-50 truncate">{r.note || '—'}</Td>
+                  <Td>
+                  <LongText text={r.note} />
+                </Td>
                   <Td>
                     <Badge tone={statusTone(r.status)}>{r.status}</Badge>
                     {r.status === 'PENDING' && !!r.currentLevel && r.currentLevel > 1 && (
-                      <span className="ml-1 text-xs text-slate-400">level {r.currentLevel}</span>
+                      <span className="ml-1 text-xs text-ink-400">level {r.currentLevel}</span>
                     )}
                   </Td>
                   <Td>
@@ -294,7 +354,7 @@ export default function AttendancePage() {
                         </Button>
                       </div>
                     ) : (
-                      <span className="text-xs text-slate-400">{r.approver?.name ?? ''}</span>
+                      <span className="text-xs text-ink-400">{r.approver?.name ?? ''}</span>
                     )}
                   </Td>
                 </tr>
@@ -304,8 +364,8 @@ export default function AttendancePage() {
         </Card>
       ) : (
         <Card>
-          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-            <h2 className="text-sm font-semibold text-slate-900">Company attendance</h2>
+          <div className="flex items-center justify-between border-b border-ink-100 px-4 py-3">
+            <h2 className="text-sm font-semibold text-ink-900">Company attendance</h2>
             <div className="w-48">
               <DatePicker value={day} onChange={setDay} />
             </div>
@@ -315,10 +375,10 @@ export default function AttendancePage() {
           ) : !company.data || company.data.length === 0 ? (
             <Empty message="No punches on this day" />
           ) : (
-            <Table headers={['Employee', 'Department', 'Shift', 'Status', 'Check in', 'Check out', 'Late', 'Worked', 'OT']}>
+            <Table headers={['Employee', 'Department', 'Shift', 'Mode', 'Status', 'Check in', 'Check out', 'Late', 'Worked', 'OT', 'Location']}>
               {company.data.map((r) => (
                 <tr key={r.id}>
-                  <Td className="font-medium text-slate-900">{r.employee?.name}</Td>
+                  <Td className="font-medium text-ink-900">{r.employee?.name}</Td>
                   <Td>{r.employee?.department || '—'}</Td>
                   <Td>
                     {r.shift ? (
@@ -330,6 +390,7 @@ export default function AttendancePage() {
                       '—'
                     )}
                   </Td>
+                  <Td>{r.checkIn ? <ModeBadge mode={r.workMode} /> : '—'}</Td>
                   <Td>
                     <Badge tone={statusTone(r.status)}>{r.status}</Badge>
                   </Td>
@@ -338,12 +399,197 @@ export default function AttendancePage() {
                   <Td>{r.lateMinutes ? `${r.lateMinutes}m` : '—'}</Td>
                   <Td>{worked(r)}</Td>
                   <Td>{mins(r.overtimeMinutes)}</Td>
+                  <Td>
+                    <PunchLocation r={r} />
+                  </Td>
                 </tr>
               ))}
             </Table>
           )}
         </Card>
       )}
+    </div>
+  );
+}
+
+interface WorkModeRow {
+  id: string;
+  name: string;
+  employeeCode: string;
+  department: string;
+  designation: string;
+  workMode: WorkMode;
+}
+
+/** HR / Admin: who works from the office (geofenced), from home or in the field. */
+function WorkModePanel() {
+  const { data, loading, error, reload } = useFetch<{ items: WorkModeRow[]; counts: Record<WorkMode, number> }>(
+    '/attendance/work-modes'
+  );
+  const [filter, setFilter] = useState<WorkMode | ''>('');
+  const [q, setQ] = useState('');
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const rows = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    return (data?.items ?? []).filter(
+      (e) =>
+        (!filter || e.workMode === filter) &&
+        (!term || [e.name, e.employeeCode, e.department, e.designation].some((v) => v.toLowerCase().includes(term)))
+    );
+  }, [data, filter, q]);
+
+  const save = async (employeeIds: string[], workMode: WorkMode) => {
+    setErr(null);
+    setBusy(true);
+    try {
+      await api('/attendance/work-modes', { method: 'PUT', body: { employeeIds, workMode } });
+      setSelected(new Set());
+      reload();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggle = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const allShown = rows.length > 0 && rows.every((r) => selected.has(r.id));
+
+  if (loading && !data) return <Spinner />;
+  if (error) return <ErrorNote error={error} />;
+  const total = data?.items.length ?? 0;
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-3">
+        {WORK_MODES.map((m) => (
+          <Card key={m.value} className="p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-ink-900">{m.label}</p>
+              <Badge tone={m.tone}>{data?.counts[m.value] ?? 0}</Badge>
+            </div>
+            <p className="mt-1 text-xs text-ink-500">{m.hint}</p>
+          </Card>
+        ))}
+      </div>
+
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-100 px-4 py-3">
+          <div className="flex flex-wrap gap-2">
+            {[{ value: '' as const, short: 'All', count: total }, ...WORK_MODES.map((m) => ({ value: m.value, short: m.label, count: data?.counts[m.value] ?? 0 }))].map(
+              (c) => (
+                <button
+                  key={c.value || 'ALL'}
+                  type="button"
+                  onClick={() => setFilter(c.value)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                    filter === c.value ? 'bg-brand-600 text-white' : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
+                  }`}
+                >
+                  {c.short} ({c.count})
+                </button>
+              )
+            )}
+          </div>
+          <div className="w-64">
+            <Input placeholder="Search name, ID, department…" value={q} onChange={(e) => setQ(e.target.value)} />
+          </div>
+        </div>
+
+        {selected.size > 0 && (
+          <div className="flex flex-wrap items-center gap-2 border-b border-brand-100 bg-brand-50 px-4 py-2.5 text-sm">
+            <span className="font-medium text-brand-900">{selected.size} selected — set to:</span>
+            {WORK_MODES.map((m) => (
+              <Button key={m.value} variant="secondary" disabled={busy} onClick={() => void save([...selected], m.value)}>
+                {m.label}
+              </Button>
+            ))}
+            <button type="button" className="ml-auto text-xs text-ink-500 hover:underline" onClick={() => setSelected(new Set())}>
+              Clear selection
+            </button>
+          </div>
+        )}
+        {err && (
+          <div className="px-4 pt-3">
+            <ErrorNote error={err} />
+          </div>
+        )}
+
+        {rows.length === 0 ? (
+          <Empty message={total === 0 ? 'No employees yet' : 'No employees match'} />
+        ) : (
+          <Table headers={['', 'Employee', 'Department', 'Work mode']}>
+            <tr className="bg-ink-50/60">
+              <Td>
+                <input
+                  type="checkbox"
+                  aria-label="Select all shown"
+                  checked={allShown}
+                  onChange={() =>
+                    setSelected((prev) => {
+                      const next = new Set(prev);
+                      for (const r of rows) {
+                        if (allShown) next.delete(r.id);
+                        else next.add(r.id);
+                      }
+                      return next;
+                    })
+                  }
+                />
+              </Td>
+              <Td className="text-xs text-ink-500">Select all shown ({rows.length})</Td>
+              <Td>{''}</Td>
+              <Td>{''}</Td>
+            </tr>
+            {rows.map((e) => (
+              <tr key={e.id}>
+                <Td>
+                  <input type="checkbox" aria-label={`Select ${e.name}`} checked={selected.has(e.id)} onChange={() => toggle(e.id)} />
+                </Td>
+                <Td>
+                  <p className="font-medium text-ink-900">{e.name}</p>
+                  <p className="text-xs text-ink-500">
+                    {e.employeeCode}
+                    {e.designation && ` · ${e.designation}`}
+                  </p>
+                </Td>
+                <Td>{e.department || '—'}</Td>
+                <Td>
+                  <div className="inline-flex rounded-lg bg-ink-100 p-0.5">
+                    {WORK_MODES.map((m) => (
+                      <button
+                        key={m.value}
+                        type="button"
+                        disabled={busy}
+                        title={m.hint}
+                        onClick={() => e.workMode !== m.value && void save([e.id], m.value)}
+                        className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                          e.workMode === m.value ? 'bg-white text-brand-700 shadow-sm' : 'text-ink-500 hover:text-ink-800'
+                        }`}
+                      >
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                </Td>
+              </tr>
+            ))}
+          </Table>
+        )}
+      </Card>
+      <p className="text-xs text-ink-500">
+        A change applies from the employee&apos;s next check-in. An office location must be set under Settings for the
+        office geofence to apply.
+      </p>
     </div>
   );
 }

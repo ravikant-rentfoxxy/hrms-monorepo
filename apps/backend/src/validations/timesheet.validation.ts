@@ -19,7 +19,10 @@ export const projectUpdateSchema = projectSchema.partial().extend({ isActive: z.
 
 export const listProjectsQuerySchema = z.object({
   includeInactive: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
+  mine: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
 });
+
+export const projectMembersSchema = z.object({ employeeIds: z.array(z.string().uuid()).max(500) });
 
 // ---- Timesheets ----
 

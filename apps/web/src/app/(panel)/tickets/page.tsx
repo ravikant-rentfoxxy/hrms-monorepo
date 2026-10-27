@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { api, fmtDate } from '@/lib/api';
 import { useFetch } from '@/lib/useFetch';
 import {
-  Badge, Button, Card, Empty, ErrorNote, Field, Input, Modal, PageHeader, Select, Spinner, Table, Tabs, Td, Textarea, statusTone,
+  Badge, Button, Card, Empty, ErrorNote, Field, Input, LongText, Modal, PageHeader, Select, Spinner, Table, Tabs, Td, Textarea, statusTone,
 } from '@/components/ui';
 
 interface Ticket {
@@ -50,12 +50,14 @@ export default function TicketsPage() {
   const renderRows = (tickets: Ticket[], withEmployee: boolean) =>
     tickets.map((t) => (
       <tr key={t.id}>
-        {withEmployee && <Td className="font-medium text-slate-900">{t.employee?.name}</Td>}
-        <Td className="font-medium text-slate-900">{t.subject}</Td>
+        {withEmployee && <Td className="font-medium text-ink-900">{t.employee?.name}</Td>}
+        <Td className="font-medium text-ink-900">{t.subject}</Td>
         <Td>
           <Badge tone="slate">{t.category}</Badge>
         </Td>
-        <Td className="max-w-60 truncate">{t.description}</Td>
+        <Td>
+          <LongText text={t.description} />
+        </Td>
         <Td>{fmtDate(t.createdOn)}</Td>
         <Td>
           {withEmployee && isCompanyAdmin ? (

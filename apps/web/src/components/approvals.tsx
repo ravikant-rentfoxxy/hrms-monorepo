@@ -77,28 +77,28 @@ export function ApprovalTrail({ module, requestId }: { module: ApprovalModule; r
   if (loading) return <Spinner />;
   if (error) return <ErrorNote error={error} />;
   if (!data || data.length === 0) {
-    return <p className="text-sm text-slate-400">No approval chain yet — it is created on the first decision.</p>;
+    return <p className="text-sm text-ink-400">No approval chain yet — it is created on the first decision.</p>;
   }
   return (
-    <ol className="relative space-y-4 border-l border-slate-200 pl-5">
+    <ol className="relative space-y-4 border-l border-ink-200 pl-5">
       {data.map((s) => (
         <li key={s.id} className="relative">
           <span
             className={`absolute -left-[26px] top-1 h-3 w-3 rounded-full ring-4 ring-white ${
-              s.status === 'APPROVED' ? 'bg-emerald-500' : s.status === 'REJECTED' ? 'bg-rose-500' : s.status === 'PENDING' ? 'bg-amber-400' : 'bg-slate-300'
+              s.status === 'APPROVED' ? 'bg-emerald-500' : s.status === 'REJECTED' ? 'bg-rose-500' : s.status === 'PENDING' ? 'bg-amber-400' : 'bg-ink-300'
             }`}
           />
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-semibold text-slate-800">
+            <span className="text-sm font-semibold text-ink-800">
               Level {s.level} · {s.approverName ?? '—'}
             </span>
             <Badge tone={statusTone(s.status)}>{s.status}</Badge>
           </div>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-ink-400">
             {typeLabel[s.approverType] ?? s.approverType}
             {s.actedAt && ` · ${s.actedByName ?? 'someone'} on ${fmtDate(s.actedAt)}`}
           </p>
-          {s.remarks && <p className="mt-1 rounded-lg bg-slate-50 px-2.5 py-1.5 text-sm text-slate-600">“{s.remarks}”</p>}
+          {s.remarks && <p className="mt-1 rounded-lg bg-ink-50 px-2.5 py-1.5 text-sm text-ink-600">“{s.remarks}”</p>}
         </li>
       ))}
     </ol>

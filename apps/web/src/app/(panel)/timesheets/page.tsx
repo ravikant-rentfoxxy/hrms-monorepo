@@ -76,28 +76,23 @@ interface Utilisation {
   byEmployee: (Bucket & { employee: { id: string; name: string; department: string } })[];
 }
 
-/** One grid line: a project with hours per day (keyed by YYYY-MM-DD). */
-interface GridRow {
+/** One timesheet line: a date, a project, what was done and the hours. */
+interface EntryRow {
+  key: string;
+  date: string; // YYYY-MM-DD
   projectId: string;
-  billable: boolean;
   description: string;
-  hours: Record<string, string>;
+  hours: string;
+  billable: boolean;
 }
 
-const parseDay = (s: string) => {
-  const [y, m, d] = dayOf(s).split('-').map(Number);
-  return new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1);
-};
+let rowSeq = 0;
+const newKey = () => `row-${++rowSeq}`;
 
-function rowsFromWeek(week: Week): GridRow[] {
-  const rows = new Map<string, GridRow>();
-  for (const e of week.entries) {
-    const row = rows.get(e.projectId) ?? { projectId: e.projectId, billable: e.billable, description: '', hours: {} };
-    row.hours[dayOf(e.date)] = String(e.hours);
-    if (!row.description && e.description) row.description = e.description;
-    rows.set(e.projectId, row);
-  }
-  return [...rows.values()];
+function rowsFromWeek(week: Week): EntryRow[] {
+  return [...week.entries]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((e) => ({ key: e.id, date: dayOf(e.date), projectId: e.projectId, description: e.description, hours: String(e.hours), billable: e.billable }));
 }
 
 const num = (s: string | undefined) => {
@@ -108,7 +103,7 @@ const num = (s: string | undefined) => {
 function Trail({ steps }: { steps: TrailStep[] }) {
   if (steps.length === 0) return null;
   return (
-    <ol className="space-y-1.5 text-xs text-slate-500">
+    <ol className="space-y-1.5 text-xs text-ink-500">
       {steps.map((s) => (
         <li key={s.id} className="flex flex-wrap items-center gap-2">
           <Badge tone={extraTone(s.status)}>L{s.level} {s.status}</Badge>
@@ -125,8 +120,7 @@ function MyWeek({ projects }: { projects: Project[] }) {
   const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()));
   const ws = isoDay(weekStart);
   const week = useFetch<Week>(`/timesheets/week?weekStart=${ws}`);
-  const [rows, setRows] = useState<GridRow[]>([]);
-  const [addProject, setAddProject] = useState('');
+  const [rows, setRows] = useState<EntryRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -142,14 +136,23 @@ function MyWeek({ projects }: { projects: Project[] }) {
 
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
   const editable = week.data?.editable ?? false;
-  const dayTotal = (d: string) => rows.reduce((s, r) => s + num(r.hours[d]), 0);
-  const rowTotal = (r: GridRow) => days.reduce((s, d) => s + num(r.hours[isoDay(d)]), 0);
-  const grand = rows.reduce((s, r) => s + rowTotal(r), 0);
+  const dayTotal = (d: string) => rows.reduce((s, r) => s + (r.date === d ? num(r.hours) : 0), 0);
+  const grand = rows.reduce((s, r) => s + num(r.hours), 0);
   const project = (id: string) => projects.find((p) => p.id === id) ?? week.data?.entries.find((e) => e.projectId === id)?.project;
-  const available = projects.filter((p) => !rows.some((r) => r.projectId === p.id));
+  // Lines missing a project or hours are not saved; flag them instead of dropping them silently.
+  const incomplete = rows.filter((r) => !r.projectId || num(r.hours) <= 0).length;
 
-  const update = (i: number, patch: Partial<GridRow>) => {
-    setRows(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  const update = (key: string, patch: Partial<EntryRow>) => {
+    setRows(rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+    setDirty(true);
+  };
+  const addRow = () => {
+    const today = isoDay(new Date());
+    const last = rows[rows.length - 1];
+    const firstDay = isoDay(days[0] ?? weekStart);
+    const date = last?.date ?? (days.some((d) => isoDay(d) === today) ? today : firstDay);
+    const p = last ? project(last.projectId) : projects.length === 1 ? projects[0] : undefined;
+    setRows([...rows, { key: newKey(), date, projectId: p?.id ?? '', description: '', hours: '', billable: p?.isBillable ?? true }]);
     setDirty(true);
   };
 
@@ -170,12 +173,9 @@ function MyWeek({ projects }: { projects: Project[] }) {
 
   const payload = () => ({
     weekStart: ws,
-    entries: rows.flatMap((r) =>
-      days
-        .map((d) => isoDay(d))
-        .filter((d) => num(r.hours[d]) > 0)
-        .map((d) => ({ projectId: r.projectId, date: d, hours: num(r.hours[d]), billable: r.billable, description: r.description }))
-    ),
+    entries: rows
+      .filter((r) => r.projectId && num(r.hours) > 0)
+      .map((r) => ({ projectId: r.projectId, date: r.date, hours: num(r.hours), billable: r.billable, description: r.description.trim() })),
   });
 
   const save = () => run(() => api('/timesheets/week', { method: 'PUT', body: payload() }), 'Timesheet saved');
@@ -203,7 +203,7 @@ function MyWeek({ projects }: { projects: Project[] }) {
             ←
           </Button>
           <div className="min-w-48 text-center">
-            <p className="text-sm font-semibold text-slate-900">
+            <p className="text-sm font-semibold text-ink-900">
               {fmtDate(weekStart)} – {fmtDate(addDays(weekStart, 6))}
             </p>
             {week.data && <Badge tone={extraTone(week.data.status)}>{week.data.status}</Badge>}
@@ -226,7 +226,7 @@ function MyWeek({ projects }: { projects: Project[] }) {
               <Button variant="secondary" disabled={busy} onClick={() => void save()}>
                 Save draft
               </Button>
-              <Button disabled={busy || grand <= 0} onClick={() => void submit()}>
+              <Button disabled={busy || grand <= 0 || incomplete > 0} onClick={() => void submit()}>
                 Submit week
               </Button>
             </>
@@ -254,75 +254,115 @@ function MyWeek({ projects }: { projects: Project[] }) {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-slate-200/80 bg-slate-50/60 text-[11px] uppercase tracking-wider text-slate-500">
-                  <th className="px-4 py-3 font-semibold">Project</th>
-                  {days.map((d) => (
-                    <th key={d.toISOString()} className={`px-2 py-3 text-center font-semibold ${d.getDay() % 6 === 0 ? 'text-slate-400' : ''}`}>
-                      {dayLabel(d)}
-                    </th>
-                  ))}
-                  <th className="px-3 py-3 text-right font-semibold">Total</th>
-                  <th className="px-3 py-3 font-semibold">Billable</th>
-                  {editable && <th />}
+                <tr className="border-b border-ink-200/80 bg-ink-50/60 text-[11px] uppercase tracking-wider text-ink-500">
+                  <th className="w-40 px-4 py-3 font-semibold">
+                    Date{editable && <span className="ml-0.5 text-rose-500">*</span>}
+                  </th>
+                  <th className="w-56 px-2 py-3 font-semibold">
+                    Project{editable && <span className="ml-0.5 text-rose-500">*</span>}
+                  </th>
+                  <th className="px-2 py-3 font-semibold">Description</th>
+                  <th className="w-24 px-2 py-3 text-right font-semibold">
+                    Hours{editable && <span className="ml-0.5 text-rose-500">*</span>}
+                  </th>
+                  <th className="w-20 px-2 py-3 text-center font-semibold">Billable</th>
+                  {editable && <th className="w-12" />}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-ink-100">
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={11}>
-                      <Empty message={editable ? 'Add a project row to start logging hours' : 'No hours logged this week'} />
+                    <td colSpan={6}>
+                      <Empty message={editable ? 'No entries yet — click “+ Add entry” to log your work' : 'No hours logged this week'} />
                     </td>
                   </tr>
                 )}
-                {rows.map((r, i) => {
+                {rows.map((r) => {
                   const p = project(r.projectId);
+                  const bad = editable && (!r.projectId || num(r.hours) <= 0);
                   return (
-                    <tr key={r.projectId}>
+                    <tr key={r.key} className={bad ? 'bg-amber-50/40' : ''}>
                       <td className="px-4 py-2 align-top">
-                        <p className="font-medium text-slate-900">
-                          <Badge tone="violet">{p?.code ?? '?'}</Badge> {p?.name}
-                        </p>
-                        <input
-                          value={r.description}
-                          disabled={!editable}
-                          placeholder="What did you work on?"
-                          onChange={(e) => update(i, { description: e.target.value })}
-                          className="mt-1 w-full rounded-lg border border-transparent bg-transparent px-1 py-0.5 text-xs text-slate-500 hover:border-slate-200 focus:border-indigo-300 focus:outline-none disabled:hover:border-transparent"
-                        />
+                        {editable ? (
+                          <Select value={r.date} onChange={(e) => update(r.key, { date: e.target.value })}>
+                            {days.map((d) => (
+                              <option key={isoDay(d)} value={isoDay(d)}>
+                                {dayLabel(d)} {d.toLocaleDateString('en-IN', { month: 'short' })}
+                              </option>
+                            ))}
+                          </Select>
+                        ) : (
+                          <span className="text-ink-700">{fmtDate(r.date)}</span>
+                        )}
                       </td>
-                      {days.map((d) => {
-                        const key = isoDay(d);
-                        return (
-                          <td key={key} className="px-1 py-2 text-center">
-                            <input
-                              type="number"
-                              min={0}
-                              max={24}
-                              step={0.25}
-                              value={r.hours[key] ?? ''}
-                              disabled={!editable}
-                              onChange={(e) => update(i, { hours: { ...r.hours, [key]: e.target.value } })}
-                              className="w-16 rounded-lg border border-slate-200 px-2 py-1.5 text-center text-sm focus:border-indigo-400 focus:outline-none disabled:border-transparent disabled:bg-transparent"
-                            />
-                          </td>
-                        );
-                      })}
-                      <td className="px-3 py-2 text-right font-semibold text-slate-900">{rowTotal(r)}</td>
-                      <td className="px-3 py-2">
+                      <td className="px-2 py-2 align-top">
+                        {editable ? (
+                          <Select
+                            value={r.projectId}
+                            onChange={(e) => {
+                              const np = projects.find((x) => x.id === e.target.value);
+                              update(r.key, { projectId: e.target.value, billable: np?.isBillable ?? r.billable });
+                            }}
+                          >
+                            <option value="">Select a project…</option>
+                            {projects.map((x) => (
+                              <option key={x.id} value={x.id}>
+                                {x.code} — {x.name}
+                              </option>
+                            ))}
+                            {p && !projects.some((x) => x.id === p.id) && <option value={p.id}>{p.code} — {p.name} (inactive)</option>}
+                          </Select>
+                        ) : (
+                          <p className="font-medium text-ink-900">
+                            <Badge tone="violet">{p?.code ?? '?'}</Badge> {p?.name}
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-2 py-2 align-top">
+                        {editable ? (
+                          <Textarea
+                            rows={1}
+                            maxLength={500}
+                            value={r.description}
+                            placeholder="What did you work on?"
+                            onChange={(e) => update(r.key, { description: e.target.value })}
+                            className="min-h-[42px]"
+                          />
+                        ) : (
+                          <p className="whitespace-pre-line text-ink-600">{r.description || '—'}</p>
+                        )}
+                      </td>
+                      <td className="px-2 py-2 text-right align-top">
+                        {editable ? (
+                          <input
+                            type="number"
+                            min={0}
+                            max={24}
+                            step={0.25}
+                            value={r.hours}
+                            placeholder="0"
+                            onChange={(e) => update(r.key, { hours: e.target.value })}
+                            className="w-20 rounded-xl border border-ink-200 px-2.5 py-2.5 text-right text-sm shadow-sm focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
+                          />
+                        ) : (
+                          <span className="font-semibold text-ink-900">{num(r.hours)}</span>
+                        )}
+                      </td>
+                      <td className="px-2 py-2 text-center align-top">
                         <input
                           type="checkbox"
                           checked={r.billable}
                           disabled={!editable}
-                          onChange={(e) => update(i, { billable: e.target.checked })}
-                          className="h-4 w-4 accent-indigo-600"
+                          onChange={(e) => update(r.key, { billable: e.target.checked })}
+                          className="mt-3 h-4 w-4 accent-brand-600"
                         />
                       </td>
                       {editable && (
-                        <td className="px-2">
+                        <td className="px-2 py-2 align-top">
                           <Button
                             variant="ghost"
                             onClick={() => {
-                              setRows(rows.filter((_, idx) => idx !== i));
+                              setRows(rows.filter((x) => x.key !== r.key));
                               setDirty(true);
                             }}
                           >
@@ -334,60 +374,40 @@ function MyWeek({ projects }: { projects: Project[] }) {
                   );
                 })}
               </tbody>
-              {rows.length > 0 && (
-                <tfoot>
-                  <tr className="border-t border-slate-200 bg-slate-50/60 text-sm font-semibold">
-                    <td className="px-4 py-2.5 text-slate-500">Day total</td>
-                    {days.map((d) => {
-                      const t = dayTotal(isoDay(d));
-                      return (
-                        <td key={d.toISOString()} className={`px-1 py-2.5 text-center ${t > 24 ? 'text-rose-600' : 'text-slate-700'}`}>
-                          {t || '—'}
-                        </td>
-                      );
-                    })}
-                    <td className="px-3 py-2.5 text-right text-indigo-700">{grand}</td>
-                    <td colSpan={editable ? 2 : 1} />
-                  </tr>
-                </tfoot>
-              )}
             </table>
           </div>
         )}
-        {editable && (
-          <div className="flex flex-wrap items-end gap-2 border-t border-slate-100 p-4">
-            <Field label="Add project">
-              <Select value={addProject} onChange={(e) => setAddProject(e.target.value)} className="min-w-64">
-                <option value="">Select a project…</option>
-                {available.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.code} — {p.name}
-                    {p.client ? ` (${p.client})` : ''}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Button
-              variant="secondary"
-              disabled={!addProject}
-              onClick={() => {
-                const p = projects.find((x) => x.id === addProject);
-                if (!p) return;
-                setRows([...rows, { projectId: p.id, billable: p.isBillable, description: '', hours: {} }]);
-                setAddProject('');
-                setDirty(true);
-              }}
-            >
-              + Add row
-            </Button>
-            {projects.length === 0 && <p className="text-xs text-slate-400">No active projects yet — ask HR or your manager to create one.</p>}
+        {(rows.length > 0 || editable) && (
+          <div className="flex flex-wrap items-center gap-3 border-t border-ink-100 p-4">
+            {editable && (
+              <Button variant="secondary" onClick={addRow} disabled={projects.length === 0}>
+                + Add entry
+              </Button>
+            )}
+            {projects.length === 0 && editable && <p className="text-xs text-ink-400">No projects available to you yet — ask HR or your manager to add you to a project.</p>}
+            <div className="ml-auto flex flex-wrap items-center gap-1.5 text-xs">
+              {days.map((d) => {
+                const t = dayTotal(isoDay(d));
+                return t > 0 ? (
+                  <span key={isoDay(d)} className={`rounded-full px-2.5 py-1 font-medium ${t > 24 ? 'bg-rose-50 text-rose-700' : 'bg-ink-100 text-ink-600'}`}>
+                    {dayLabel(d)}: {t}h
+                  </span>
+                ) : null;
+              })}
+              <span className="rounded-full bg-brand-600 px-3 py-1 font-semibold text-white">Week total: {grand}h</span>
+            </div>
           </div>
+        )}
+        {editable && incomplete > 0 && (
+          <p className="px-4 pb-4 text-xs text-amber-700">
+            {incomplete} entr{incomplete === 1 ? 'y needs' : 'ies need'} a project and hours before you can submit.
+          </p>
         )}
       </Card>
 
       {week.data && week.data.trail.length > 0 && (
         <Card className="p-4">
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Approval trail</p>
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-500">Approval trail</p>
           <Trail steps={week.data.trail} />
         </Card>
       )}
@@ -415,9 +435,6 @@ function WeekDetail({ id, onClose, onDecided }: { id: string; onClose: () => voi
     }
   };
 
-  const days = data ? Array.from({ length: 7 }, (_, i) => addDays(parseDay(data.weekStart), i)) : [];
-  const projects = data ? [...new Map(data.entries.map((e) => [e.projectId, e.project])).values()] : [];
-
   return (
     <Modal title={data ? `${data.employee.name} — week of ${fmtDate(data.weekStart)}` : 'Timesheet'} open onClose={onClose} wide>
       {loading || !data ? (
@@ -425,42 +442,23 @@ function WeekDetail({ id, onClose, onDecided }: { id: string; onClose: () => voi
       ) : (
         <div className="space-y-4">
           <ErrorNote error={error} />
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-[11px] uppercase tracking-wider text-slate-500">
-                  <th className="py-2 text-left">Project</th>
-                  {days.map((d) => (
-                    <th key={d.toISOString()} className="px-1 py-2 text-center">
-                      {dayLabel(d)}
-                    </th>
-                  ))}
-                  <th className="py-2 text-right">Total</th>
+          <Table headers={['Date', 'Project', 'Description', 'Hours']}>
+            {[...data.entries]
+              .sort((a, b) => a.date.localeCompare(b.date))
+              .map((e) => (
+                <tr key={e.id}>
+                  <Td className="whitespace-nowrap">{fmtDate(e.date)}</Td>
+                  <Td>
+                    <Badge tone="violet">{e.project.code}</Badge> <span className="text-ink-700">{e.project.name}</span>
+                    {!e.billable && <span className="ml-1 text-xs text-ink-400">(non-billable)</span>}
+                  </Td>
+                  <Td className="max-w-sm whitespace-pre-line text-ink-600">{e.description || '—'}</Td>
+                  <Td className="text-right font-semibold">{e.hours}</Td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {projects.map((p) => {
-                  const lines = data.entries.filter((e) => e.projectId === p.id);
-                  return (
-                    <tr key={p.id}>
-                      <td className="py-2">
-                        <Badge tone="violet">{p.code}</Badge> <span className="text-slate-700">{p.name}</span>
-                        {lines.some((l) => !l.billable) && <span className="ml-1 text-xs text-slate-400">(non-billable)</span>}
-                      </td>
-                      {days.map((d) => (
-                        <td key={d.toISOString()} className="px-1 py-2 text-center text-slate-700">
-                          {lines.find((l) => dayOf(l.date) === isoDay(d))?.hours ?? '—'}
-                        </td>
-                      ))}
-                      <td className="py-2 text-right font-semibold">{lines.reduce((s, l) => s + l.hours, 0)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <p className="text-sm text-slate-600">
-            Total <span className="font-semibold text-slate-900">{data.totalHours}h</span> ·{' '}
+              ))}
+          </Table>
+          <p className="text-sm text-ink-600">
+            Total <span className="font-semibold text-ink-900">{data.totalHours}h</span> ·{' '}
             <Badge tone={extraTone(data.status)}>{data.status}</Badge>
           </p>
           <Trail steps={data.trail} />
@@ -499,9 +497,9 @@ function WeekList({ path, empty, canDecide }: { path: string; empty: string; can
         <Table headers={['Employee', 'Week', 'Billable', 'Non-billable', 'Total', 'Status', '']}>
           {data.map((w) => (
             <tr key={w.id}>
-              <Td className="font-medium text-slate-900">
+              <Td className="font-medium text-ink-900">
                 {w.employee.name}
-                <span className="block text-xs font-normal text-slate-400">{w.employee.department || w.employee.employeeCode}</span>
+                <span className="block text-xs font-normal text-ink-400">{w.employee.department || w.employee.employeeCode}</span>
               </Td>
               <Td>{fmtDate(w.weekStart)}</Td>
               <Td>{w.billableHours}h</Td>
@@ -553,8 +551,8 @@ function UtilisationReport({ projects }: { projects: Project[] }) {
             ))}
           </Select>
         </Field>
-        <label className="flex items-center gap-2 pb-2.5 text-sm text-slate-600">
-          <input type="checkbox" checked={approvedOnly} onChange={(e) => setApprovedOnly(e.target.checked)} className="accent-indigo-600" />
+        <label className="flex items-center gap-2 pb-2.5 text-sm text-ink-600">
+          <input type="checkbox" checked={approvedOnly} onChange={(e) => setApprovedOnly(e.target.checked)} className="accent-brand-600" />
           Approved weeks only
         </label>
         <Button
@@ -580,7 +578,7 @@ function UtilisationReport({ projects }: { projects: Project[] }) {
           </div>
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
-              <p className="px-4 pt-4 text-sm font-semibold text-slate-900">By project</p>
+              <p className="px-4 pt-4 text-sm font-semibold text-ink-900">By project</p>
               {data.byProject.length === 0 ? (
                 <Empty message="No hours in this range" />
               ) : (
@@ -600,14 +598,14 @@ function UtilisationReport({ projects }: { projects: Project[] }) {
               )}
             </Card>
             <Card>
-              <p className="px-4 pt-4 text-sm font-semibold text-slate-900">By employee</p>
+              <p className="px-4 pt-4 text-sm font-semibold text-ink-900">By employee</p>
               {data.byEmployee.length === 0 ? (
                 <Empty message="No hours in this range" />
               ) : (
                 <Table headers={['Employee', 'Billable', 'Non-bill.', 'Total', 'Billable %']}>
                   {data.byEmployee.map((e) => (
                     <tr key={e.employee.id}>
-                      <Td className="font-medium text-slate-900">{e.employee.name}</Td>
+                      <Td className="font-medium text-ink-900">{e.employee.name}</Td>
                       <Td>{e.billable}</Td>
                       <Td>{e.nonBillable}</Td>
                       <Td className="font-semibold">{e.total}</Td>
@@ -632,7 +630,7 @@ export default function TimesheetsPage() {
     ...(isCompanyAdmin ? ['All', 'Utilisation'] : []),
   ];
   const [tab, setTab] = useState(tabs[0] ?? 'Approvals');
-  const projects = useFetch<Project[]>('/projects');
+  const projects = useFetch<Project[]>('/projects?mine=true');
 
   return (
     <div>

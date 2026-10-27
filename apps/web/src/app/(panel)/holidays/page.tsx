@@ -108,7 +108,7 @@ function EditModal({ holiday, onClose, onDone }: { holiday: Holiday; onClose: ()
         <Field label="Date">
           <DatePicker value={form.date} onChange={(v) => setForm({ ...form, date: v })} />
         </Field>
-        <label className="flex items-center gap-2 text-sm text-slate-600">
+        <label className="flex items-center gap-2 text-sm text-ink-600">
           <input type="checkbox" checked={form.optional} onChange={(e) => setForm({ ...form, optional: e.target.checked })} />
           Optional holiday
         </label>
@@ -166,7 +166,7 @@ export default function HolidaysPage() {
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(e.target.value)}
-              className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+              className="rounded-lg border border-ink-300 px-2 py-1.5 text-sm"
             >
               {[year - 1, year, year + 1].map((y) => (
                 <option key={y}>{y}</option>
@@ -185,7 +185,7 @@ export default function HolidaysPage() {
             <Field label="Date">
               <DatePicker value={form.date} onChange={(v) => setForm({ ...form, date: v })} />
             </Field>
-            <label className="mb-2 flex items-center gap-2 text-sm text-slate-600">
+            <label className="mb-2 flex items-center gap-2 text-sm text-ink-600">
               <input type="checkbox" checked={form.optional} onChange={(e) => setForm({ ...form, optional: e.target.checked })} />
               Optional
             </label>
@@ -193,7 +193,7 @@ export default function HolidaysPage() {
               Add holiday
             </Button>
           </div>
-          <p className="mt-3 text-xs text-slate-400">Public holidays are excluded from leave day counts and can be claimed as comp-off when worked.</p>
+          <p className="mt-3 text-xs text-ink-400">Public holidays are excluded from leave day counts and can be claimed as comp-off when worked.</p>
         </Card>
       )}
       <div className="mb-3">
@@ -209,7 +209,7 @@ export default function HolidaysPage() {
           <Table headers={['Holiday', 'Date', 'Day', 'Type', ...(isCompanyAdmin ? [''] : [])]}>
             {data.map((h) => (
               <tr key={h.id}>
-                <Td className="font-medium text-slate-900">{h.name}</Td>
+                <Td className="font-medium text-ink-900">{h.name}</Td>
                 <Td>{fmtDate(h.date)}</Td>
                 <Td>{new Date(h.date).toLocaleDateString('en-IN', { weekday: 'long', timeZone: 'UTC' })}</Td>
                 <Td>{h.optional ? <Badge tone="slate">optional</Badge> : <Badge tone="blue">public</Badge>}</Td>

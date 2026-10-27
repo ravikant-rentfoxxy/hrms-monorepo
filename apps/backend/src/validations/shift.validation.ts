@@ -46,14 +46,3 @@ export const assignmentsQuerySchema = z.object({
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),
 });
-
-export const rosterQuerySchema = z.object({
-  from: z.coerce.date(),
-  to: z.coerce.date(),
-  departmentId: z.string().uuid().optional(),
-});
-
-export const myRosterQuerySchema = z.object({
-  from: z.coerce.date().optional(),
-  days: z.coerce.number().int().min(1).max(62).default(14),
-});

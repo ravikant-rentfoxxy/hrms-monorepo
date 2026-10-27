@@ -5,14 +5,15 @@
 }
 
 :root {
-  --bg: #f4f5fa;
-  --sidebar: #0f1222;
-  --sidebar-muted: #8b90ad;
-  --accent: #4f46e5;
+  /* Admin panel surfaces — same navy + emerald family as the marketing site. */
+  --bg: #f5f6f4;
+  --sidebar: #07122a;
+  --sidebar-muted: #8d98ac;
+  --accent: #059571;
 }
 
 ::selection {
-  background: #c7d2fe;
+  background: #a6f3d6;
 }
 
 /* slim scrollbars inside the sidebar */
@@ -36,4 +37,275 @@
 }
 .animate-modal-in {
   animation: modal-in 0.18s ease-out;
+}
+
+/* ===================================================================== */
+/* Marketing site (landing page, /login, /demo) — tokens, reveal, motion. */
+/* ===================================================================== */
+
+/*
+ * Design tokens. Navy ink for type, emerald/teal brand accent, warm off-white
+ * canvas. Every component reads these — change the brand here, not in markup.
+ */
+@theme {
+  --color-ink-950: #07122a;
+  --color-ink-900: #0b1a36;
+  --color-ink-800: #172845;
+  --color-ink-700: #2a3b59;
+  --color-ink-600: #445471;
+  --color-ink-500: #64728b;
+  --color-ink-400: #8d98ac;
+  --color-ink-300: #b8c0ce;
+  --color-ink-200: #dde2ea;
+  --color-ink-100: #eef1f5;
+  --color-ink-50: #f6f8fa;
+
+  --color-brand-50: #ecfdf6;
+  --color-brand-100: #d1fae9;
+  --color-brand-200: #a6f3d6;
+  --color-brand-300: #6de6bf;
+  --color-brand-400: #34d1a3;
+  --color-brand-500: #10b88a;
+  --color-brand-600: #059571;
+  --color-brand-700: #04775d;
+  --color-brand-800: #075e4b;
+  --color-brand-900: #084d3f;
+  --color-brand-950: #042f27;
+
+  --color-canvas: #fbfbf9;
+  --color-surface: #ffffff;
+
+  --shadow-soft: 0 1px 2px rgb(11 26 54 / 0.04), 0 4px 16px -4px rgb(11 26 54 / 0.08);
+  --shadow-lift: 0 2px 4px rgb(11 26 54 / 0.04), 0 24px 48px -16px rgb(11 26 54 / 0.18);
+  --shadow-float: 0 1px 2px rgb(11 26 54 / 0.06), 0 12px 32px -8px rgb(11 26 54 / 0.22);
+
+  --radius-card: 1.25rem;
+
+  --animate-marquee: marquee 40s linear infinite;
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+  /* Anchored sections land below the sticky header. */
+  scroll-padding-top: 5.5rem;
+}
+
+/* Marketing pages (landing, /login, /demo) — scoped so the admin panel keeps its own look. */
+.marketing ::selection {
+  background: var(--color-brand-200);
+  color: var(--color-ink-950);
+}
+
+/* Visible, consistent keyboard focus. */
+.marketing :focus-visible {
+  outline: 2px solid var(--color-brand-600);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Faint grid used behind the hero and section backdrops. */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgb(11 26 54 / 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(11 26 54 / 0.045) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+/* Accordion height animation (Radix exposes the measured height). */
+@keyframes expand {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-accordion-content-height);
+  }
+}
+@keyframes collapse {
+  from {
+    height: var(--radix-accordion-content-height);
+  }
+  to {
+    height: 0;
+  }
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes menu-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+/* ------------------------------------------------------------------ Reveal
+ * Elements are visible by default. Only when JS is confirmed (html.js) are
+ * not-yet-seen elements hidden; useReveal() adds [data-shown] on first view. */
+[data-reveal] {
+  transition:
+    opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s),
+    transform 0.65s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s);
+}
+.js [data-reveal]:not([data-shown]) {
+  opacity: 0;
+  transform: translateY(18px);
+}
+
+/* Charts draw themselves when their panel is first seen. */
+[data-chart] .chart-bar {
+  transform-origin: bottom;
+  transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1) var(--d, 0s);
+}
+[data-chart] .chart-hbar {
+  transform-origin: left;
+  transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1) var(--d, 0s);
+}
+[data-chart] .chart-line {
+  stroke-dasharray: 1;
+  transition: stroke-dashoffset 1.2s ease-in-out;
+}
+[data-chart] .chart-fade {
+  transition: opacity 0.8s ease 0.5s;
+}
+.js [data-chart]:not([data-shown]) .chart-bar {
+  transform: scaleY(0);
+}
+.js [data-chart]:not([data-shown]) .chart-hbar {
+  transform: scaleX(0);
+}
+.js [data-chart]:not([data-shown]) .chart-line {
+  stroke-dashoffset: 1;
+}
+.js [data-chart]:not([data-shown]) .chart-fade {
+  opacity: 0;
+}
+
+/* Hero entrance + floating cards: CSS only, so they run before hydration. */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: perspective(1600px) translateY(40px) rotateX(8deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+.animate-fade-up {
+  animation: fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.animate-rise-in {
+  animation: rise-in 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.animate-float {
+  animation:
+    fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both,
+    float 6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-rise-in,
+  .animate-float {
+    animation: none;
+  }
+  .js [data-reveal]:not([data-shown]),
+  .js [data-chart]:not([data-shown]) .chart-bar,
+  .js [data-chart]:not([data-shown]) .chart-hbar,
+  .js [data-chart]:not([data-shown]) .chart-fade {
+    opacity: 1;
+    transform: none;
+  }
+  .js [data-chart]:not([data-shown]) .chart-line {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Demo dialog: bottom sheet on phones, centred card from sm up. */
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -48%) scale(0.97);
+  }
+}
+
+/* ID card printing: only the card faces, at true CR80 size (drawn at 5 px/mm → 96 dpi is 3.78 px/mm). */
+@media print {
+  body:has(.id-card-print) * { visibility: hidden; }
+  body:has(.id-card-print) .id-card-print,
+  body:has(.id-card-print) .id-card-print * { visibility: visible; }
+  .id-card-print {
+    position: absolute;
+    inset: 0 auto auto 0;
+    gap: 6mm !important;
+    zoom: 0.756;
+  }
+  .id-card-face {
+    box-shadow: none !important;
+    outline: 0.3mm solid #d4d8de;
+    break-inside: avoid;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 }

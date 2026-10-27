@@ -35,7 +35,7 @@ export const runRecalculateSchema = z.object({
 
 const fySchema = z.string().regex(/^\d{4}-\d{2}$/, 'Financial year like 2026-27');
 
-export const form16QuerySchema = z.object({ fy: fySchema.optional() });
+export const form16QuerySchema = z.object({ fy: fySchema.optional(), inline: z.enum(['true', '1', 'false', '0']).optional() });
 
 export const taxProjectionQuerySchema = z.object({ employeeId: z.string().uuid().optional() });
 

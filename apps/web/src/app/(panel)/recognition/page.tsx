@@ -64,18 +64,18 @@ function KudosCard({ k, onDelete }: { k: Kudos; onDelete?: () => void }) {
       <div className="flex items-start gap-3">
         <Avatar name={k.toEmployee.name} color={k.toEmployee.avatarColor} />
         <div className="min-w-0 flex-1">
-          <p className="text-sm text-slate-600">
-            <span className="font-semibold text-slate-900">{k.fromEmployee.name}</span> recognised{' '}
-            <span className="font-semibold text-slate-900">{k.toEmployee.name}</span>
+          <p className="text-sm text-ink-600">
+            <span className="font-semibold text-ink-900">{k.fromEmployee.name}</span> recognised{' '}
+            <span className="font-semibold text-ink-900">{k.toEmployee.name}</span>
           </p>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <Badge tone="violet">
               {badge.emoji} {badge.label}
             </Badge>
             <Badge tone="amber">+{k.points} pts</Badge>
-            <span className="text-xs text-slate-400">{fmtDate(k.createdAt)}</span>
+            <span className="text-xs text-ink-400">{fmtDate(k.createdAt)}</span>
           </div>
-          <p className="mt-2 whitespace-pre-line text-sm text-slate-700">{k.message}</p>
+          <p className="mt-2 whitespace-pre-line text-sm text-ink-700">{k.message}</p>
         </div>
         {onDelete && (
           <Button variant="ghost" onClick={onDelete}>
@@ -136,7 +136,7 @@ function GiveModal({ onClose, onDone }: { onClose: () => void; onDone: () => voi
                 type="button"
                 onClick={() => setForm({ ...form, badge: key })}
                 className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                  form.badge === key ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                  form.badge === key ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-ink-200 text-ink-600 hover:border-ink-300'
                 }`}
               >
                 {b.emoji} {b.label}
@@ -231,7 +231,7 @@ export default function RecognitionPage() {
                 <Button variant="secondary" disabled={page <= 1} onClick={() => setPage(page - 1)}>
                   ← Newer
                 </Button>
-                <span className="text-sm text-slate-500">
+                <span className="text-sm text-ink-500">
                   Page {page} of {pages}
                 </span>
                 <Button variant="secondary" disabled={page >= pages} onClick={() => setPage(page + 1)}>
@@ -244,8 +244,8 @@ export default function RecognitionPage() {
 
       {tab === 'Leaderboard' && (
         <Card>
-          <div className="flex items-center justify-between border-b border-slate-100 p-4">
-            <p className="text-sm font-semibold text-slate-900">Top recognised</p>
+          <div className="flex items-center justify-between border-b border-ink-100 p-4">
+            <p className="text-sm font-semibold text-ink-900">Top recognised</p>
             <div className="w-44">
               <MonthPicker value={month} onChange={setMonth} />
             </div>
@@ -255,18 +255,18 @@ export default function RecognitionPage() {
           ) : !board.data || board.data.entries.length === 0 ? (
             <Empty message="No kudos in this month" />
           ) : (
-            <ul className="divide-y divide-slate-100">
+            <ul className="divide-y divide-ink-100">
               {board.data.entries.map((e) => (
                 <li key={e.employee?.id ?? e.rank} className="flex items-center gap-3 px-4 py-3">
-                  <span className={`w-7 text-center text-sm font-bold ${e.rank <= 3 ? 'text-amber-500' : 'text-slate-400'}`}>
+                  <span className={`w-7 text-center text-sm font-bold ${e.rank <= 3 ? 'text-amber-500' : 'text-ink-400'}`}>
                     {e.rank <= 3 ? ['🥇', '🥈', '🥉'][e.rank - 1] : `#${e.rank}`}
                   </span>
                   <Avatar name={e.employee?.name ?? '?'} color={e.employee?.avatarColor} />
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-slate-900">{e.employee?.name ?? 'Former employee'}</p>
-                    <p className="text-xs text-slate-400">{e.employee?.department}</p>
+                    <p className="text-sm font-medium text-ink-900">{e.employee?.name ?? 'Former employee'}</p>
+                    <p className="text-xs text-ink-400">{e.employee?.department}</p>
                   </div>
-                  <span className="text-sm text-slate-500">{e.kudos} kudos</span>
+                  <span className="text-sm text-ink-500">{e.kudos} kudos</span>
                   <Badge tone="amber">{e.points} pts</Badge>
                 </li>
               ))}
@@ -278,7 +278,7 @@ export default function RecognitionPage() {
       {tab === 'My kudos' && mine.data && (
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="space-y-3">
-            <p className="text-sm font-semibold text-slate-900">Received</p>
+            <p className="text-sm font-semibold text-ink-900">Received</p>
             {mine.data.received.length === 0 ? (
               <Card>
                 <Empty message="No kudos received yet" />
@@ -288,7 +288,7 @@ export default function RecognitionPage() {
             )}
           </div>
           <div className="space-y-3">
-            <p className="text-sm font-semibold text-slate-900">Given</p>
+            <p className="text-sm font-semibold text-ink-900">Given</p>
             {mine.data.given.length === 0 ? (
               <Card>
                 <Empty message="You haven't given kudos yet" />

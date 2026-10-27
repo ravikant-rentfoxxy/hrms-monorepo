@@ -166,7 +166,7 @@ export default function PreJoiningPage() {
 
   return (
     <div>
-      <Link href={`/recruitment/applications/${p.application.id}`} className="mb-3 inline-block text-sm text-slate-500 hover:text-indigo-600">
+      <Link href={`/recruitment/applications/${p.application.id}`} className="mb-3 inline-block text-sm text-ink-500 hover:text-brand-600">
         ← Application {p.application.code}
       </Link>
       <PageHeader
@@ -185,14 +185,14 @@ export default function PreJoiningPage() {
           )
         }
       />
-      <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-slate-500">
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-ink-500">
         <StatusBadge status={p.status} />
         <span>
           Joining {fmtDate(p.confirmedJoiningDate ?? p.expectedJoiningDate)} ({p.confirmedJoiningDate ? 'confirmed' : 'expected'})
         </span>
         <span>· Portal link {p.application.portal.active ? `active until ${fmtDate(p.application.portal.expiresAt)}` : 'not active — create one on the application'}</span>
         {offer?.employeeId && (
-          <Link href={`/employees/${offer.employeeId}`} className="font-medium text-indigo-600">
+          <Link href={`/employees/${offer.employeeId}`} className="font-medium text-brand-600">
             · Employee profile →
           </Link>
         )}
@@ -206,7 +206,7 @@ export default function PreJoiningPage() {
       <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
         <Card>
           <div className="flex items-center justify-between px-5 pt-4">
-            <h2 className="text-sm font-semibold text-slate-900">Document checklist</h2>
+            <h2 className="text-sm font-semibold text-ink-900">Document checklist</h2>
             {open && (
               <Button variant="ghost" onClick={() => { setNewDoc({ type: 'OTHER', name: '', required: 'true' }); setError(null); setModal('doc'); }}>
                 + Add document
@@ -221,11 +221,11 @@ export default function PreJoiningPage() {
                 <tr key={d.id}>
                   <Td>
                     <span className="font-medium">{d.name}</span>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-ink-400">
                       {label(d.type)} · {d.required ? 'required' : 'optional'}
                       {open && d.status !== 'VERIFIED' && (
                         <button
-                          className="ml-2 text-indigo-600"
+                          className="ml-2 text-brand-600"
                           onClick={() => void run(() => api(`/recruitment/pre-onboarding/${id}/documents/${d.id}`, { method: 'PATCH', body: { required: !d.required } }))}
                         >
                           make {d.required ? 'optional' : 'required'}
@@ -235,17 +235,17 @@ export default function PreJoiningPage() {
                   </Td>
                   <Td>
                     <StatusBadge status={d.status} />
-                    {d.remarks && <p className="mt-1 text-xs text-slate-400">{d.remarks}</p>}
-                    {d.verifiedBy && <p className="mt-1 text-xs text-slate-400">by {d.verifiedBy.name}</p>}
+                    {d.remarks && <p className="mt-1 text-xs text-ink-400">{d.remarks}</p>}
+                    {d.verifiedBy && <p className="mt-1 text-xs text-ink-400">by {d.verifiedBy.name}</p>}
                   </Td>
                   <Td>
                     {d.hasFile ? (
                       <div className="flex items-center gap-2">
-                        <span className="max-w-44 truncate text-sm text-slate-700" title={d.fileName}>
+                        <span className="max-w-44 truncate text-sm text-ink-700" title={d.fileName}>
                           {d.fileName || 'Document'}
                         </span>
                         <button
-                          className="shrink-0 rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
+                          className="shrink-0 rounded-lg border border-brand-200 bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-700 hover:bg-brand-100"
                           title="Open in a new tab"
                           onClick={() => void openUrl(`/recruitment/pre-onboarding/${id}/documents/${d.id}/file?inline=true`)}
                         >
@@ -253,15 +253,15 @@ export default function PreJoiningPage() {
                         </button>
                       </div>
                     ) : (
-                      <span className="text-xs text-slate-400">Not uploaded</span>
+                      <span className="text-xs text-ink-400">Not uploaded</span>
                     )}
-                    {d.submittedAt && <p className="text-xs text-slate-400">{fmtDate(d.submittedAt)}</p>}
+                    {d.submittedAt && <p className="text-xs text-ink-400">{fmtDate(d.submittedAt)}</p>}
                   </Td>
                   <Td>
                     {open && (
                       <div className="flex flex-wrap gap-1">
                         {d.status !== 'VERIFIED' && (
-                          <label className="cursor-pointer rounded-lg px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50">
+                          <label className="cursor-pointer rounded-lg px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50">
                             Upload
                             <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic" className="hidden" onChange={(e) => upload(d, e.target.files?.[0])} />
                           </label>
@@ -299,20 +299,20 @@ export default function PreJoiningPage() {
         <div className="space-y-4">
           <Card className="p-5">
             <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-900">Joining date</h2>
+              <h2 className="text-sm font-semibold text-ink-900">Joining date</h2>
               {open && (
                 <Button variant="ghost" onClick={() => { setJoinDate(ymd(p.confirmedJoiningDate ?? p.expectedJoiningDate)); setError(null); setModal('date'); }}>
                   {p.confirmedJoiningDate ? 'Change' : 'Confirm'}
                 </Button>
               )}
             </div>
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-ink-600">
               {fmtDate(p.confirmedJoiningDate ?? p.expectedJoiningDate)} {p.confirmedJoiningDate ? '(confirmed)' : '(not yet confirmed)'}
             </p>
           </Card>
           <Card className="p-5">
             <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-900">Background verification</h2>
+              <h2 className="text-sm font-semibold text-ink-900">Background verification</h2>
               {open && (
                 <Button
                   variant="ghost"
@@ -327,27 +327,27 @@ export default function PreJoiningPage() {
               )}
             </div>
             {p.bgvRequired ? (
-              <div className="space-y-1 text-sm text-slate-600">
+              <div className="space-y-1 text-sm text-ink-600">
                 <StatusBadge status={p.bgvStatus} />
                 {p.bgvVendor && <p>Vendor: {p.bgvVendor}</p>}
-                {p.bgvNotes && <p className="whitespace-pre-line text-xs text-slate-500">{p.bgvNotes}</p>}
-                {p.bgvCompletedAt && <p className="text-xs text-slate-400">Cleared {fmtDate(p.bgvCompletedAt)}</p>}
+                {p.bgvNotes && <p className="whitespace-pre-line text-xs text-ink-500">{p.bgvNotes}</p>}
+                {p.bgvCompletedAt && <p className="text-xs text-ink-400">Cleared {fmtDate(p.bgvCompletedAt)}</p>}
               </div>
             ) : (
-              <p className="text-sm text-slate-400">Not required</p>
+              <p className="text-sm text-ink-400">Not required</p>
             )}
           </Card>
           <Card className="p-5">
             <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-900">Joining instructions</h2>
+              <h2 className="text-sm font-semibold text-ink-900">Joining instructions</h2>
               {open && (
                 <Button variant="ghost" onClick={() => { setInstructions(p.instructions); setError(null); setModal('instructions'); }}>
                   Edit
                 </Button>
               )}
             </div>
-            <p className="whitespace-pre-line text-sm text-slate-600">{p.instructions || '—'}</p>
-            <p className="mt-2 text-xs text-slate-400">Shown to the candidate on their portal.</p>
+            <p className="whitespace-pre-line text-sm text-ink-600">{p.instructions || '—'}</p>
+            <p className="mt-2 text-xs text-ink-400">Shown to the candidate on their portal.</p>
           </Card>
         </div>
       </div>
@@ -489,7 +489,7 @@ export default function PreJoiningPage() {
       <Modal title={`Confirm joining · ${p.application.candidate.name}`} open={modal === 'join'} onClose={() => setModal(null)} wide>
         <div className="space-y-3">
           <ErrorNote error={error} />
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-ink-500">
             Creates the employee (Employee ID + login with {p.application.candidate.email}), sets salary from the CTC, probation and notice, files the verified
             documents and starts the onboarding checklist.
           </p>
@@ -568,7 +568,7 @@ export default function PreJoiningPage() {
                 <button
                   key={aid}
                   onClick={() => setJoin({ ...join, assetIds: join.assetIds.filter((x) => x !== aid) })}
-                  className="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700"
+                  className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700"
                 >
                   {masters.assets.find((x) => x.id === aid)?.tag ?? 'Asset'} ×
                 </button>
@@ -581,7 +581,7 @@ export default function PreJoiningPage() {
               ))}
             </Select>
           </Field>
-          <p className="text-xs text-slate-400">The new joiner sets their password with “Forgot password” on the login screen (web or app).</p>
+          <p className="text-xs text-ink-400">The new joiner sets their password with “Forgot password” on the login screen (web or app).</p>
           <Button className="w-full" onClick={() => void confirmJoin()} disabled={!join.joiningDate}>
             Create employee & mark joined
           </Button>

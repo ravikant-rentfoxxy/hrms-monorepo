@@ -18,6 +18,8 @@ export const CODE_FORMATS = {
   APPLICATION: { prefix: 'APP', yearly: false, pad: 6 },
   OFFER: { prefix: 'OFF', yearly: true, pad: 4 },
   EXIT: { prefix: 'EXIT', yearly: true, pad: 4 },
+  /** Asset tags generated when assets are issued from an onboarding task. */
+  ASSET: { prefix: 'AST', yearly: false, pad: 5 },
 } as const;
 
 export type CodeKind = keyof typeof CODE_FORMATS;

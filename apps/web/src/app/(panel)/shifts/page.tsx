@@ -230,8 +230,8 @@ export default function ShiftsPage() {
                     <div className="flex items-center gap-2.5">
                       <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: s.color }} />
                       <div>
-                        <p className="font-medium text-slate-900">
-                          {s.name} <span className="text-xs text-slate-400">{s.code}</span>
+                        <p className="font-medium text-ink-900">
+                          {s.name} <span className="text-xs text-ink-400">{s.code}</span>
                         </p>
                         <div className="mt-0.5 flex gap-1">
                           {s.isDefault && <Badge tone="blue">default</Badge>}
@@ -243,7 +243,7 @@ export default function ShiftsPage() {
                   </Td>
                   <Td>
                     {s.startTime} – {s.endTime}
-                    {s.isNight && <span className="text-xs text-slate-400"> (+1)</span>}
+                    {s.isNight && <span className="text-xs text-ink-400"> (+1)</span>}
                   </Td>
                   <Td>
                     {s.graceMinutes}m / {s.breakMinutes}m
@@ -296,8 +296,8 @@ export default function ShiftsPage() {
             <Table headers={['Employee', 'Department', 'Shift', 'From', 'To', '']}>
               {assignments.data.map((a) => (
                 <tr key={a.id}>
-                  <Td className="font-medium text-slate-900">
-                    {a.employee.name} <span className="text-xs text-slate-400">{a.employee.employeeCode}</span>
+                  <Td className="font-medium text-ink-900">
+                    {a.employee.name} <span className="text-xs text-ink-400">{a.employee.employeeCode}</span>
                   </Td>
                   <Td>{a.employee.department || '—'}</Td>
                   <Td>
@@ -341,7 +341,7 @@ export default function ShiftsPage() {
               <Input type="time" value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} />
             </Field>
             <Field label="Night shift" hint="ends the next day">
-              <label className="flex h-[42px] items-center gap-2 text-sm text-slate-700">
+              <label className="flex h-[42px] items-center gap-2 text-sm text-ink-700">
                 <input type="checkbox" checked={form.isNight} onChange={(e) => setForm({ ...form, isNight: e.target.checked })} />
                 Ends next morning
               </label>
@@ -379,7 +379,7 @@ export default function ShiftsPage() {
                   type="button"
                   onClick={() => toggleWeekday(i)}
                   className={`rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset ${
-                    form.weeklyOffs.includes(i) ? 'bg-indigo-600 text-white ring-indigo-600' : 'bg-white text-slate-600 ring-slate-200'
+                    form.weeklyOffs.includes(i) ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-ink-600 ring-ink-200'
                   }`}
                 >
                   {d}
@@ -398,14 +398,14 @@ export default function ShiftsPage() {
                   type="button"
                   aria-label={c}
                   onClick={() => setForm({ ...form, color: c })}
-                  className={`h-7 w-7 rounded-full ring-offset-2 ${form.color === c ? 'ring-2 ring-slate-900' : ''}`}
+                  className={`h-7 w-7 rounded-full ring-offset-2 ${form.color === c ? 'ring-2 ring-ink-900' : ''}`}
                   style={{ background: c }}
                 />
               ))}
             </div>
           </Field>
           {!editing?.isDefault && (
-            <label className="flex items-center gap-2 text-sm text-slate-700">
+            <label className="flex items-center gap-2 text-sm text-ink-700">
               <input type="checkbox" checked={form.isDefault} onChange={(e) => setForm({ ...form, isDefault: e.target.checked })} />
               Company default (applies to everyone without an assignment)
             </label>
@@ -528,29 +528,29 @@ function AssignModal({
         <Field label={`Employees (${selected.size} selected)`}>
           <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, code or department" />
         </Field>
-        <div className="max-h-72 overflow-y-auto rounded-xl border border-slate-200">
+        <div className="max-h-72 overflow-y-auto rounded-xl border border-ink-200">
           {!employees ? (
             <Spinner />
           ) : filtered.length === 0 ? (
             <Empty message="No employees match" />
           ) : (
             <>
-              <label className="flex items-center gap-2 border-b border-slate-100 bg-slate-50/60 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+              <label className="flex items-center gap-2 border-b border-ink-100 bg-ink-50/60 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-ink-500">
                 <input type="checkbox" checked={allVisibleSelected} onChange={toggleAll} />
                 Select all shown ({filtered.length})
               </label>
               {filtered.map((e) => (
-                <label key={e.id} className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50">
+                <label key={e.id} className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm hover:bg-ink-50">
                   <input type="checkbox" checked={selected.has(e.id)} onChange={() => toggle(e.id)} />
-                  <span className="font-medium text-slate-800">{e.name}</span>
-                  <span className="text-xs text-slate-400">{e.employeeCode}</span>
-                  <span className="ml-auto text-xs text-slate-400">{e.department}</span>
+                  <span className="font-medium text-ink-800">{e.name}</span>
+                  <span className="text-xs text-ink-400">{e.employeeCode}</span>
+                  <span className="ml-auto text-xs text-ink-400">{e.department}</span>
                 </label>
               ))}
             </>
           )}
         </div>
-        <p className="text-xs text-slate-400">Overlapping assignments of the selected employees are trimmed to this range.</p>
+        <p className="text-xs text-ink-400">Overlapping assignments of the selected employees are trimmed to this range.</p>
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
             Cancel

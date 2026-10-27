@@ -1,8 +1,8 @@
 /**
  * Job requisitions (stage 1 of hiring): a manager raises a hiring request →
- * submits it → HR reviews (note / send back for changes) → management
- * approves the budget (approval module REQUISITION, default HR → ADMIN) →
- * on final approval the JobOpening is created with its Job ID, status
+ * submits it → one approval by HR or an Admin, who may be the requester (approval
+ * module REQUISITION, default a single HR step; HR may also add a note or send
+ * it back for changes) → on approval the JobOpening is created with its Job ID, status
  * APPROVED ("approved for posting"). Jobs only come from approved requisitions.
  *
  *   DRAFT → PENDING_APPROVAL → APPROVED | REJECTED;  DRAFT / PENDING_APPROVAL → CANCELLED
@@ -162,7 +162,17 @@ export async function submitRequisition(companyId: string, id: string, actor: Ac
     data: { status: 'PENDING_APPROVAL', submittedAt: new Date() },
   });
   if (flipped.count === 0) throw ApiError.conflict('Requisition was just submitted');
-  await approvalService.start(companyId, 'REQUISITION', id, r.requestedById);
+  const step = await approvalService.start(companyId, 'REQUISITION', id, r.requestedById);
+  // start() notifies HR for an HR step; Admins can approve it too, so tell them as well.
+  if (step?.approverRole === 'HR') {
+    const admins = await approvalService.approverEmployeeIds(companyId, { approverRole: 'ADMIN', approverEmployeeId: null });
+    await notify(companyId, admins.filter((e) => e !== r.requestedById), {
+      event: 'approval.pending',
+      title: `Requisition ${r.code} awaiting approval`,
+      body: `${r.title} needs one approval from HR or an Admin.`,
+      link: '/recruitment',
+    });
+  }
   return prisma.jobRequisition.findUniqueOrThrow({ where: { id } });
 }
 

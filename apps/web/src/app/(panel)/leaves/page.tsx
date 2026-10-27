@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { api, fmtDate, fmtMoney } from '@/lib/api';
 import { useFetch } from '@/lib/useFetch';
 import {
-  Badge, Button, Card, DatePicker, Empty, ErrorNote, Field, Input, Modal, PageHeader, Select, Spinner, Table, Tabs, Td,
+  Badge, Button, Card, DatePicker, Empty, ErrorNote, Field, Input, LongText, Modal, PageHeader, Select, Spinner, Table, Tabs, Td,
   Textarea, statusTone,
 } from '@/components/ui';
 import {
@@ -89,7 +89,7 @@ function ApplyModal({ types, onClose, onDone }: { types: LeaveType[]; onClose: (
             ))}
           </Select>
         </Field>
-        {rules.length > 0 && <p className="text-xs text-slate-500">Policy: {rules.join(' · ')}</p>}
+        {rules.length > 0 && <p className="text-xs text-ink-500">Policy: {rules.join(' · ')}</p>}
         <div className="grid grid-cols-2 gap-3">
           <Field label="From">
             <DatePicker value={form.fromDate} onChange={(v) => setForm({ ...form, fromDate: v, toDate: form.toDate && form.toDate >= v ? form.toDate : v })} />
@@ -99,7 +99,7 @@ function ApplyModal({ types, onClose, onDone }: { types: LeaveType[]; onClose: (
           </Field>
         </div>
         {singleDay && type?.allowHalfDay && (
-          <label className="flex items-center gap-2 text-sm text-slate-600">
+          <label className="flex items-center gap-2 text-sm text-ink-600">
             <input type="checkbox" checked={form.halfDay} onChange={(e) => setForm({ ...form, halfDay: e.target.checked })} />
             Half day
           </label>
@@ -158,7 +158,7 @@ function CompOffModal({ onClose, onDone }: { onClose: () => void; onDone: () => 
     <Modal title="Request comp-off" open onClose={onClose}>
       <div className="space-y-3">
         <ErrorNote error={error} />
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-ink-500">
           Claim a day off for a weekend or company holiday you worked. You must have checked in on that day.
         </p>
         <div className="grid grid-cols-2 gap-3">
@@ -280,9 +280,9 @@ function DecideModal({
     <Modal title={title} open onClose={onClose}>
       <div className="space-y-4">
         <ErrorNote error={error} />
-        <div className="text-sm text-slate-700">{summary}</div>
+        <div className="text-sm text-ink-700">{summary}</div>
         <div>
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Approval trail</p>
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-500">Approval trail</p>
           <Trail steps={steps} />
         </div>
         <Field label="Remarks (optional)">
@@ -304,7 +304,7 @@ function DecideModal({
 function DetailModal({ request, onClose }: { request: LeaveRequest; onClose: () => void }) {
   return (
     <Modal title={`${request.leaveType.name} · ${fmtDays(request.days)} day(s)`} open onClose={onClose}>
-      <div className="space-y-4 text-sm text-slate-700">
+      <div className="space-y-4 text-sm text-ink-700">
         <div className="flex items-center gap-2">
           <Badge tone={statusTone(request.status)}>{request.status}</Badge>
           {request.employee && <span className="font-medium">{request.employee.name}</span>}
@@ -313,9 +313,9 @@ function DetailModal({ request, onClose }: { request: LeaveRequest; onClose: () 
           {fmtDate(request.fromDate)} → {fmtDate(request.toDate)}
           {request.halfDay && ' (half day)'}
         </p>
-        <p className="text-slate-500">{request.reason}</p>
+        <p className="text-ink-500">{request.reason}</p>
         <div>
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Approval trail</p>
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-500">Approval trail</p>
           <Trail steps={request.approvalSteps} />
         </div>
       </div>
@@ -435,11 +435,13 @@ export default function LeavesPage() {
                     {r.halfDay && ' (half)'}
                   </Td>
                   <Td>{fmtDays(r.days)}</Td>
-                  <Td className="max-w-50 truncate">{r.reason}</Td>
+                  <Td>
+                  <LongText text={r.reason} />
+                </Td>
                   <Td>
                     <Badge tone={statusTone(r.status)}>{r.status}</Badge>
                   </Td>
-                  <Td className="text-xs text-slate-500">{waitingOn(r.approvalSteps) ?? r.approver?.name ?? '—'}</Td>
+                  <Td className="text-xs text-ink-500">{waitingOn(r.approvalSteps) ?? r.approver?.name ?? '—'}</Td>
                   <Td>
                     {(r.status === 'PENDING' || r.status === 'APPROVED') && (
                       <span onClick={(e) => e.stopPropagation()}>
@@ -468,7 +470,7 @@ export default function LeavesPage() {
               <Table headers={['Employee', 'Type', 'Dates', 'Days', 'Reason', 'Waiting on', '']}>
                 {approvals.data.map((r) => (
                   <tr key={r.id}>
-                    <Td className="font-medium text-slate-900">{r.employee?.name}</Td>
+                    <Td className="font-medium text-ink-900">{r.employee?.name}</Td>
                     <Td>
                       <Badge tone="violet">{r.leaveType.code}</Badge>
                     </Td>
@@ -477,8 +479,10 @@ export default function LeavesPage() {
                       {r.halfDay && ' (half)'}
                     </Td>
                     <Td>{fmtDays(r.days)}</Td>
-                    <Td className="max-w-50 truncate">{r.reason}</Td>
-                    <Td className="text-xs text-slate-500">{waitingOn(r.approvalSteps) ?? 'Reporting manager'}</Td>
+                    <Td>
+                  <LongText text={r.reason} />
+                </Td>
+                    <Td className="text-xs text-ink-500">{waitingOn(r.approvalSteps) ?? 'Reporting manager'}</Td>
                     <Td>
                       <Button onClick={() => setDeciding({ kind: 'leave', r })}>Review</Button>
                     </Td>
@@ -494,7 +498,7 @@ export default function LeavesPage() {
         <div className="space-y-4">
           {isManagerial && (
             <div>
-              <h2 className="mb-2 text-sm font-semibold text-slate-700">Pending approval</h2>
+              <h2 className="mb-2 text-sm font-semibold text-ink-700">Pending approval</h2>
               {scopeToggle}
               <Card>
                 {compOffPending.loading ? (
@@ -505,11 +509,13 @@ export default function LeavesPage() {
                   <Table headers={['Employee', 'Day worked', 'Credit', 'Reason', 'Waiting on', '']}>
                     {compOffPending.data.map((r) => (
                       <tr key={r.id}>
-                        <Td className="font-medium text-slate-900">{r.employee?.name}</Td>
+                        <Td className="font-medium text-ink-900">{r.employee?.name}</Td>
                         <Td>{fmtDate(r.workDate)}</Td>
                         <Td>{fmtDays(r.days)} day</Td>
-                        <Td className="max-w-50 truncate">{r.reason}</Td>
-                        <Td className="text-xs text-slate-500">{waitingOn(r.approvalSteps) ?? 'Reporting manager'}</Td>
+                        <Td>
+                  <LongText text={r.reason} />
+                </Td>
+                        <Td className="text-xs text-ink-500">{waitingOn(r.approvalSteps) ?? 'Reporting manager'}</Td>
                         <Td>
                           <Button onClick={() => setDeciding({ kind: 'compoff', r })}>Review</Button>
                         </Td>
@@ -522,7 +528,7 @@ export default function LeavesPage() {
           )}
           {hasEmployee && (
             <div>
-              <h2 className="mb-2 text-sm font-semibold text-slate-700">My comp-off requests</h2>
+              <h2 className="mb-2 text-sm font-semibold text-ink-700">My comp-off requests</h2>
               <Card>
                 {compOffMine.loading ? (
                   <Spinner />
@@ -534,11 +540,13 @@ export default function LeavesPage() {
                       <tr key={r.id}>
                         <Td>{fmtDate(r.workDate)}</Td>
                         <Td>{fmtDays(r.days)} day</Td>
-                        <Td className="max-w-50 truncate">{r.reason}</Td>
+                        <Td>
+                  <LongText text={r.reason} />
+                </Td>
                         <Td>
                           <Badge tone={statusTone(r.status)}>{r.status}</Badge>
                         </Td>
-                        <Td className="text-xs text-slate-500">{waitingOn(r.approvalSteps) ?? r.remarks ?? '—'}</Td>
+                        <Td className="text-xs text-ink-500">{waitingOn(r.approvalSteps) ?? r.remarks ?? '—'}</Td>
                         <Td>
                           {r.status === 'PENDING' && (
                             <Button
@@ -563,7 +571,7 @@ export default function LeavesPage() {
         <div className="space-y-4">
           {isManagerial && (
             <div>
-              <h2 className="mb-2 text-sm font-semibold text-slate-700">Pending approval</h2>
+              <h2 className="mb-2 text-sm font-semibold text-ink-700">Pending approval</h2>
               {scopeToggle}
               <Card>
                 {encPending.loading ? (
@@ -574,13 +582,13 @@ export default function LeavesPage() {
                   <Table headers={['Employee', 'Type', 'Days', 'Est. amount', 'Waiting on', '']}>
                     {encPending.data.map((r) => (
                       <tr key={r.id}>
-                        <Td className="font-medium text-slate-900">{r.employee?.name}</Td>
+                        <Td className="font-medium text-ink-900">{r.employee?.name}</Td>
                         <Td>
                           <Badge tone="violet">{r.leaveType.code}</Badge>
                         </Td>
                         <Td>{fmtDays(r.days)}</Td>
                         <Td>{fmtMoney(r.amount)}</Td>
-                        <Td className="text-xs text-slate-500">{waitingOn(r.approvalSteps) ?? 'Reporting manager'}</Td>
+                        <Td className="text-xs text-ink-500">{waitingOn(r.approvalSteps) ?? 'Reporting manager'}</Td>
                         <Td>
                           <Button onClick={() => setDeciding({ kind: 'encash', r })}>Review</Button>
                         </Td>
@@ -593,7 +601,7 @@ export default function LeavesPage() {
           )}
           {hasEmployee && (
             <div>
-              <h2 className="mb-2 text-sm font-semibold text-slate-700">My encashments</h2>
+              <h2 className="mb-2 text-sm font-semibold text-ink-700">My encashments</h2>
               <Card>
                 {encMine.loading ? (
                   <Spinner />
@@ -680,14 +688,14 @@ export default function LeavesPage() {
           steps={deciding.r.approvalSteps}
           summary={
             <>
-              <p className="font-medium text-slate-900">
+              <p className="font-medium text-ink-900">
                 {deciding.r.employee?.name} · {deciding.r.leaveType.name}
               </p>
               <p>
                 {fmtDate(deciding.r.fromDate)} → {fmtDate(deciding.r.toDate)} · {fmtDays(deciding.r.days)} day(s)
                 {deciding.r.halfDay && ' (half day)'}
               </p>
-              <p className="mt-1 text-slate-500">{deciding.r.reason}</p>
+              <p className="mt-1 text-ink-500">{deciding.r.reason}</p>
             </>
           }
           onClose={() => setDeciding(null)}
@@ -701,11 +709,11 @@ export default function LeavesPage() {
           steps={deciding.r.approvalSteps}
           summary={
             <>
-              <p className="font-medium text-slate-900">{deciding.r.employee?.name}</p>
+              <p className="font-medium text-ink-900">{deciding.r.employee?.name}</p>
               <p>
                 Worked on {fmtDate(deciding.r.workDate)} · {fmtDays(deciding.r.days)} day credit
               </p>
-              <p className="mt-1 text-slate-500">{deciding.r.reason}</p>
+              <p className="mt-1 text-ink-500">{deciding.r.reason}</p>
             </>
           }
           onClose={() => setDeciding(null)}
@@ -719,7 +727,7 @@ export default function LeavesPage() {
           steps={deciding.r.approvalSteps}
           summary={
             <>
-              <p className="font-medium text-slate-900">
+              <p className="font-medium text-ink-900">
                 {deciding.r.employee?.name} · {deciding.r.leaveType.name}
               </p>
               <p>

@@ -6,6 +6,12 @@ export const loginSchema = z.object({
   companyId: z.string().uuid().optional(), // pick a company when the user belongs to several
 });
 
+/** Company picked after the password step (`companySelectionRequired`). */
+export const loginCompanySchema = z.object({
+  selectionToken: z.string().min(1),
+  companyId: z.string().uuid(),
+});
+
 export const switchCompanySchema = z.object({ companyId: z.string().uuid() });
 
 export const refreshSchema = z.object({ refreshToken: z.string().min(1) });
@@ -26,17 +32,6 @@ export const passwordRule = z
   .max(128)
   .regex(/[A-Za-z]/, 'Must contain a letter')
   .regex(/[0-9]/, 'Must contain a digit');
-
-const totpCode = z.string().trim().regex(/^\d{6}$/, 'Enter the 6-digit code from your authenticator app');
-
-export const login2faSchema = z.object({
-  challengeToken: z.string().min(1),
-  code: totpCode,
-});
-
-export const enable2faSchema = z.object({ code: totpCode });
-
-export const disable2faSchema = z.object({ password: z.string().min(1).max(128) });
 
 export const forgotPasswordSchema = z.object({ email: z.string().email().toLowerCase() });
 

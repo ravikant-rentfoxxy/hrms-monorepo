@@ -48,6 +48,7 @@ export const employeeProfileSchema = z.object({
   designationId: clearableId,
   gradeId: clearableId,
   officeId: clearableId,
+  workMode: z.enum(['OFFICE', 'REMOTE', 'FIELD']).optional(),
   gender: z.enum(['MALE', 'FEMALE', 'OTHER', '']).optional(),
   maritalStatus: z.enum(['SINGLE', 'MARRIED', 'DIVORCED', 'WIDOWED', '']).optional(),
   personalEmail: z.union([z.string().email().max(160).toLowerCase(), z.literal('')]).optional(),
@@ -63,8 +64,10 @@ export const createEmployeeSchema = employeeProfileSchema.extend({
   password: z.string().min(8).max(128).optional(),
   // Employee ID is auto-generated ("RF-011") when omitted — the normal case.
   employeeCode: z.string().min(1).max(30).optional(),
-  role: z.enum(['HR', 'MANAGER', 'EMPLOYEE']).default('EMPLOYEE'),
+  role: z.enum(['HR', 'MANAGER', 'EMPLOYEE', 'FINANCE']).default('EMPLOYEE'),
 });
+
+export const setRoleSchema = z.object({ role: z.enum(['EMPLOYEE', 'MANAGER', 'HR', 'FINANCE']) });
 
 export const updateEmployeeSchema = employeeProfileSchema.partial().extend({
   employeeCode: z.string().min(1).max(30).optional(),

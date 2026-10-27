@@ -7,7 +7,7 @@ import type { RequestStatus, Role } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { notify } from '../lib/notify';
 import { ApiError } from '../utils/http';
-import { objectKey, presignedGetUrl, putObject } from '../lib/storage';
+import { objectKey, presignedGetUrl, putObject, FILE_LINK_TTL_SECONDS } from '../lib/storage';
 import * as approvalService from './approval.service';
 
 export interface ExpenseInput {
@@ -93,7 +93,7 @@ export async function receiptUrl(
     if (!isApprover) throw ApiError.forbidden();
   }
   if (!expense.receiptKey) throw ApiError.notFound('No receipt attached');
-  return { url: await presignedGetUrl(expense.receiptKey), expiresInSeconds: 600 };
+  return { url: await presignedGetUrl(expense.receiptKey), expiresInSeconds: FILE_LINK_TTL_SECONDS };
 }
 
 /**

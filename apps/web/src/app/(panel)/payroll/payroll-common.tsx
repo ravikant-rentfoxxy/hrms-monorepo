@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { API_URL, api, fmtDate, fmtMoney, getActingCompanyId, getSession } from '@/lib/api';
+import { API_URL, fmtDate, fmtMoney, getActingCompanyId, getSession } from '@/lib/api';
 import { useFetch } from '@/lib/useFetch';
 import { Badge, Button, ErrorNote, Modal, Select, Spinner } from '@/components/ui';
+import { openSecureFile } from '@/lib/secure-file';
 
 /* ---------------------------------- Types --------------------------------- */
 
@@ -144,10 +145,10 @@ function Lines({ title, tone, items, total, totalLabel }: {
     <div>
       <h3 className={`mb-2 text-xs font-semibold uppercase tracking-wide ${tone}`}>{title}</h3>
       {items.map((e, i) => (
-        <div key={`${e.label}-${i}`} className="flex justify-between border-b border-slate-100 py-1.5 text-sm">
-          <span className="text-slate-600">
+        <div key={`${e.label}-${i}`} className="flex justify-between border-b border-ink-100 py-1.5 text-sm">
+          <span className="text-ink-600">
             {e.label}
-            {e.taxable === false && <span className="ml-1 text-[11px] text-slate-400">(non-taxable)</span>}
+            {e.taxable === false && <span className="ml-1 text-[11px] text-ink-400">(non-taxable)</span>}
           </span>
           <span className="font-medium tabular-nums">{fmtMoney(e.amount)}</span>
         </div>
@@ -171,9 +172,9 @@ export function PayslipModal({ id, onClose }: { id: string; onClose: () => void 
         error ? <ErrorNote error={error} /> : <Spinner />
       ) : (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
-            <span className="font-medium text-slate-900">{slip.employee.name}</span>
-            <span className="text-slate-400">{slip.employee.employeeCode}</span>
+          <div className="flex flex-wrap items-center gap-2 text-sm text-ink-600">
+            <span className="font-medium text-ink-900">{slip.employee.name}</span>
+            <span className="text-ink-400">{slip.employee.employeeCode}</span>
             {slip.status === 'DRAFT' && <Badge tone="amber">DRAFT</Badge>}
             <span className="ml-auto">
               Paid {days(slip.paidDays)}/{slip.workingDays} days · LOP {days(slip.lopDays)} ·{' '}
@@ -184,25 +185,25 @@ export function PayslipModal({ id, onClose }: { id: string; onClose: () => void 
             <Lines title="Earnings" tone="text-emerald-600" items={slip.earnings} total={slip.gross} totalLabel="Gross" />
             <Lines title="Deductions" tone="text-rose-600" items={slip.deductions} total={slip.totalDeductions} totalLabel="Total" />
           </div>
-          <div className="flex items-center justify-between rounded-lg bg-indigo-50 px-4 py-3">
-            <span className="text-sm text-slate-600">Net pay · on {fmtDate(slip.paidOn)}</span>
-            <span className="text-lg font-bold text-indigo-700">{fmtMoney(slip.net)}</span>
+          <div className="flex items-center justify-between rounded-lg bg-brand-50 px-4 py-3">
+            <span className="text-sm text-ink-600">Net pay · on {fmtDate(slip.paidOn)}</span>
+            <span className="text-lg font-bold text-brand-700">{fmtMoney(slip.net)}</span>
           </div>
           {employer.length > 0 && (
-            <div className="rounded-lg bg-slate-50 px-4 py-2">
-              <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+            <div className="rounded-lg bg-ink-50 px-4 py-2">
+              <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-ink-500">
                 Employer contributions (part of CTC)
               </p>
               {employer.map((e) => (
                 <div key={e.label} className="flex justify-between py-1 text-sm">
-                  <span className="text-slate-600">{e.label}</span>
+                  <span className="text-ink-600">{e.label}</span>
                   <span className="tabular-nums">{fmtMoney(e.amount)}</span>
                 </div>
               ))}
             </div>
           )}
-          <div className="grid grid-cols-5 gap-2 rounded-lg border border-slate-100 px-4 py-2.5">
-            <p className="col-span-5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+          <div className="grid grid-cols-5 gap-2 rounded-lg border border-ink-100 px-4 py-2.5">
+            <p className="col-span-5 text-[11px] font-semibold uppercase tracking-wider text-ink-500">
               Year to date · FY {slip.ytd.fy}
             </p>
             {[
@@ -210,14 +211,14 @@ export function PayslipModal({ id, onClose }: { id: string; onClose: () => void 
               ['TDS', slip.ytd.tds], ['PF', slip.ytd.pf],
             ].map(([label, value]) => (
               <div key={label as string}>
-                <p className="text-[11px] text-slate-400">{label}</p>
-                <p className="text-sm font-semibold tabular-nums text-slate-800">{fmtMoney(value as number)}</p>
+                <p className="text-[11px] text-ink-400">{label}</p>
+                <p className="text-sm font-semibold tabular-nums text-ink-800">{fmtMoney(value as number)}</p>
               </div>
             ))}
           </div>
           {slip.taxComputation && (
             <div>
-              <button className="text-sm font-medium text-indigo-600 hover:underline" onClick={() => setShowTax(!showTax)}>
+              <button className="text-sm font-medium text-brand-600 hover:underline" onClick={() => setShowTax(!showTax)}>
                 {showTax ? 'Hide' : 'Show'} TDS working
               </button>
               {showTax && <TaxBreakdown comp={slip.taxComputation} />}
@@ -226,7 +227,9 @@ export function PayslipModal({ id, onClose }: { id: string; onClose: () => void 
           <Button
             className="w-full"
             onClick={() =>
-              void api<{ url: string }>(`/payroll/payslips/${slip.id}/pdf`).then(({ url }) => window.open(url, '_blank'))
+              void openSecureFile(`/payroll/payslips/${slip.id}/pdf?inline=true`).catch((err: unknown) =>
+                window.alert(err instanceof Error ? err.message : 'Could not open the payslip')
+              )
             }
           >
             Download PDF
@@ -241,7 +244,7 @@ export function PayslipModal({ id, onClose }: { id: string; onClose: () => void 
 
 function Row({ label, value, bold, negative }: { label: string; value: number; bold?: boolean; negative?: boolean }) {
   return (
-    <div className={`flex justify-between py-1 text-sm ${bold ? 'font-semibold text-slate-900' : 'text-slate-600'}`}>
+    <div className={`flex justify-between py-1 text-sm ${bold ? 'font-semibold text-ink-900' : 'text-ink-600'}`}>
       <span>{label}</span>
       <span className="tabular-nums">{negative ? `−${fmtMoney(value)}` : fmtMoney(value)}</span>
     </div>
@@ -250,7 +253,7 @@ function Row({ label, value, bold, negative }: { label: string; value: number; b
 
 export function TaxBreakdown({ comp }: { comp: TaxComputation }) {
   return (
-    <div className="mt-2 rounded-lg border border-slate-100 px-4 py-2">
+    <div className="mt-2 rounded-lg border border-ink-100 px-4 py-2">
       <Row label="Salary paid this FY" value={comp.salary.ytd} />
       <Row label="This month" value={comp.salary.current} />
       <Row label={`Projected (${comp.monthsRemaining - 1} more month${comp.monthsRemaining === 2 ? '' : 's'})`} value={comp.salary.projected} />
@@ -270,7 +273,7 @@ export function TaxBreakdown({ comp }: { comp: TaxComputation }) {
       <Row label="Annual tax" value={comp.annualTax} bold />
       <Row label="TDS already deducted" value={comp.tdsDeducted + comp.previousEmployerTds} negative />
       <Row label={`Monthly TDS (balance ÷ ${comp.monthsRemaining})`} value={comp.monthlyTds} bold />
-      <p className="pt-1 text-xs text-slate-400">
+      <p className="pt-1 text-xs text-ink-400">
         {comp.regime === 'NEW'
           ? 'New regime: investment declarations do not reduce tax.'
           : comp.declarationBasis === 'VERIFIED'
@@ -298,8 +301,7 @@ export function TaxCard({ employeeId, self }: { employeeId: string; self?: boole
     setBusy(true);
     setFormError(null);
     try {
-      const { url } = await api<{ url: string }>(`/payroll/form16/${employeeId}?fy=${fy}`);
-      window.open(url, '_blank');
+      await openSecureFile(`/payroll/form16/${employeeId}?fy=${fy}`);
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed');
     } finally {
@@ -311,7 +313,7 @@ export function TaxCard({ employeeId, self }: { employeeId: string; self?: boole
   return (
     <div className="p-5">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-slate-900">
+        <h2 className="text-sm font-semibold text-ink-900">
           Income tax {p ? `· FY ${p.fy}` : ''}{' '}
           {data && <Badge tone="violet">{data.regime === 'OLD' ? 'Old regime' : 'New regime'}</Badge>}
         </h2>
@@ -328,7 +330,7 @@ export function TaxCard({ employeeId, self }: { employeeId: string; self?: boole
       {loading ? (
         <Spinner />
       ) : !data?.hasStructure || !p ? (
-        <p className="text-sm text-slate-400">No salary structure yet — nothing to project.</p>
+        <p className="text-sm text-ink-400">No salary structure yet — nothing to project.</p>
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -338,14 +340,14 @@ export function TaxCard({ employeeId, self }: { employeeId: string; self?: boole
               ['TDS so far', p.tdsDeducted],
               ['Monthly TDS', p.monthlyTds],
             ].map(([label, value]) => (
-              <div key={label as string} className="rounded-lg bg-slate-50 px-3 py-2">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</p>
-                <p className="text-sm font-semibold tabular-nums text-slate-800">{fmtMoney(value as number)}</p>
+              <div key={label as string} className="rounded-lg bg-ink-50 px-3 py-2">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-ink-400">{label}</p>
+                <p className="text-sm font-semibold tabular-nums text-ink-800">{fmtMoney(value as number)}</p>
               </div>
             ))}
           </div>
           {!data.tdsEnabled && <p className="mt-2 text-xs text-amber-600">TDS is switched off in the statutory settings.</p>}
-          <button className="mt-3 text-sm font-medium text-indigo-600 hover:underline" onClick={() => setDetails(!details)}>
+          <button className="mt-3 text-sm font-medium text-brand-600 hover:underline" onClick={() => setDetails(!details)}>
             {details ? 'Hide' : 'Show'} computation
           </button>
           {details && <TaxBreakdown comp={p} />}

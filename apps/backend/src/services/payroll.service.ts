@@ -26,7 +26,9 @@ import { notify } from '../lib/notify';
 import { ApiError } from '../utils/http';
 import { workingDays as weekdaysBetween } from '../utils/geo';
 import { decryptField } from '../utils/fieldCrypto';
-import { presignedGetUrl, putObject } from '../lib/storage';
+import { presignedGetUrl, putObject, FILE_LINK_TTL_SECONDS } from '../lib/storage';
+import { sendMail } from '../lib/mailer';
+import { letterhead } from './company-profile.service';
 import { payableDaysForMonth } from './attendance.service';
 import {
   computeMonthlyStatutory, computePf, fyOf, fyMonthsRemaining, fyRange, loadStatutoryContext, stateFor,
@@ -878,6 +880,9 @@ const fmtDays = (d: number): string => (Number.isInteger(d) ? String(d) : d.toFi
 
 function buildPayslipPdf(input: {
   companyName: string;
+  /** Letterhead logo (PNG / JPG) and address from the company profile; both optional. */
+  logo: Buffer | null;
+  companyAddress: string;
   month: Date;
   paidOn: Date;
   workingDays: number;
@@ -916,10 +921,26 @@ function buildPayslipPdf(input: {
       doc.y = 48;
     }
 
-    // Header
-    doc.font('Helvetica-Bold').fontSize(19).fillColor('#1E1B4B').text(input.companyName.toUpperCase(), { align: 'center' });
-    doc.font('Helvetica').fontSize(11).fillColor('#475569')
-      .text(`Payslip for ${monthLabel(input.month)}`, { align: 'center' });
+    // Header: a small company logo on the left of the title (name, address, month); an unreadable image is skipped.
+    const headTop = doc.y;
+    const LOGO_BOX: [number, number] = [84, 40];
+    let textLeft = left;
+    if (input.logo) {
+      try {
+        doc.image(input.logo, left, headTop, { fit: LOGO_BOX, valign: 'center' });
+        textLeft = left + LOGO_BOX[0] + 12;
+      } catch {
+        textLeft = left;
+      }
+    }
+    const textWidth = right - textLeft;
+    doc.font('Helvetica-Bold').fontSize(15).fillColor('#1E1B4B').text(input.companyName.toUpperCase(), textLeft, headTop, { width: textWidth });
+    if (input.companyAddress) {
+      doc.font('Helvetica').fontSize(8.5).fillColor('#64748B').text(input.companyAddress.replace(/\s*\n\s*/g, ', '), textLeft, doc.y + 1, { width: textWidth });
+    }
+    doc.font('Helvetica').fontSize(10.5).fillColor('#475569').text(`Payslip for ${monthLabel(input.month)}`, textLeft, doc.y + 2, { width: textWidth });
+    doc.x = left;
+    doc.y = Math.max(doc.y, headTop + LOGO_BOX[1]);
     doc.moveDown(0.8);
     hr(doc.y);
     doc.moveDown(0.8);
@@ -1023,19 +1044,18 @@ function buildPayslipPdf(input: {
   });
 }
 
-/**
- * Generates the payslip PDF, stores it in the bucket (tenant-namespaced,
- * overwritten on regeneration) and returns a short-lived link.
- */
-export async function payslipPdfUrl(companyId: string, payslipId: string, opts: { inline?: boolean } = {}) {
+/** Builds the payslip PDF (shared by the download link and the email). */
+async function payslipPdf(companyId: string, payslipId: string) {
   const payslip = await getPayslip(companyId, payslipId); // includes the employee block
   const t = withTotals(payslip);
-  const [company, ytd] = await Promise.all([
-    prisma.company.findUniqueOrThrow({ where: { id: companyId }, select: { name: true } }),
+  const [head, ytd] = await Promise.all([
+    letterhead(companyId), // same logo / address as the HR letters
     payslipYtd(companyId, payslip.employeeId, payslip.month, payslip.id),
   ]);
   const buffer = await buildPayslipPdf({
-    companyName: company.name,
+    companyName: head.name,
+    logo: head.logo,
+    companyAddress: head.address,
     month: payslip.month,
     paidOn: payslip.paidOn,
     workingDays: payslip.workingDays,
@@ -1060,13 +1080,44 @@ export async function payslipPdfUrl(companyId: string, payslipId: string, opts: 
     net: t.net,
     ytd,
   });
+  const fileName = `Payslip_${payslip.employee.employeeCode}_${payslip.month.toISOString().slice(0, 7)}.pdf`;
+  return { payslip, buffer, fileName, companyName: head.name };
+}
+
+/**
+ * Generates the payslip PDF, stores it in the bucket (tenant-namespaced,
+ * overwritten on regeneration) and returns a short-lived link.
+ */
+export async function payslipPdfUrl(companyId: string, payslipId: string, opts: { inline?: boolean } = {}) {
+  const { payslip, buffer, fileName } = await payslipPdf(companyId, payslipId);
   const key = `${companyId}/payslips/${payslip.id}.pdf`;
   await putObject(key, buffer, 'application/pdf');
-  const monthStr = payslip.month.toISOString().slice(0, 7);
-  const fileName = `Payslip_${payslip.employee.employeeCode}_${monthStr}.pdf`;
   return {
     url: await presignedGetUrl(key, fileName, opts.inline ? 'inline' : 'attachment'),
     fileName,
-    expiresInSeconds: 600,
+    expiresInSeconds: FILE_LINK_TTL_SECONDS,
   };
+}
+
+/**
+ * Emails a published payslip PDF to the employee's login email. Drafts are
+ * never sent (they can still change before the run is published).
+ */
+export async function emailPayslip(companyId: string, payslipId: string) {
+  const { payslip, buffer, fileName, companyName } = await payslipPdf(companyId, payslipId);
+  if (payslip.status !== 'PUBLISHED') throw ApiError.badRequest('Only a published payslip can be sent — publish the payroll run first');
+  const employee = await prisma.employee.findUniqueOrThrow({
+    where: { id: payslip.employeeId },
+    select: { name: true, user: { select: { email: true } } },
+  });
+  const to = employee.user?.email;
+  if (!to) throw ApiError.badRequest(`${employee.name} has no email address on file`);
+  const month = payslip.month.toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  await sendMail({
+    to,
+    subject: `Payslip for ${month} — ${companyName}`,
+    text: `Hi ${employee.name},\n\nPlease find attached your payslip for ${month}.\nYou can also view it any time in the HRMS app under Payroll → Payslips.\n\nRegards,\n${companyName} HR`,
+    attachments: [{ filename: fileName, content: buffer, contentType: 'application/pdf' }],
+  });
+  return { sentTo: to, month };
 }

@@ -10,8 +10,6 @@ import { payrollRouter } from './payroll.routes';
 import { holidaysRouter } from './holiday.routes';
 import { announcementsRouter } from './announcement.routes';
 import { expensesRouter } from './expense.routes';
-import { performanceRouter } from './performance.routes';
-import { tasksRouter } from './task.routes';
 import { documentsRouter } from './document.routes';
 import { ticketsRouter } from './ticket.routes';
 import { dashboardRouter } from './dashboard.routes';
@@ -42,10 +40,9 @@ import { exitsRouter } from './exit.routes';
 import { transfersRouter } from './transfer.routes';
 import { careerRouter } from './career.routes';
 import { lifecycleRouter } from './lifecycle.routes';
+import { idCardsRouter } from './id-card.routes';
 // Talent & engagement
 import { recruitmentRouter } from './recruitment.routes';
-import { reviewsRouter } from './review.routes';
-import { trainingRouter } from './training.routes';
 import { surveysRouter } from './survey.routes';
 import { recognitionRouter } from './recognition.routes';
 // Insights, data & platform
@@ -72,8 +69,6 @@ export function buildApiRouter(options: { withPlatformRoutes: boolean }): Router
   api.use('/holidays', holidaysRouter);
   api.use('/announcements', announcementsRouter);
   api.use('/expenses', expensesRouter);
-  api.use('/performance', performanceRouter);
-  api.use('/tasks', tasksRouter);
   api.use('/documents', documentsRouter);
   api.use('/tickets', ticketsRouter);
   api.use('/dashboard', dashboardRouter);
@@ -104,10 +99,9 @@ export function buildApiRouter(options: { withPlatformRoutes: boolean }): Router
   api.use('/transfers', transfersRouter);
   api.use('/career', careerRouter);
   api.use('/lifecycle', lifecycleRouter);
+  api.use('/id-cards', idCardsRouter);
 
   api.use('/recruitment', recruitmentRouter);
-  api.use('/reviews', reviewsRouter);
-  api.use('/training', trainingRouter);
   api.use('/surveys', surveysRouter);
   api.use('/recognition', recognitionRouter);
 

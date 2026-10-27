@@ -10,7 +10,7 @@ import PDFDocument from 'pdfkit';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { notify } from '../lib/notify';
-import { presignedGetUrl, putObject } from '../lib/storage';
+import { presignedGetUrl, putObject, FILE_LINK_TTL_SECONDS } from '../lib/storage';
 import { ApiError } from '../utils/http';
 import { workingDays } from '../utils/geo';
 import { addDays, dateOnly, employeeIdsWithRoles, inr, isCompanyAdmin, longDate, monthlyGross, round2, todayUTC } from '../utils/lifecycle';
@@ -495,7 +495,7 @@ export async function settlementPdfUrl(companyId: string, id: string, viewer: Ac
   if (!r) throw ApiError.notFound('Settlement not found');
   if (!isCompanyAdmin(viewer.role) && viewer.employeeId !== r.employeeId) throw ApiError.forbidden();
   const { key, fileName } = await renderStatement(companyId, id);
-  return { url: await presignedGetUrl(key, fileName, opts.inline ? 'inline' : 'attachment'), fileName, expiresInSeconds: 600 };
+  return { url: await presignedGetUrl(key, fileName, opts.inline ? 'inline' : 'attachment'), fileName, expiresInSeconds: FILE_LINK_TTL_SECONDS };
 }
 
 // ---- Daily job ----

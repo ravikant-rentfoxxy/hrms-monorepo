@@ -310,7 +310,7 @@ const PAYROLL: Phase[] = [
   {
     name: 'One-time setup',
     icon: 'settings',
-    color: 'bg-slate-500',
+    color: 'bg-ink-500',
     steps: [
       {
         id: 'p-statutory',
@@ -371,23 +371,12 @@ const PAYROLL: Phase[] = [
         ],
         result: 'These lines appear on the payslip of that month.',
       },
-      {
-        id: 'p-tax',
-        title: 'Tax declarations & loans',
-        who: ['Employee', 'HR'],
-        where: { href: '/tax-declarations', label: 'Tax declarations', hint: 'More modules → Tax declarations / Loans & advances' },
-        does: [
-          'Employees choose Old / New regime and declare 80C, 80D, HRA rent … in the app, with proofs. HR verifies.',
-          'Approved loans / salary advances are recovered as monthly EMIs.',
-        ],
-        result: 'TDS is projected for the full year and spread over the remaining months.',
-      },
     ],
   },
   {
     name: 'Run payroll',
     icon: 'banknote',
-    color: 'bg-indigo-500',
+    color: 'bg-brand-500',
     steps: [
       {
         id: 'p-create',
@@ -497,17 +486,17 @@ function PhaseStrip({ phases, done }: { phases: Phase[]; done: Set<string> }) {
           <div key={p.name} className="flex items-center gap-2">
             <a
               href={`#phase-${i}`}
-              className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:border-indigo-300"
+              className="flex items-center gap-2 rounded-xl border border-ink-200 bg-white px-3 py-2 text-sm font-medium text-ink-700 shadow-sm hover:border-brand-300"
             >
               <span className={`flex h-6 w-6 items-center justify-center rounded-lg text-white ${p.color}`}>
                 <Icon name={p.icon} className="h-3.5 w-3.5" />
               </span>
               {p.name}
-              <span className="text-xs text-slate-400">
+              <span className="text-xs text-ink-400">
                 {finished}/{total}
               </span>
             </a>
-            {i < phases.length - 1 && <span className="text-slate-300">→</span>}
+            {i < phases.length - 1 && <span className="text-ink-300">→</span>}
           </div>
         );
       })}
@@ -533,7 +522,7 @@ function StepCard({
         onClick={onToggle}
         title={isDone ? 'Mark as not done' : 'Mark as done'}
         className={`absolute left-0 top-4 flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ring-4 ring-[var(--bg)] transition-colors ${
-          isDone ? 'bg-emerald-500 text-white' : 'bg-white text-slate-500 ring-offset-0 border border-slate-300 hover:border-indigo-400'
+          isDone ? 'bg-emerald-500 text-white' : 'bg-white text-ink-500 ring-offset-0 border border-ink-300 hover:border-brand-400'
         }`}
       >
         {isDone ? '✓' : number}
@@ -541,22 +530,22 @@ function StepCard({
       <Card className={`p-4 transition-opacity ${isDone ? 'opacity-70' : ''}`}>
         <button className="flex w-full flex-wrap items-center justify-between gap-2 text-left" onClick={() => setOpen(!open)}>
           <div>
-            <p className="text-[15px] font-semibold text-slate-900">{step.title}</p>
+            <p className="text-[15px] font-semibold text-ink-900">{step.title}</p>
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               {step.who.map((w) => (
                 <Badge key={w} tone={ACTOR_TONE[w]}>
                   {w}
                 </Badge>
               ))}
-              <span className="text-xs text-slate-400">· {step.where.hint ?? step.where.label}</span>
+              <span className="text-xs text-ink-400">· {step.where.hint ?? step.where.label}</span>
             </div>
           </div>
-          <span className="text-xs font-medium text-indigo-600">{open ? 'Hide' : 'How to'}</span>
+          <span className="text-xs font-medium text-brand-600">{open ? 'Hide' : 'How to'}</span>
         </button>
 
         {open && (
-          <div className="mt-4 space-y-3 border-t border-slate-100 pt-4">
-            <ol className="list-decimal space-y-1.5 pl-5 text-sm text-slate-700">
+          <div className="mt-4 space-y-3 border-t border-ink-100 pt-4">
+            <ol className="list-decimal space-y-1.5 pl-5 text-sm text-ink-700">
               {step.does.map((d) => (
                 <li key={d}>{d}</li>
               ))}
@@ -574,13 +563,13 @@ function StepCard({
             <div className="flex flex-wrap items-center gap-2">
               <Link
                 href={step.where.href}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand-700"
               >
                 Open {step.where.label} →
               </Link>
               <button
                 onClick={onToggle}
-                className="rounded-xl border border-slate-200 px-3.5 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                className="rounded-xl border border-ink-200 px-3.5 py-2 text-sm font-medium text-ink-600 hover:bg-ink-50"
               >
                 {isDone ? 'Mark as not done' : 'Mark as done'}
               </button>
@@ -603,9 +592,9 @@ function Flow({ phases, done, toggle }: { phases: Phase[]; done: Set<string>; to
             <span className={`flex h-7 w-7 items-center justify-center rounded-lg text-white ${p.color}`}>
               <Icon name={p.icon} className="h-4 w-4" />
             </span>
-            <h2 className="text-base font-semibold text-slate-900">{p.name}</h2>
+            <h2 className="text-base font-semibold text-ink-900">{p.name}</h2>
           </div>
-          <div className="relative space-y-3 before:absolute before:bottom-4 before:left-4 before:top-4 before:w-px before:bg-slate-200">
+          <div className="relative space-y-3 before:absolute before:bottom-4 before:left-4 before:top-4 before:w-px before:bg-ink-200">
             {p.steps.map((s, j) => (
               <StepCard key={s.id} step={s} number={firstNumber[i]! + j} isDone={done.has(s.id)} onToggle={() => toggle(s.id)} />
             ))}
@@ -619,29 +608,29 @@ function Flow({ phases, done, toggle }: { phases: Phase[]; done: Set<string>; to
 function PayrollExample() {
   return (
     <Card className="mb-6 p-5">
-      <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">How one payslip is calculated (example)</p>
+      <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-ink-500">How one payslip is calculated (example)</p>
       <div className="grid gap-4 text-sm md:grid-cols-3">
         <div>
-          <p className="font-semibold text-slate-900">1 · Payable days</p>
-          <p className="mt-1 text-slate-600">22 working days in the month, 2 days absent (LOP).</p>
-          <p className="mt-1 font-mono text-xs text-slate-500">payable = 22 − 2 = 20 days</p>
+          <p className="font-semibold text-ink-900">1 · Payable days</p>
+          <p className="mt-1 text-ink-600">22 working days in the month, 2 days absent (LOP).</p>
+          <p className="mt-1 font-mono text-xs text-ink-500">payable = 22 − 2 = 20 days</p>
         </div>
         <div>
-          <p className="font-semibold text-slate-900">2 · Earnings (pro-rated)</p>
-          <p className="mt-1 text-slate-600">Monthly gross ₹45,000 (Basic ₹22,500).</p>
-          <p className="mt-1 font-mono text-xs text-slate-500">₹45,000 × 20 / 22 = ₹40,909</p>
-          <p className="font-mono text-xs text-slate-500">+ bonus / overtime / reimbursements</p>
+          <p className="font-semibold text-ink-900">2 · Earnings (pro-rated)</p>
+          <p className="mt-1 text-ink-600">Monthly gross ₹45,000 (Basic ₹22,500).</p>
+          <p className="mt-1 font-mono text-xs text-ink-500">₹45,000 × 20 / 22 = ₹40,909</p>
+          <p className="font-mono text-xs text-ink-500">+ bonus / overtime / reimbursements</p>
         </div>
         <div>
-          <p className="font-semibold text-slate-900">3 · Deductions</p>
-          <p className="mt-1 font-mono text-xs text-slate-500">PF 12% of earned basic (capped at the PF wage ceiling, default ₹15,000)</p>
-          <p className="font-mono text-xs text-slate-500">ESI only if gross ≤ ₹21,000</p>
-          <p className="font-mono text-xs text-slate-500">PT by state slab · TDS by yearly projection</p>
-          <p className="font-mono text-xs text-slate-500">loan EMI · other deductions</p>
+          <p className="font-semibold text-ink-900">3 · Deductions</p>
+          <p className="mt-1 font-mono text-xs text-ink-500">PF 12% of earned basic (capped at the PF wage ceiling, default ₹15,000)</p>
+          <p className="font-mono text-xs text-ink-500">ESI only if gross ≤ ₹21,000</p>
+          <p className="font-mono text-xs text-ink-500">PT by state slab · TDS by yearly projection</p>
+          <p className="font-mono text-xs text-ink-500">loan EMI · other deductions</p>
         </div>
       </div>
-      <p className="mt-4 rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-600">
-        <span className="font-semibold text-slate-800">Net pay</span> = earnings − deductions. Employer PF / ESI are shown separately
+      <p className="mt-4 rounded-xl bg-ink-50 px-3 py-2 text-sm text-ink-600">
+        <span className="font-semibold text-ink-800">Net pay</span> = earnings − deductions. Employer PF / ESI are shown separately
         on the payslip and in the run’s employer cost.
       </p>
     </Card>
@@ -658,17 +647,17 @@ const DEMO_LOGINS: { role: Actor; email: string; use: string }[] = [
 function DemoLogins() {
   return (
     <Card className="mb-6 p-5">
-      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Try it with the demo company</p>
-      <p className="mb-3 text-sm text-slate-600">
+      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-ink-500">Try it with the demo company</p>
+      <p className="mb-3 text-sm text-ink-600">
         Company <span className="font-semibold">Nimbus Technologies</span> has sample data at every stage. Password{' '}
         <span className="font-mono">Admin@12345</span> for the Admin, <span className="font-mono">Employee@123</span> for everyone else.
       </p>
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {DEMO_LOGINS.map((d) => (
-          <div key={d.email} className="rounded-xl border border-slate-200 p-3">
+          <div key={d.email} className="rounded-xl border border-ink-200 p-3">
             <Badge tone={ACTOR_TONE[d.role]}>{d.role}</Badge>
-            <p className="mt-1.5 font-mono text-xs text-slate-800">{d.email}</p>
-            <p className="mt-1 text-xs text-slate-500">{d.use}</p>
+            <p className="mt-1.5 font-mono text-xs text-ink-800">{d.email}</p>
+            <p className="mt-1 text-xs text-ink-500">{d.use}</p>
           </div>
         ))}
       </div>
@@ -684,7 +673,7 @@ export default function TutorialPage() {
   const isEmployee = session?.role === 'EMPLOYEE';
   useEffect(() => {
     // The tutorial is for HR, managers and admins only.
-    if (isEmployee) router.replace('/');
+    if (isEmployee) router.replace('/dashboard');
   }, [isEmployee, router]);
 
   if (isEmployee) return null;
@@ -728,26 +717,26 @@ function Tutorial() {
       <Card className="mb-6 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-[15px] font-semibold text-slate-900">
+            <p className="text-[15px] font-semibold text-ink-900">
               {tab === 'Payroll' ? 'Monthly payroll, from setup to salary paid' : 'From hiring request to archived employee'}
             </p>
-            <p className="mt-0.5 text-sm text-slate-500">
+            <p className="mt-0.5 text-sm text-ink-500">
               Open a step to see how it works, then jump straight to that page. Tick steps off as you try them.
             </p>
           </div>
           <div className="min-w-[180px]">
-            <div className="mb-1 flex justify-between text-xs text-slate-500">
+            <div className="mb-1 flex justify-between text-xs text-ink-500">
               <span>Your progress</span>
               <span>
                 {finished}/{total}
               </span>
             </div>
-            <div className="h-2 rounded-full bg-slate-100">
+            <div className="h-2 rounded-full bg-ink-100">
               <div className="h-2 rounded-full bg-emerald-500 transition-all" style={{ width: `${total ? (finished / total) * 100 : 0}%` }} />
             </div>
           </div>
         </div>
-        <div className="mt-4 flex flex-wrap gap-1.5 text-xs text-slate-500">
+        <div className="mt-4 flex flex-wrap gap-1.5 text-xs text-ink-500">
           <span className="mr-1">Who:</span>
           {(Object.keys(ACTOR_TONE) as Actor[]).map((a) => (
             <Badge key={a} tone={ACTOR_TONE[a]}>

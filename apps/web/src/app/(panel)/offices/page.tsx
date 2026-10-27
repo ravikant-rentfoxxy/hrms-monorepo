@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import { useFetch } from '@/lib/useFetch';
 import { Badge, Button, Card, Empty, ErrorNote, Field, Icon, Input, PageHeader, Select, Spinner } from '@/components/ui';
 import { CompanyLetterhead } from '@/components/company-letterhead';
+import { IdCardDesigner } from '@/components/id-card-designer';
 
 interface Office {
   id: string;
@@ -121,12 +122,12 @@ export default function OfficesPage() {
             <Card className="p-5">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
                     <Icon name="pin" />
                   </span>
                   <div>
-                    <p className="font-semibold text-slate-900">{office.name}</p>
-                    <p className="text-xs text-slate-400">
+                    <p className="font-semibold text-ink-900">{office.name}</p>
+                    <p className="text-xs text-ink-400">
                       {office.latitude.toFixed(5)}, {office.longitude.toFixed(5)}
                     </p>
                   </div>
@@ -135,8 +136,8 @@ export default function OfficesPage() {
               </div>
               <dl className="mt-5 space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <dt className="text-slate-500">City / state</dt>
-                  <dd className="font-medium text-slate-800">
+                  <dt className="text-ink-500">City / state</dt>
+                  <dd className="font-medium text-ink-800">
                     {[office.city, office.state].filter(Boolean).join(', ') || '—'}
                     {office.isMetro && (
                       <span className="ml-2">
@@ -146,20 +147,20 @@ export default function OfficesPage() {
                   </dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-slate-500">Geofence radius</dt>
-                  <dd className="font-medium text-slate-800">{office.radiusMeters} m</dd>
+                  <dt className="text-ink-500">Geofence radius</dt>
+                  <dd className="font-medium text-ink-800">{office.radiusMeters} m</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-slate-500">Working days / month</dt>
-                  <dd className="font-medium text-slate-800">
+                  <dt className="text-ink-500">Working days / month</dt>
+                  <dd className="font-medium text-ink-800">
                     {office.workingDays ? `${office.workingDays} days (fixed)` : 'Auto — weekdays minus holidays'}
                   </dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-slate-500">Map</dt>
+                  <dt className="text-ink-500">Map</dt>
                   <dd>
                     <a
-                      className="font-medium text-indigo-600 hover:underline"
+                      className="font-medium text-brand-600 hover:underline"
                       href={`https://www.google.com/maps?q=${office.latitude},${office.longitude}`}
                       target="_blank"
                       rel="noreferrer"
@@ -182,7 +183,7 @@ export default function OfficesPage() {
 
           {showForm && (
             <Card className="p-5">
-              <h2 className="mb-4 text-sm font-semibold text-slate-900">
+              <h2 className="mb-4 text-sm font-semibold text-ink-900">
                 {editing ? 'Edit office location' : 'Add your office location'}
               </h2>
               <div className="space-y-3">
@@ -213,7 +214,7 @@ export default function OfficesPage() {
                     />
                   </Field>
                 </div>
-                <label className="flex items-center gap-2 text-sm text-slate-700">
+                <label className="flex items-center gap-2 text-sm text-ink-700">
                   <input type="checkbox" checked={form.isMetro} onChange={(e) => setForm({ ...form, isMetro: e.target.checked })} />
                   Metro city (50% HRA exemption — Delhi, Mumbai, Kolkata, Chennai)
                 </label>
@@ -268,7 +269,7 @@ export default function OfficesPage() {
 
           {!office && !loading && (
             <Card className="flex items-center justify-center p-5">
-              <p className="max-w-60 text-center text-sm text-slate-400">
+              <p className="max-w-60 text-center text-sm text-ink-400">
                 No location set — employees can currently check in from anywhere.
               </p>
             </Card>
@@ -276,9 +277,17 @@ export default function OfficesPage() {
         </div>
       )}
 
+      <div className="mt-10">
+        <h2 className="text-base font-semibold text-ink-900">Employee ID card</h2>
+        <p className="mb-4 text-sm text-ink-500">
+          One design for every employee&apos;s card — they see it under My profile, with their own photo and a QR code that verifies it.
+        </p>
+        <IdCardDesigner />
+      </div>
+
       <div className="mt-10 max-w-3xl">
-        <h2 className="text-base font-semibold text-slate-900">Company logo & letterhead</h2>
-        <p className="mb-4 text-sm text-slate-500">Printed on offer letters and every other HR letter.</p>
+        <h2 className="text-base font-semibold text-ink-900">Company logo & letterhead</h2>
+        <p className="mb-4 text-sm text-ink-500">Printed on offer letters, every other HR letter and the employee ID card.</p>
         <CompanyLetterhead />
       </div>
     </div>

@@ -13,10 +13,10 @@ export const login = h(async (req, res) => {
   ok(res, await authService.login(email, password, companyId));
 });
 
-/** Second factor: `{ challengeToken, code }` from the password step. */
-export const login2fa = h(async (req, res) => {
-  const { challengeToken, code } = req.body as { challengeToken: string; code: string };
-  ok(res, await authService.loginWithTwoFactor(challengeToken, code));
+/** Company choice for users in several companies: `{ selectionToken, companyId }`. */
+export const loginCompany = h(async (req, res) => {
+  const { selectionToken, companyId } = req.body as { selectionToken: string; companyId: string };
+  ok(res, await authService.selectCompany(selectionToken, companyId));
 });
 
 export const switchCompany = h(async (req, res) => {
@@ -57,26 +57,4 @@ export const resetPassword = h(async (req, res) => {
   const { userId } = await authService.resetPassword(email, otp, newPassword);
   await audit(req, { entity: 'User', entityId: userId, action: 'PASSWORD_RESET', companyId: null });
   ok(res, { reset: true });
-});
-
-export const twoFactorStatus = h(async (req, res) => {
-  ok(res, await authService.twoFactorStatus(req.auth!.userId));
-});
-
-export const setupTwoFactor = h(async (req, res) => {
-  ok(res, await authService.setupTwoFactor(req.auth!.userId));
-});
-
-export const enableTwoFactor = h(async (req, res) => {
-  const { code } = req.body as { code: string };
-  await authService.enableTwoFactor(req.auth!.userId, code);
-  await audit(req, { entity: 'User', entityId: req.auth!.userId, action: '2FA_ENABLE' });
-  ok(res, { enabled: true });
-});
-
-export const disableTwoFactor = h(async (req, res) => {
-  const { password } = req.body as { password: string };
-  await authService.disableTwoFactor(req.auth!.userId, password);
-  await audit(req, { entity: 'User', entityId: req.auth!.userId, action: '2FA_DISABLE' });
-  ok(res, { enabled: false });
 });

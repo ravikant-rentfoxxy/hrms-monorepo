@@ -97,6 +97,15 @@ export const exportFormer = h(async (req, res) => {
   ));
 });
 
+export const setRole = h(async (req, res) => {
+  const { auth, tenantId } = ctx(req);
+  const employeeId = req.params.id as string;
+  const { role } = req.body as { role: (typeof employeeService.ASSIGNABLE_ROLES)[number] };
+  const { before, after } = await employeeService.setEmployeeRole(tenantId, employeeId, role, { userId: auth.userId });
+  await audit(req, { entity: 'Employee', entityId: employeeId, action: 'ROLE_CHANGE', before: { role: before }, after: { role: after } });
+  ok(res, { role: after });
+});
+
 export const setPassword = h(async (req, res) => {
   const { auth, tenantId } = ctx(req);
   const employeeId = req.params.id as string;
